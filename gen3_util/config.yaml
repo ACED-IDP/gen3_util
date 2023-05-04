@@ -1,0 +1,4 @@
+
+log:
+  format: '%(asctime)s %(name)s %(levelname)s %(funcName)s:%(lineno)d %(message)s'
+  level: INFO  # DEBUG, INFO, WARNING, ERROR
