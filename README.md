@@ -91,6 +91,8 @@ tests/unit/test_config.py ..
 ```
 # update pypi
 
+# pypi credentials - see https://twine.readthedocs.io/en/stable/#environment-variables
+
 export TWINE_USERNAME=  #  the username to use for authentication to the repository.
 export TWINE_PASSWORD=  # the password to use for authentication to the repository.
 
