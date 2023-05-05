@@ -33,9 +33,9 @@ def cli(ctx, config, output_format):
     ctx.obj = config__
     logging.getLogger(__name__).debug(("config", ctx.obj))
 
-    version = pkg_resources.require("gen3_util")[0].version
-
-    print_formatted(config__, {'msg': f'Version {version}'})
+    if ctx.invoked_subcommand is None:
+        version = pkg_resources.require("gen3_util")[0].version
+        print_formatted(config__, {'msg': f'Version {version}'})
 
 
 cli.add_command(project_group)

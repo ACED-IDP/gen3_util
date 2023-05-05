@@ -3,13 +3,23 @@ from gen3_util.cli.cli import cli
 
 
 def test_default_command(caplog):
-    """Ensure it prints version"""
+    """Ensure it prints version if no other command"""
     runner = CliRunner()
-    result = runner.invoke(cli)  # , ['--config', 'tests/fixtures/custom_config/config.yaml'])
+    result = runner.invoke(cli)
     assert result.exit_code == 0
     expected_strings = ['Version']
     for expected_string in expected_strings:
         assert expected_string in result.output, f"Should have printed {expected_string}"
+
+
+def test_any_command(caplog):
+    """Ensure it does not print version if command provided"""
+    runner = CliRunner()
+    result = runner.invoke(cli, ['config'])
+    assert result.exit_code == 0
+    un_expected_strings = ['Version']
+    for expected_string in un_expected_strings:
+        assert expected_string not in result.output, "only print version if nothing else to do"
 
 
 def test_help(caplog):
