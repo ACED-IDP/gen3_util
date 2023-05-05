@@ -53,12 +53,34 @@ pip install -e .
 
 ## Test
 
-* fixtures
+* fixtures - data for testing environment
 
 ```
 tests/fixtures/
 └── custom_config
     └── config.yaml  # testing configuration
+
+```
+
+* test parameters
+
+```
+tests/
+├── integration
+│   └── conftest.py
+└── unit
+    └── conftest.py
+```
+
+* running tests
+
+```
+
+$ pytest
+
+tests/unit/test_cli.py ......                                                                                                                                                                   [ 66%]
+tests/unit/test_coding_conventions.py .                                                                                                                                                         [ 77%]
+tests/unit/test_config.py ..             
 
 ```
 
