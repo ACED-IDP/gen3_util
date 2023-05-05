@@ -7,3 +7,5 @@ black
 # pypi
 twine
 wheel
+# project hygene
+pre-commit

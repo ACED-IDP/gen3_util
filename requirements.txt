@@ -5,7 +5,7 @@ orjson
 # pluralization, etc.
 inflection
 # Gen3 SDK
-gen3
+# gen3
 # FHIR model
 fhir.resources
 # json web token
