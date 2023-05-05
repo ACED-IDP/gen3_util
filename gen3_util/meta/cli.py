@@ -25,7 +25,7 @@ def meta_ls(config: Config):
 @meta_group.command(name="validate")
 @click.pass_obj
 def meta_validate(config: Config):
-    """Copy meta to/from the project bucket."""
+    """Validate meta data."""
     validate(config)
 
 
