@@ -1,0 +1,34 @@
+repos:
+
+- repo: https://github.com/pre-commit/pre-commit-hooks
+  rev: v4.4.0
+  hooks:
+    - id: debug-statements #Check for debugger imports and breakpoint() in python files
+    - id: check-ast #Simply check whether files parse as valid python
+    - id: fix-byte-order-marker #removes UTF-8 byte order marker
+    - id: check-json
+    - id: detect-private-key # detect-private-key is not in repo
+    - id: check-yaml
+    - id: check-added-large-files
+    - id: check-shebang-scripts-are-executable
+    - id: check-case-conflict #Check for files with names that would conflict on a case-insensitive filesystem like MacOS HFS+ or Windows FAT
+    - id: end-of-file-fixer #Makes sure files end in a newline and only a newline
+    - id: trailing-whitespace
+    - id: mixed-line-ending
+
+- repo: local
+  hooks:
+  - id: run_tests
+    pass_filenames: false  # run once for all files, not N times for every file
+    language: script
+    name: run our unit tests
+    entry: ./pre-commit-tests.sh
+
+#- repo: local
+#  hooks:
+#    - id: mypy # mypy is a pre-commit hook that runs as a linter to check for type errors
+#      name: mypy
+#      entry: mypy
+#      language: system
+#      types: [python]
+#      exclude: ^venv/ ^.git/ ^.vscode/ ^.DS_Store

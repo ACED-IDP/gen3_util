@@ -1,0 +1,27 @@
+# CLI processor
+click
+# faster json
+orjson
+# pluralization, etc.
+inflection
+# Gen3 SDK
+# gen3
+# FHIR model
+fhir.resources
+# json web token
+PyJWT
+# for mime types
+python-magic
+# progress bar
+tqdm
+# http API
+requests
+# modern python dataclasses
+pydantic
+pydantic_yaml
+# function caching
+# joblib
+# packaging
+setuptools
+# IO
+PyYAML
