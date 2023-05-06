@@ -2,9 +2,9 @@ import importlib.resources as pkg_resources
 import pathlib
 
 import yaml
+
 import gen3_util
 from gen3_util.config import Config
-
 from gen3_util.files import read_yaml
 
 

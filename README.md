@@ -40,6 +40,29 @@ Commands:
 
 ```
 
+## Connectivity
+
+* Leverages Gen3Auth  [See](https://uc-cdis.github.io/gen3-user-doc/appendices/api-gen3/#credentials-to-query-the-api.)
+* Store the `credentials.json` file in ~/.gen3/credentials.json or specify location with either env[GEN3_API_KEY], or `--cred` parameter
+
+
+```
+$ gen3_util projects ping
+msg: OK connected to endpoint https://aced-training.compbio.ohsu.edu
+
+$ gen3_util projects ls
+endpoint: https://aced-training.compbio.ohsu.edu
+projects:
+- /programs/aced/projects/Alcoholism
+- /programs/aced/projects/Alzheimers
+- /programs/aced/projects/Breast_Cancer
+- /programs/aced/projects/Colon_Cancer
+- /programs/aced/projects/Diabetes
+- /programs/aced/projects/Lung_Cancer
+- /programs/aced/projects/Prostate_Cancer
+
+
+```
 
 ## Development Setup
 
@@ -78,6 +101,7 @@ tests/
 
 $ pytest
 
+tests/integration/test_project.py ...
 tests/unit/test_cli.py ......                                                                                                                                                                   [ 66%]
 tests/unit/test_coding_conventions.py .                                                                                                                                                         [ 77%]
 tests/unit/test_config.py ..

@@ -1,4 +1,3 @@
-import logging
 
 import click
 
@@ -19,5 +18,3 @@ def config_group(config):
 def config_ls(config: Config):
     """Show defaults."""
     print_formatted(config, config)
-
-    logging.getLogger(__name__).debug(config)
