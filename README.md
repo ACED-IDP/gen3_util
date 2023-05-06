@@ -40,6 +40,66 @@ Commands:
 
 ```
 
+## Connectivity
+
+* Leverages Gen3Auth  [See](https://uc-cdis.github.io/gen3-user-doc/appendices/api-gen3/#credentials-to-query-the-api.)
+* Store the `credentials.json` file in ~/.gen3/credentials.json or specify location with either env[GEN3_API_KEY], or `--cred` parameter
+
+
+```
+$ gen3_util projects ping
+msg: OK connected to endpoint https://aced-training.compbio.ohsu.edu
+
+$ gen3_util projects ls
+endpoint: https://aced-training.compbio.ohsu.edu
+projects:
+- /programs/aced/projects/Alcoholism
+- /programs/aced/projects/Alzheimers
+- /programs/aced/projects/Breast_Cancer
+- /programs/aced/projects/Colon_Cancer
+- /programs/aced/projects/Diabetes
+- /programs/aced/projects/Lung_Cancer
+- /programs/aced/projects/Prostate_Cancer
+buckets:
+  GS_BUCKETS: {}
+  S3_BUCKETS:
+    aced-default:
+      endpoint_url: https://minio-default.compbio.ohsu.edu
+      region: us-east-1
+    aced-manchester:
+      endpoint_url: https://minio-manchester.compbio.ohsu.edu
+      region: us-east-1
+    aced-ohsu:
+      endpoint_url: https://minio-ohsu.compbio.ohsu.edu
+      region: us-east-1
+    aced-stanford:
+      endpoint_url: https://minio-stanford.compbio.ohsu.edu
+      region: us-east-1
+    aced-ucl:
+      endpoint_url: https://minio-ucl.compbio.ohsu.edu
+      region: us-east-1
+
+
+$ gen3_util meta  import dir tests/fixtures/dir_to_study/ tmp/foo --project_id aced-Alcoholism
+msg: OK
+summary:
+  DocumentReference:
+    count: 5
+    size: 6013814
+  ResearchStudy:
+    count: 1
+
+$ gen3_util files cp --ignore_state --project_id aced-Alcoholism tmp/foo/DocumentReference.ndjson  bucket://aced-ohsu
+100%|██████████████████████████████████████████████████████████████████████████████████████████████████████| 5.74M/5.74M [00:03<00:00, 1.71MB/s, elapsed=0:00:02.056022, file=6f8101]
+errors: []
+incomplete: []
+info:
+- Wrote state to ~/.gen3/gen3-util-state/state.ndjson
+msg: OK
+
+
+
+```
 
 ## Development Setup
 
@@ -78,6 +138,7 @@ tests/
 
 $ pytest
 
+tests/integration/test_project.py ...
 tests/unit/test_cli.py ......                                                                                                                                                                   [ 66%]
 tests/unit/test_coding_conventions.py .                                                                                                                                                         [ 77%]
 tests/unit/test_config.py ..

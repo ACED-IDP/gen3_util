@@ -7,9 +7,9 @@ def test_default_command(caplog):
     runner = CliRunner()
     result = runner.invoke(cli)
     assert result.exit_code == 0
-    expected_strings = ['Version']
-    for expected_string in expected_strings:
-        assert expected_string in result.output, f"Should have printed {expected_string}"
+    expected = ['Version']
+    for _ in expected:
+        assert _ in result.output, f"Should have printed expected={_} actual={result.output}"
 
 
 def test_any_command(caplog):
