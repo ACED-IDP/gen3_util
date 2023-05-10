@@ -1,11 +1,14 @@
+# Gen3 SDK
+# gen3
+# TODO pending UChicago fix
+https://github.com/ACED-IDP/gen3sdk-python/archive/fix/pypfb-version.zip
+
 # CLI processor
 click
 # faster json
 orjson
 # pluralization, etc.
 inflection
-# Gen3 SDK
-# gen3
 # FHIR model
 fhir.resources
 # json web token
@@ -25,3 +28,5 @@ pydantic_yaml
 setuptools
 # IO
 PyYAML
+# FHIR Model
+fhir.resources

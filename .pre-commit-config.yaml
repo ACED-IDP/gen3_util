@@ -10,6 +10,7 @@ repos:
     - id: detect-private-key # detect-private-key is not in repo
     - id: check-yaml
     - id: check-added-large-files
+      args: [--maxkb=5120]
     - id: check-shebang-scripts-are-executable
     - id: check-case-conflict #Check for files with names that would conflict on a case-insensitive filesystem like MacOS HFS+ or Windows FAT
     - id: end-of-file-fixer #Makes sure files end in a newline and only a newline

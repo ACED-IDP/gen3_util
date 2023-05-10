@@ -1,10 +1,8 @@
-import logging
 
 import click
 
-from gen3_util.cli.common import NaturalOrderGroup
+from gen3_util.cli import NaturalOrderGroup, CLIOutput
 from gen3_util.config.config import Config
-from gen3_util.util import print_formatted
 
 
 @click.group(name='config', cls=NaturalOrderGroup)
@@ -18,6 +16,6 @@ def config_group(config):
 @click.pass_obj
 def config_ls(config: Config):
     """Show defaults."""
-    print_formatted(config, config)
-
-    logging.getLogger(__name__).debug(config)
+    with CLIOutput(config) as output:
+        output.update(config.dict())
+        output['state_dir'] = str(config.state_dir)
