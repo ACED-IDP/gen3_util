@@ -10,6 +10,7 @@ from gen3_util.config.cli import config_group
 from gen3_util.files.cli import file_group
 from gen3_util.meta.cli import meta_group
 from gen3_util.projects.cli import project_group
+from gen3_util.buckets.cli import bucket_group
 from gen3_util.common import print_formatted
 
 
@@ -46,6 +47,7 @@ def cli(ctx, config, output_format, cred, state_dir):
 
 
 cli.add_command(project_group)
+cli.add_command(bucket_group)
 cli.add_command(meta_group)
 cli.add_command(file_group)
 cli.add_command(config_group)

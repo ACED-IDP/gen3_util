@@ -11,9 +11,6 @@ def test_project_ls(caplog):
     expected_strings = ['/programs/aced']
     for expected_string in expected_strings:
         assert expected_string in result.output, "Did not find project listing."
-    expected_strings = ['S3_BUCKETS', 'aced-ohsu']
-    for expected_string in expected_strings:
-        assert expected_string in result.output, "Did not find S3_BUCKETS."
 
 
 def test_project_ping(caplog):

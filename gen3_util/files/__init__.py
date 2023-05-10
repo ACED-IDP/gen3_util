@@ -1,6 +1,7 @@
 import logging
 
-from gen3_util.projects import get_user, get_buckets
+from gen3_util.buckets import get_buckets
+from gen3_util.projects import get_user
 
 
 def assert_valid_project_id(config, project_id):
