@@ -5,6 +5,7 @@ import click
 import pkg_resources  # part of setuptools
 
 import gen3_util
+from gen3_util.access.cli import access_group
 from gen3_util.cli import StdNaturalOrderGroup
 from gen3_util.config.cli import config_group
 from gen3_util.files.cli import file_group
@@ -50,6 +51,7 @@ cli.add_command(project_group)
 cli.add_command(bucket_group)
 cli.add_command(meta_group)
 cli.add_command(file_group)
+cli.add_command(access_group)
 cli.add_command(config_group)
 
 

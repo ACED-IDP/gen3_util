@@ -1,3 +1,4 @@
+import json
 from typing import List
 
 from pydantic import BaseModel
@@ -17,6 +18,7 @@ def ls(config: Config):
     """List projects."""
     auth = ensure_auth(config.gen3.refresh_file)
     user = get_user(auth=auth)
+    print(json.dumps(user))
     return LogConfig(**{
         'endpoint': auth.endpoint,
         'projects': [_ for _ in user['authz'].keys() if _.startswith('/programs')],
