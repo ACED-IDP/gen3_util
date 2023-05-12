@@ -196,7 +196,7 @@ tests/
 
 ```
 
-$ pytest
+$ pytest --cov=gen3_util
 
 collected 26 items
 
@@ -210,6 +210,10 @@ tests/unit/test_config.py ..                                                    
 tests/unit/test_files.py ...                                                                                                                                                  [ 80%]
 tests/unit/test_meta.py .                                                                                                                                                     [ 84%]
 tests/unit/test_validate_directory.py ....                                                                                                                                    [100%]
+...
+----------------------------------------------------
+TOTAL                              944    114    88%
+
 
 
 

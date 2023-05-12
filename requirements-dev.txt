@@ -1,5 +1,6 @@
 # testing
 pytest
+pytest-cov
 # syntax check
 flake8
 # syntax enforcer
