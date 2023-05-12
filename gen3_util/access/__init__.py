@@ -51,30 +51,3 @@ def update_request(config: Config = None, auth: Gen3Auth = None, request_id: str
     )
     response.raise_for_status()
     return response.json()
-
-
-def user_ls(config: Config = None, auth: Gen3Auth = None, user_name: str = None):
-    """List accesses for user"""
-    assert user_name, "required"
-    auth = _ensure_auth(auth, config)
-    response = requests.get(
-        auth.endpoint + "/" + f'arborist/user/{user_name}', auth=auth
-    )
-    response.raise_for_status()
-    return response.json()
-
-
-def user_touch(config: Config = None, auth: Gen3Auth = None, user_name: str = None):
-    """List accesses for user"""
-    assert user_name, "required"
-    auth = _ensure_auth(auth, config)
-    data = {
-        "name": user_name,
-        "email": user_name,
-    }
-    url = auth.endpoint + "/" + 'arborist/user'
-    response = requests.post(
-        url, auth=auth, json=data
-    )
-    response.raise_for_status()
-    return response.json()
