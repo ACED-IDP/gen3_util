@@ -98,6 +98,21 @@ info:
 msg: OK
 
 
+$ gen3_util access
+Usage: gen3_util access [OPTIONS] COMMAND [ARGS]...
+
+  Manage access requests.
+
+Options:
+  --help  Show this message and exit.
+
+Commands:
+  touch   Create a request for read access.
+  update  Update the request's approval workflow.
+  ls      List current user's requests.
+  cat     Show details of a specific request.
+
+
 
 ```
 
