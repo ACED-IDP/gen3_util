@@ -13,7 +13,7 @@ from gen3_util.files.uploader import cp as upload
 @click.group(name='files', cls=NaturalOrderGroup)
 @click.pass_obj
 def file_group(config):
-    """Manage file buckets."""
+    """Manage file transfers."""
     pass
 
 
@@ -42,9 +42,9 @@ def files_cp(config: Config, from_: str, to_: str, worker_count: int, ignore_sta
              source_path: str, disable_progress_bar: bool):
     """Copy files to/from the project bucket.
 
-    Args:
-        from_: Source url or path
-        to_: Destination url or path
+    \b
+    from_: Source url or path
+    to_: Destination url or path
     """
 
     with CLIOutput(config=config) as output:

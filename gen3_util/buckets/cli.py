@@ -8,7 +8,7 @@ from gen3_util.config import Config, ensure_auth
 @click.group(name='buckets', cls=NaturalOrderGroup)
 @click.pass_obj
 def bucket_group(config: Config):
-    """Manage Gen3 projects."""
+    """Manage Gen3 buckets."""
     pass
 
 
