@@ -32,4 +32,4 @@ def assert_valid_project_id(config, project_id):
 def assert_valid_bucket(config, bucket_name):
     buckets = get_buckets(config=config)
     bucket_names = [_ for _ in buckets['GS_BUCKETS']] + [_ for _ in buckets['S3_BUCKETS']]
-    assert bucket_name in bucket_names, f"{bucket_name} not in configured buckets"
+    assert bucket_name in bucket_names, f"{bucket_name} not in configured buckets {bucket_names}"

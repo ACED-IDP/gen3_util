@@ -80,10 +80,20 @@ class StdNaturalOrderGroup(click.Group):
         return self.commands.keys()
 
 
+class CommandOutput(object):
+    """Output object for commands."""
+    def __init__(self):
+        self.obj = None
+
+    def update(self, obj):
+        """Update output with obj."""
+        self.obj = obj
+
+
 class CLIOutput:
     """Ensure output, exceptions and exit code are returned to user consistently."""
     def __init__(self, config: Config):
-        self.output = {}
+        self.output = CommandOutput()
         self.config = config
 
     def __enter__(self):
@@ -92,7 +102,11 @@ class CLIOutput:
     def __exit__(self, exc_type, exc_val, exc_tb):
         rc = 0
         _ = {}
-        _.update(self.output)
+        if self.output.obj is not None:
+            if isinstance(self.output.obj, dict):
+                _.update(self.output.obj)
+            else:
+                _.update(self.output.obj.dict())
         if exc_type is not None:
             _['exception'] = f"{str(exc_val)}"
             rc = 1
@@ -102,5 +116,11 @@ class CLIOutput:
                 _['msg'] = 'FAIL'
             else:
                 _['msg'] = 'OK'
+        prune = []
+        for k, v in _.items():
+            if not v:
+                prune.append(k)
+        for k in prune:
+            del _[k]
         print_formatted(self.config, _)
         exit(rc)

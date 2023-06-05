@@ -14,7 +14,7 @@ def test_files_upload_bad_source(caplog):
         assert expected_string in result.output, "Did not find project does not exist error"
 
 
-def test_files_upload(caplog):
+def test_files_upload(caplog, data_bucket):
     """Ensure we upload files from generated DocumentReferences to existing project."""
 
     runner = CliRunner()
@@ -39,7 +39,7 @@ def test_files_upload(caplog):
         assert expected_string in result.output, "Did not find bucket does not exist error"
 
     result = runner.invoke(cli, ['files', 'cp', '--project_id', 'aced-Alcoholism', '--ignore_state',
-                                 'tmp/Alcoholism/DocumentReference.ndjson', 'bucket://aced-ohsu'])
+                                 'tmp/Alcoholism/DocumentReference.ndjson', "bucket://"+data_bucket])
     assert result.exit_code == 0
     print(result.output)
     expected_strings = ['OK']

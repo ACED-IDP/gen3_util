@@ -14,14 +14,24 @@ def test_access_ls(caplog):
         assert expected_string in result.output, f"Did not find {expected_string} in {expected_strings}"
 
 
-# def test_access_touch():
-#     """Ensure we detect missing input path."""
-#     runner = CliRunner()
-#     result = runner.invoke(cli, 'access touch bar@foo.com /programs/aced/project/MCF10A'.split())
-#     assert result.exit_code == 0
-#     expected_strings = ['OK', 'request_id']
-#     for expected_string in expected_strings:
-#         assert expected_string in result.output, f"Did not find {expected_string} in {expected_strings}"
+def test_access_touch_read_only():
+    """Ensure we can add a user with default read-only access."""
+    runner = CliRunner()
+    result = runner.invoke(cli, 'access touch bar@foo.com /programs/aced/projects/Alcoholism'.split())
+    assert result.exit_code == 0
+    expected_strings = ['OK', 'request_id']
+    for expected_string in expected_strings:
+        assert expected_string in result.output, f"Did not find {expected_string} in {expected_strings}"
+
+
+def test_access_touch_roles():
+    """Ensure we can add a user with specific roles."""
+    runner = CliRunner()
+    result = runner.invoke(cli, 'access touch bar@foo.com /programs/aced/projects/Alcoholism --roles storage_writer,file_uploader'.split())
+    assert result.exit_code == 0
+    expected_strings = ['OK', 'request_id']
+    for expected_string in expected_strings:
+        assert expected_string in result.output, f"Did not find {expected_string} in {expected_strings}"
 
 
 def test_access_workflow():

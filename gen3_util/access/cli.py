@@ -16,17 +16,18 @@ def access_group(config: Config):
 @access_group.command(name="touch")
 @click.argument('user_name')
 @click.argument('resource_path')
+@click.option('--roles', show_default=True, default=None, help='Add comma-delimited role permissions to the access request, ex: --roles "storage_writer,file_uploader"')
 @click.pass_obj
-def access_touch(config: Config,  user_name: str, resource_path: str):
+def access_touch(config: Config,  user_name: str, resource_path: str, roles: str):
     """Create a request for read access.
 
     \b
     user_name (str): user's email
-    resource_path (str): /programs/XXX/project/YYY
+    resource_path (str): /programs/XXX/projects/YYY
 
     """
     with CLIOutput(config=config) as output:
-        output.update(touch(config, resource_path))
+        output.update(touch(config=config, resource_path=resource_path, user_name=user_name, roles=roles))
 
 
 @access_group.command(name="update")
@@ -38,7 +39,7 @@ def access_update(config: Config, request_id: str, status: str):
 
     \b
     request_id (str): uuid of an existing request
-    status (str): new status see {ALLOWED_REQUEST_STATUSES}
+    status (str): new status one of: DRAFT SUBMITTED APPROVED SIGNED REJECTED
     """
     with CLIOutput(config=config) as output:
         output.update(update(config, request_id, status))
