@@ -18,5 +18,5 @@ def ls_command(config: Config):
     """Test connectivity to Gen3 endpoint."""
     with CLIOutput(config=config) as output:
         auth = ensure_auth(config.gen3.refresh_file, validate=True)
-        output['endpoint'] = auth.endpoint
-        output.update(ls(config).dict())
+        output.update({'endpoint': auth.endpoint})
+        output.update(ls(config))

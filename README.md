@@ -198,23 +198,7 @@ tests/
 
 $ pytest --cov=gen3_util
 
-collected 26 items
-
-tests/integration/test_access.py ..                                                                                                                                           [  7%]
-tests/integration/test_buckets.py .                                                                                                                                           [ 11%]
-tests/integration/test_files.py ..                                                                                                                                            [ 19%]
-tests/integration/test_project.py ...                                                                                                                                         [ 30%]
-tests/unit/test_cli.py .......                                                                                                                                                [ 57%]
-tests/unit/test_coding_conventions.py .                                                                                                                                       [ 61%]
-tests/unit/test_config.py ..                                                                                                                                                  [ 69%]
-tests/unit/test_files.py ...                                                                                                                                                  [ 80%]
-tests/unit/test_meta.py .                                                                                                                                                     [ 84%]
-tests/unit/test_validate_directory.py ....                                                                                                                                    [100%]
-...
-----------------------------------------------------
-TOTAL                              944    114    88%
-
-
+ 88%
 
 
 ```
