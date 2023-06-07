@@ -1,23 +1,28 @@
-from typing import List
 
-from pydantic import BaseModel
+from gen3.submission import Gen3Submission
 
 from gen3_util.config import Config, ensure_auth
-from gen3_util.projects import get_user
-
-
-class LogConfig(BaseModel):
-    endpoint: str
-    """The commons url"""
-    projects: List[str]
-    """List of projects"""
+from gen3_util.projects import ProjectSummaries, get_projects, ProjectSummary
 
 
 def ls(config: Config):
     """List projects."""
+
     auth = ensure_auth(config.gen3.refresh_file)
-    user = get_user(auth=auth)
-    return LogConfig(**{
+    submission = Gen3Submission(auth)
+
+    msgs = []
+    projects = get_projects(auth, submission)
+
+    project_messages = {}
+    for _program in projects:
+        for _project in projects[_program]['projects']:
+            project_messages[
+                f"/programs/{_program}/projects/{_project}"
+            ] = ProjectSummary(exists=projects[_program]['projects'][_project])
+
+    return ProjectSummaries(**{
         'endpoint': auth.endpoint,
-        'projects': [_ for _ in user['authz'].keys() if _.startswith('/programs')],
+        'projects': project_messages,
+        'messages': msgs
     })

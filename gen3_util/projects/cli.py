@@ -21,26 +21,35 @@ def ping(config: Config):
     """Test connectivity to Gen3 endpoint."""
     with CLIOutput(config=config) as output:
         auth = ensure_auth(config.gen3.refresh_file, validate=True)
-        output['endpoint'] = auth.endpoint
+        output.update({'endpoint': auth.endpoint})
 
 
 @project_group.command(name="ls")
 @click.pass_obj
 def project_ls(config: Config):
-    """List all projects."""
+    """List all projects user has access to."""
     with CLIOutput(config=config) as output:
         output.update(ls(config))
 
 
 @project_group.command(name="touch")
+@click.argument('project_id', required=False)
+@click.option('--all/--no-all', '-a', 'all_', help='Create all configured projects', is_flag=True, default=False)
 @click.pass_obj
-def project_touch(config: Config):
-    """Create a project"""
-    touch(config)
+def project_touch(config: Config, project_id: str, all_: bool):
+    """Create a project
+    PROJECT_ID: /programs/XXX/project/YYY
+    """
+    with CLIOutput(config=config) as output:
+        output.update(touch(config, project_id, all_))
 
 
 @project_group.command(name="rm")
+@click.argument('project_id')
 @click.pass_obj
-def project_rm(config: Config):
-    """Remove project."""
-    rm(config)
+def project_rm(config: Config, project_id: str):
+    """Remove project.
+    PROJECT_ID: /programs/XXX/project/YYY
+    """
+    with CLIOutput(config=config) as output:
+        output.update(rm(config, project_id))

@@ -16,7 +16,7 @@ def print_formatted(config: Config, output: Mapping) -> None:
     """Print the output, using configured output format"""
 
     if config.output.format == "yaml":
-        print(yaml.dump(output))
+        print(yaml.dump(output, sort_keys=False))
     elif config.output.format == "json":
         print(
             orjson.dumps(
