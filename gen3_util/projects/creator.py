@@ -20,6 +20,7 @@ def touch(config: Config, project_id: str, all_: bool):
     submission = Gen3Submission(auth)
 
     msgs = []
+    # TODO fix this should be a dict
     project_ids = []
 
     if all_:
