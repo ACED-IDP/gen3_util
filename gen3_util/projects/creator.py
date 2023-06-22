@@ -20,8 +20,8 @@ def touch(config: Config, project_id: str, all_: bool):
     submission = Gen3Submission(auth)
 
     msgs = []
-    # TODO fix this should be a dict
-    project_ids = []
+
+    project_ids = {}
 
     if all_:
         projects = get_projects(auth, submission)
@@ -41,7 +41,7 @@ def touch(config: Config, project_id: str, all_: bool):
                                                      json={'code': _project, 'type': 'project', "state": "open",
                                                            "dbgap_accession_number": _project, })
                 msgs.append(f"Created project: {_program}-{_project} {response['message']}")
-                project_ids.append(f"{_program}-{_project}")
+                project_ids[f"{_program}-{_project}"] = {'exists': True}
 
     return ProjectSummaries(**{
         'endpoint': auth.endpoint,
