@@ -28,17 +28,17 @@ def ls(config: Config, mine: bool) -> LogAccess:
 def cat(config: Config, request_id: str) -> dict:
     """Show a specific request requests."""
     auth = ensure_auth(config.gen3.refresh_file)
-    requests = get_request(auth=auth, request_id=request_id)
+    request = get_request(auth=auth, request_id=request_id)
     return LogAccess(**{
         'endpoint': auth.endpoint,
-        'requests': [_ for _ in requests],
+        'requests': [request],
     })
 
 
-def touch(config: Config, resource_path: str) -> LogAccess:
+def touch(config: Config, resource_path: str, user_name: str, roles: str) -> LogAccess:
     """List requests."""
     auth = ensure_auth(config.gen3.refresh_file)
-    request = create_request(auth=auth, resource_path=resource_path)
+    request = create_request(auth=auth, resource_path=resource_path, user_name=user_name, roles=roles)
     return LogAccess(**{
         'endpoint': auth.endpoint,
         'request': request,
@@ -49,7 +49,7 @@ ALLOWED_REQUEST_STATUSES = """DRAFT SUBMITTED APPROVED SIGNED REJECTED""".split(
 
 
 def update(config: Config, request_id: str, status: str) -> LogAccess:
-    """List requests."""
+    """Update request."""
     assert request_id, "required"
     assert status, "required"
     status = status.upper()

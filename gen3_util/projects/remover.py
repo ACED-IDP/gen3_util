@@ -20,13 +20,13 @@ def rm(config: Config, project_id: str):
 
         return ProjectSummaries(**{
             'endpoint': auth.endpoint,
-            'projects': [project_id],
+            'projects': {project_id: {'exists': False}},
             'messages': [f'Deleted {project_id}']
         })
 
     except HTTPError as e:
         return ProjectSummaries(**{
             'endpoint': auth.endpoint,
-            'projects': [project_id],
+            'projects': {project_id: {'exists': False}},
             'messages': [f'Error deleting {project_id}: {e} {e.response.text}']
         })
