@@ -29,11 +29,13 @@ def test_help(caplog):
     assert result.exit_code == 0
     print(result.output)
     expected_strings = """
-      projects  Manage Gen3 projects.
-      meta      Manage meta data.
-      files     Manage file buckets.
-      config    Configure this utility.
-    """.split()
+        projects  Manage Gen3 projects.
+        buckets   Manage Gen3 buckets.
+        meta      Manage meta data.
+        files     Manage file transfers.
+        access    Manage access requests.
+        config    Configure this utility.
+        """.split()
     for expected_string in expected_strings:
         assert expected_string in result.output, f"Should have printed {expected_string}"
 

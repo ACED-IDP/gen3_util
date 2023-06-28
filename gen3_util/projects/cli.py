@@ -38,7 +38,7 @@ def project_ls(config: Config):
 @click.pass_obj
 def project_touch(config: Config, project_id: str, all_: bool):
     """Create a project
-    PROJECT_ID: /programs/XXX/projects/YYY
+    PROJECT_ID: <program-name>-<project-name>
     """
     with CLIOutput(config=config) as output:
         output.update(touch(config, project_id, all_))
@@ -49,7 +49,7 @@ def project_touch(config: Config, project_id: str, all_: bool):
 @click.pass_obj
 def project_rm(config: Config, project_id: str):
     """Remove project.
-    PROJECT_ID: /programs/XXX/projects/YYY
+    PROJECT_ID: <program-name>-<project-name>
     """
     with CLIOutput(config=config) as output:
         output.update(rm(config, project_id))

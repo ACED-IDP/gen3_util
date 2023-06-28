@@ -140,3 +140,34 @@ class EmitterContextManager:
             if self.verbose:
                 self.logger.info(f"opened {self.emitters[name].name}")
         return self.emitters[name]
+
+
+def validate_project_id(project_id) -> list[str]:
+    """Ensure that the project_id is valid"""
+    msgs = []
+    if not project_id:
+        msgs.append("project_id is missing")
+    if not project_id.count('-') == 1:
+        msgs.append(f"{project_id} should have a single '-' delimiter.")
+    return msgs
+
+
+def validate_email(email) -> list[str]:
+    """Ensure that the email is valid"""
+    msgs = []
+    if not email:
+        msgs.append("email is missing")
+    if not email.count('@') == 1:
+        msgs.append(f"{email} should have a single '@' delimiter.")
+    try:
+        from email_validator import validate_email as email_validator_validate, EmailNotValidError
+        email_validator_validate(email)
+    except EmailNotValidError as e:
+        msgs.append(f"{email} is not a valid email address. {e}")
+    return msgs
+
+
+def to_resource_path(project_id):
+    """Canonical conversion of project_id to resource path."""
+    _ = project_id.split('-')
+    return f"/programs/{_[0]}/projects/{_[1]}"

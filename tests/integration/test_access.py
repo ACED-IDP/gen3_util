@@ -17,7 +17,7 @@ def test_access_ls(caplog):
 def test_access_touch_read_only():
     """Ensure we can add a user with default read-only access."""
     runner = CliRunner()
-    result = runner.invoke(cli, 'access touch bar@foo.com /programs/aced/projects/Alcoholism'.split())
+    result = runner.invoke(cli, 'access touch bar@foo.com aced-Alcoholism'.split())
     assert result.exit_code == 0
     expected_strings = ['OK', 'request_id']
     for expected_string in expected_strings:
@@ -27,16 +27,30 @@ def test_access_touch_read_only():
 def test_access_touch_roles():
     """Ensure we can add a user with specific roles."""
     runner = CliRunner()
-    result = runner.invoke(cli, 'access touch bar@foo.com /programs/aced/projects/Alcoholism --roles storage_writer,file_uploader'.split())
+    result = runner.invoke(cli, 'access touch bar@foo.com aced-Alcoholism --roles storage_writer,file_uploader'.split())
     assert result.exit_code == 0
     expected_strings = ['OK', 'request_id']
     for expected_string in expected_strings:
         assert expected_string in result.output, f"Did not find {expected_string} in {expected_strings}"
 
 
+def test_access_touch_bad_email():
+    """Ensure we catch invalid email."""
+    runner = CliRunner()
+    result = runner.invoke(cli, 'access touch barfoo.com aced-Alcoholism --roles storage_writer,file_uploader'.split())
+    assert result.exit_code != 0
+
+
+def test_access_touch_bad_project_id():
+    """Ensure we catch invalid email."""
+    runner = CliRunner()
+    result = runner.invoke(cli, 'access touch bar@foo.com aced-Alcoholism-XXX --roles storage_writer,file_uploader'.split())
+    assert result.exit_code != 0
+
+
 def test_access_workflow():
     runner = CliRunner()
-    result = runner.invoke(cli, '--format json access touch bar@foo.com /programs/aced/project/MCF10A'.split())
+    result = runner.invoke(cli, '--format json access touch bar@foo.com aced-MCF10A'.split())
     assert result.exit_code == 0
     expected_strings = ['OK', 'request_id']
     for expected_string in expected_strings:
