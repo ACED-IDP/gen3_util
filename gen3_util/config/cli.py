@@ -18,4 +18,3 @@ def config_ls(config: Config):
     """Show defaults."""
     with CLIOutput(config) as output:
         output.update(config.dict())
-        output['state_dir'] = str(config.state_dir)
