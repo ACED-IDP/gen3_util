@@ -3,6 +3,7 @@ import click
 from gen3_util.access.requestor import ls, cat, touch, update
 from gen3_util.cli import CLIOutput
 from gen3_util.cli import NaturalOrderGroup
+from gen3_util.common import validate_project_id, validate_email, to_resource_path
 from gen3_util.config import Config
 
 
@@ -15,19 +16,24 @@ def access_group(config: Config):
 
 @access_group.command(name="touch")
 @click.argument('user_name')
-@click.argument('resource_path')
+@click.argument('project_id')
 @click.option('--roles', show_default=True, default=None, help='Add comma-delimited role permissions to the access request, ex: --roles "storage_writer,file_uploader"')
 @click.pass_obj
-def access_touch(config: Config,  user_name: str, resource_path: str, roles: str):
+def access_touch(config: Config,  user_name: str, project_id: str, roles: str):
     """Create a request for read access.
 
     \b
-    user_name (str): user's email
-    resource_path (str): /programs/XXX/projects/YYY
+    USER_NAME (str): user's email
+    PROJECT_ID: <program-name>-<project-name>
 
     """
+    msgs = validate_email(user_name)
+    assert msgs == [], f"Invalid email address: {user_name} {msgs}"
+    msgs = validate_project_id(project_id)
+    assert msgs == [], f"Invalid project id: {project_id} {msgs}"
+
     with CLIOutput(config=config) as output:
-        output.update(touch(config=config, resource_path=resource_path, user_name=user_name, roles=roles))
+        output.update(touch(config=config, resource_path=to_resource_path(project_id), user_name=user_name, roles=roles))
 
 
 @access_group.command(name="update")
