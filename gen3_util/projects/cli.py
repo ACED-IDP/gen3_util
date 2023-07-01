@@ -1,5 +1,6 @@
 import click
 
+from gen3_util.access.requestor import add_policies, add_user
 from gen3_util.cli import CLIOutput
 from gen3_util.cli import NaturalOrderGroup
 from gen3_util.config import Config, ensure_auth
@@ -53,3 +54,34 @@ def project_rm(config: Config, project_id: str):
     """
     with CLIOutput(config=config) as output:
         output.update(rm(config, project_id))
+
+
+@project_group.group(name="add")
+def project_add():
+    """Add policies and users to a project."""
+    pass
+
+
+@project_add.command(name="user")
+@click.argument('project_id')
+@click.argument('user_name')
+@click.option('--write/--no-write', '-a', help='Give user write privileges', is_flag=True, default=False)
+@click.pass_obj
+def project_add_user(config: Config, user_name: str, project_id: str, write: bool):
+    """Add user to project.
+    PROJECT_ID: <program-name>-<project-name>
+    USER_NAME: user's email
+    """
+    with CLIOutput(config=config) as output:
+        output.update(add_user(config, project_id, user_name, write))
+
+
+@project_add.command(name="policies")
+@click.argument('project_id')
+@click.pass_obj
+def project_add_policies(config: Config, project_id: str):
+    """Add default policies to project.
+    PROJECT_ID: <program-name>-<project-name>
+    """
+    with CLIOutput(config=config) as output:
+        output.update(add_policies(config, project_id))

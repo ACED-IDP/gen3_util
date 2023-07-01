@@ -84,6 +84,7 @@ class CommandOutput(object):
     """Output object for commands."""
     def __init__(self):
         self.obj = None
+        self.exit_code = 0
 
     def update(self, obj):
         """Update output with obj."""
@@ -92,9 +93,10 @@ class CommandOutput(object):
 
 class CLIOutput:
     """Ensure output, exceptions and exit code are returned to user consistently."""
-    def __init__(self, config: Config):
+    def __init__(self, config: Config, exit_on_error: bool = True):
         self.output = CommandOutput()
         self.config = config
+        self.exit_on_error = exit_on_error
 
     def __enter__(self):
         return self.output
@@ -123,4 +125,6 @@ class CLIOutput:
         for k in prune:
             del _[k]
         print_formatted(self.config, _)
-        exit(rc)
+        self.output.exit_code = rc
+        if self.exit_on_error:
+            exit(rc)

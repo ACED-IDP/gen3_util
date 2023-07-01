@@ -1,9 +1,11 @@
 import click
+import yaml
 
-from gen3_util.access.requestor import ls, cat, touch, update
+from gen3_util.access import create_request
+from gen3_util.access.requestor import ls, cat, update, format_policy
 from gen3_util.cli import CLIOutput
 from gen3_util.cli import NaturalOrderGroup
-from gen3_util.common import validate_project_id, validate_email, to_resource_path
+from gen3_util.common import validate_project_id, validate_email, to_resource_path, print_formatted
 from gen3_util.config import Config
 
 
@@ -24,16 +26,52 @@ def access_touch(config: Config,  user_name: str, project_id: str, roles: str):
 
     \b
     USER_NAME (str): user's email
-    PROJECT_ID: <program-name>-<project-name>
+    PROJECT_ID or RESOURCE_PATH: <program-name>-<project-name> or /resource/path
 
     """
     msgs = validate_email(user_name)
     assert msgs == [], f"Invalid email address: {user_name} {msgs}"
+
     msgs = validate_project_id(project_id)
-    assert msgs == [], f"Invalid project id: {project_id} {msgs}"
+    # assert msgs == [], f"Invalid project id: {project_id} {msgs}"
+    resource_path = None
+    if len(msgs) != 0:
+        resource_path = project_id
+        project_id = None
+
+    assert resource_path, "required"
+    assert user_name, "required"
+    resource_path = to_resource_path(project_id, resource_path)
+    request = {"username": user_name, "resource_path": resource_path}
+    if roles is not None:
+        roles = list(map(str, roles.split(',')))
+        request.update({"role_ids": roles})
 
     with CLIOutput(config=config) as output:
-        output.update(touch(config=config, resource_path=to_resource_path(project_id), user_name=user_name, roles=roles))
+        output.update(create_request(config=config, request=request))
+
+
+@access_group.command(name="cp")
+@click.argument('path')
+@click.option('--user_name', required=False, help='User email address to apply to all policies, defaults to current user')
+@click.option('--project_id', required=False, help='Project ID to apply to all policies in template, ex: --project_id "program-project"')
+@click.pass_obj
+def access_cp(config: Config,  path: str, user_name: str, project_id: str):
+    """Read YAML file and create a request for access.
+
+    File should conform to the following format:
+    https://github.com/uc-cdis/requestor/blob/master/docs/openapi.yaml#L26
+
+    \b
+    PATH (str): yaml file
+
+    """
+    create_request_input = yaml.safe_load((open(path, 'r')))
+    responses = []
+    for policy in create_request_input['policies']:
+        policy = format_policy(policy, project_id, user_name)
+        responses.append(create_request(config=config, request=policy))
+    print_formatted(config=config, output={'responses': responses})
 
 
 @access_group.command(name="update")
