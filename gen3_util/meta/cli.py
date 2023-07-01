@@ -46,7 +46,7 @@ def meta_cp(config: Config, from_: str, to_: str, project_id: str, ignore_state:
 @meta_group.command(name="ls")
 @click.pass_obj
 def meta_ls(config: Config):
-    """Query buckets from submitted metadata."""
+    """Query buckets for submitted metadata."""
     with CLIOutput(config=config) as output:
         output.update(ls(config))
 
