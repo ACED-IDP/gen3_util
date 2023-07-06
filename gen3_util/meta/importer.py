@@ -145,7 +145,13 @@ def dir_to_study(project_id, input_path, remove_path_prefix, output_path, patter
                 mime = _magic.from_file(file)
 
             resources = _extract_fhir_resources(file, input_path, plugin_path)
+            subject_reference = f"ResearchStudy/{research_study['id']}"  # Who/what is the subject of the document
+
             for resource in resources:
+
+                if resource.resource_type == 'Patient':
+                    subject_reference = f"Patient/{resource.id}"
+
                 if resource.id in already_seen:
                     continue
 
@@ -178,7 +184,7 @@ def dir_to_study(project_id, input_path, remove_path_prefix, output_path, patter
                 },
               }],
               "subject": {
-                  "reference": f"ResearchStudy/{research_study['id']}"  # Who/what is the subject of the document
+                  "reference": subject_reference
               }
             }
             emitter.emit('DocumentReference').write(orjson.dumps(document_reference, option=orjson.OPT_APPEND_NEWLINE))
