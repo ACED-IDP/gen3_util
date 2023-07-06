@@ -37,7 +37,11 @@ def read_ndjson_file(path: str) -> Iterator[dict]:
 def read_json_file(path: str) -> Iterator[dict]:
     """Read ndjson file, load json line by line."""
     with _file_opener(path) as jsonfile:
-        yield orjson.loads(jsonfile.read())
+        try:
+            yield orjson.loads(jsonfile.read())
+        except orjson.JSONDecodeError as e:
+            logging.error(f"Error reading {path}: {e}")
+            raise
 
 
 def read_json(path: str) -> Iterator[dict]:
