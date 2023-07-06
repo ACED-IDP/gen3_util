@@ -63,8 +63,10 @@ def validate(config: Config, directory_path: pathlib.Path) -> ValidateDirectoryR
     """Check FHIR data, accumulate results."""
     exceptions = []
     resources = defaultdict(int)
+    print("DIRECTORY PATH: ", directory_path)
     for parse_result in directory_reader(directory_path):
-        # print('parse_result', parse_result)
+        print('parse_result', parse_result)
+
         if parse_result.exception:
             exceptions.append(parse_result)
         else:

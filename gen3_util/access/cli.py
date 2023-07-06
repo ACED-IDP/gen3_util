@@ -18,10 +18,11 @@ def access_group(config: Config):
 
 @access_group.command(name="touch")
 @click.argument('user_name')
-@click.argument('project_id')
+@click.option('--project_id', show_default=True, default=None, help='add a project id ex: --project_id aced-Alcoholism')
+@click.option('--resource_path',  show_default=True, default=None, help='add resource paths ex: --resource_path /programs/aced/projects/Alcoholism')
 @click.option('--roles', show_default=True, default=None, help='Add comma-delimited role permissions to the access request, ex: --roles "storage_writer,file_uploader"')
 @click.pass_obj
-def access_touch(config: Config,  user_name: str, project_id: str, roles: str):
+def access_touch(config: Config,  user_name: str, project_id: str, resource_path: str, roles: str):
     """Create a request for read access.
 
     \b
@@ -34,13 +35,10 @@ def access_touch(config: Config,  user_name: str, project_id: str, roles: str):
 
     msgs = validate_project_id(project_id)
     # assert msgs == [], f"Invalid project id: {project_id} {msgs}"
-    resource_path = None
-    if len(msgs) != 0:
-        resource_path = project_id
-        project_id = None
 
-    assert resource_path, "required"
     assert user_name, "required"
+    assert (project_id or resource_path), "required"
+
     resource_path = to_resource_path(project_id, resource_path)
     request = {"username": user_name, "resource_path": resource_path}
     if roles is not None:
