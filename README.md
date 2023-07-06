@@ -170,16 +170,6 @@ msg: OK
 
 ```
 
-> I need to upload those files to the instance
-
-```
-$ gen3_util files cp --ignore_state --project_id aced-MyExperiment tmp/foo/DocumentReference.ndjson  bucket://aced-development-ohsu-data-bucket
-100%|██████████████████████████████████████████████████████████████████████████████████████████████████████| 5.74M/5.74M [00:03<00:00, 1.71MB/s, elapsed=0:00:02.056022, file=6f8101]
-info:
-- Wrote state to ~/.gen3/gen3-util-state/state.ndjson
-msg: OK
-```
-
 > I need to upload the meta data about those files to the instance
 
 ```
