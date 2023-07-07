@@ -30,7 +30,8 @@ def test_meta_plugin():
     This test is to test the plugin functionality of the meta command.
 
     """
-    params = '--format json meta  import dir tests/fixtures/dir_to_study_with_meta/ tmp/foometa --project_id aced-foometa --plugin_path ./tests/unit/plugins'.split()
+
+    params = '--format json meta  import dir tests/fixtures/dir_to_study_with_meta/ tmp/foometa --project_id aced-foometa --plugin_path ./tests/unit/plugins/gen3_util_plugin_foo'.split()
     runner = CliRunner()
     result = runner.invoke(cli, params)
     print(result.output)
@@ -43,15 +44,13 @@ def test_meta_plugin():
 
     expected_document_subjects = {
         'ResearchStudy/fbeb248f-b2b1-5324-96f6-a04b7c0752e0': [
-            'file:///testsfixtures/dir_to_study_with_meta/file-2.csv'
-        ],
+            'file:///tests/fixtures/dir_to_study_with_meta/file-2.csv',
+            'file:///tests/fixtures/dir_to_study_with_meta/p1/s3/file-5',
+            'file:///tests/fixtures/dir_to_study_with_meta/p1/s1/file-3.pdf'],
         'Patient/88f1c8f7-8f00-54b0-9133-6b32a2909bf7': [
-            'file:///testsfixtures/dir_to_study_with_meta/p2/s4/file-1.txt'
-        ],
+            'file:///tests/fixtures/dir_to_study_with_meta/p2/s4/file-1.txt'],
         'Patient/3e2e9a5f-7f05-5411-8557-7414feafe54f': [
-          'file:///testsfixtures/dir_to_study_with_meta/p1/s2/file-4.tsv',
-          'file:///testsfixtures/dir_to_study_with_meta/p1/s3/file-5',
-          'file:///testsfixtures/dir_to_study_with_meta/p1/s1/file-3.pdf']
+            'file:///tests/fixtures/dir_to_study_with_meta/p1/s2/file-4.tsv']
     }
 
     document_subjects = defaultdict(list)

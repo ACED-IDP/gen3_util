@@ -83,8 +83,8 @@ def _extract_fhir_resources(file, input_path, plugin_path) -> list[Resource]:
               show_default=True,
               help='Gen3 program-project'
               )
-@click.option('--remove_path_prefix', required=True,
-              default="/",
+@click.option('--remove_path_prefix',
+              default='',
               show_default=True,
               help='Remove prefix from file paths.  '
                    'Creates well-known form for achieving reproducible directories independent '
@@ -148,12 +148,21 @@ def dir_to_study(project_id, input_path, remove_path_prefix, output_path, patter
             subject_reference = f"ResearchStudy/{research_study['id']}"  # Who/what is the subject of the document
 
             for resource in resources:
+                if resource.id in already_seen:
+                    continue
 
                 if resource.resource_type == 'Patient':
                     subject_reference = f"Patient/{resource.id}"
-
-                if resource.id in already_seen:
-                    continue
+                    research_subject = {
+                        "resourceType": "ResearchSubject",
+                        "status": "candidate",
+                        "study": {
+                            "reference": f"ResearchStudy/{research_study['id']}"
+                        },
+                    }
+                    emitter.emit("ResearchSubject").write(
+                        orjson.dumps(research_subject, option=orjson.OPT_APPEND_NEWLINE)
+                    )
 
                 already_seen.add(resource.id)
                 emitter.emit(resource.resource_type).write(
@@ -251,13 +260,14 @@ def _discover_plugins(plugin_path: str) -> list[PathParser]:
 
     if not PLUGINS_ADDED_TO_PATH and pathlib.Path(plugin_path).exists():
         sys.path.append(plugin_path)
+        sys.path.append(str(pathlib.Path(plugin_path).parent))
         PLUGINS_ADDED_TO_PATH = True
 
     discovered_plugins = {
         name: importlib.import_module(name)
         for finder, name, is_pkg
         in pkgutil.iter_modules()
-        if 'gen3_util_plugin_' in name
+        if 'gen3_util_plugin_' in name and name in plugin_path
     }
 
     for name, pkg in discovered_plugins.items():
