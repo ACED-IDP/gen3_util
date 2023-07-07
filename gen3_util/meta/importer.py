@@ -58,7 +58,7 @@ def _extract_fhir_resources(file, input_path, plugin_path) -> list[Resource]:
     plugins = _discover_plugins(plugin_path=plugin_path)
 
     if plugin_path:
-        assert len(plugins) > 0, f"No plugins found in {plugin_path}."
+        assert len(plugins) > 0, f"No plugins found in {plugin_path}"
     assert input_path, "No input path provided."
 
     resources = []
@@ -144,7 +144,7 @@ def dir_to_study(project_id, input_path, remove_path_prefix, output_path, patter
             if not mime:
                 mime = _magic.from_file(file)
 
-            resources = _extract_fhir_resources(file, input_path, plugin_path)
+            resources = _extract_fhir_resources(str(file).replace(remove_path_prefix, '', 1), input_path, plugin_path)
             subject_reference = f"ResearchStudy/{research_study['id']}"  # Who/what is the subject of the document
 
             for resource in resources:

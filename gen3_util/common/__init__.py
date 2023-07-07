@@ -171,13 +171,8 @@ def validate_email(email) -> list[str]:
     return msgs
 
 
-def to_resource_path(project_id, resource_path):
+def to_resource_path(project_id):
     """Canonical conversion of project_id to resource path."""
-
-    assert not (resource_path and project_id), "Please choose either project_id or resource_path"
-
-    if resource_path:
-        return resource_path
 
     _ = project_id.split('-')
     return f"/programs/{_[0]}/projects/{_[1]}"
