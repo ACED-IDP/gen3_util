@@ -126,7 +126,12 @@ def dir_to_study(project_id, input_path, remove_path_prefix, output_path, patter
     research_study = create_research_study(project, f"A study with files from {input_path}/{pattern}")
 
     # for user display/logs
-    counts = {'ResearchStudy': {'count': 1}, 'Patient': {'count': 0}, 'Specimen': {'count': 0}}
+    counts = {
+        'ResearchStudy': {'count': 1},
+        'ResearchSubject': {'count': 0},
+        'Patient': {'count': 0},
+        'Specimen': {'count': 0}
+    }
 
     with EmitterContextManager(output_path, file_mode="wb") as emitter:
         emitter.emit('ResearchStudy').write(
@@ -154,15 +159,21 @@ def dir_to_study(project_id, input_path, remove_path_prefix, output_path, patter
                 if resource.resource_type == 'Patient':
                     subject_reference = f"Patient/{resource.id}"
                     research_subject = {
+                        "id": str(uuid.uuid5(ACED_NAMESPACE, "ResearchSubject" + subject_reference)),
                         "resourceType": "ResearchSubject",
-                        "status": "candidate",
+                        "status": "active",
                         "study": {
                             "reference": f"ResearchStudy/{research_study['id']}"
                         },
+                        "subject": {
+                            "reference": subject_reference
+                        },
+
                     }
                     emitter.emit("ResearchSubject").write(
                         orjson.dumps(research_subject, option=orjson.OPT_APPEND_NEWLINE)
                     )
+                    counts["ResearchSubject"]['count'] += 1
 
                 already_seen.add(resource.id)
                 emitter.emit(resource.resource_type).write(
