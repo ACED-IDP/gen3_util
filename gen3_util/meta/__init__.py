@@ -83,7 +83,7 @@ def _has_entries(_: ParseResult):
     return _.resource.resource_type in ["Bundle", "List"] and _.resource.entry is not None
 
 
-def directory_reader(directory_path: [str, pathlib.Path],
+def directory_reader(directory_path: str,
                      recurse: bool = True,
                      validate: bool = False) -> Iterator[ParseResult]:
 

@@ -116,31 +116,67 @@ msg: OK
 
 ```
 
+> I need to create a project
 
-> I want to create a simple project with a set of files
+```text
+$ gen3_util projects touch aced-MyExperiment
+projects:
+  aced-MyExperiment:
+    exists: true
+messages:
+- Created program:aced Program is updated!
 
 ```
-$ gen3_util meta  import dir tests/fixtures/dir_to_study/ tmp/foo --project_id aced-Alcoholism
-msg: OK
+
+> I need to assign default policies to that project
+
+```text
+$ gen3_util projects add policies aced-MyExperiment
+msg: Approve these requests to assign default policies to aced-MyExperiment
+commands:
+- gen3_util access update 24f047d7-0e7c-43c6-bab6-61e2d385c71a SIGNED
+- gen3_util access update 293c6cd1-7ab7-420f-bafb-34319589eac4 SIGNED
+
+```
+
+> I need to add a user to that project
+
+```text
+$ gen3_util projects add user aced-MyExperiment linus.pauling@osu.edu
+msg: Approve these requests to add linus.pauling@osu.edu to aced-MyExperiment
+commands:
+- gen3_util access update 293c6cd1-7ab7-420f-bafb-34319589eac4 SIGNED
+
+```
+
+> Before proceeding, I need to sign those equests
+```text
+gen3_util access update xxxxxx SIGNED
+```
+
+```text
+
+> I want to create a simple project structure with a set of files
+
+```
+$ gen3_util meta  import dir tests/fixtures/dir_to_study/ tmp/foo --project_id aced-MyExperiment
 summary:
+  ResearchStudy:
+    count: 1
   DocumentReference:
     count: 5
     size: 6013814
-  ResearchStudy:
-    count: 1
-```
-
-> I need to upload those files to the instance
-
-```
-$ gen3_util files cp --ignore_state --project_id aced-Alcoholism tmp/foo/DocumentReference.ndjson  bucket://aced-ohsu
-100%|██████████████████████████████████████████████████████████████████████████████████████████████████████| 5.74M/5.74M [00:03<00:00, 1.71MB/s, elapsed=0:00:02.056022, file=6f8101]
-errors: []
-incomplete: []
-info:
-- Wrote state to ~/.gen3/gen3-util-state/state.ndjson
 msg: OK
+
 ```
+
+> I need to upload the meta data about those files to the instance
+
+```
+$gen3_util meta cp tmp/foo bucket://aced-development-ohsu-data-bucket --project_id aced-MyExperiment
+msg: Uploaded /var/folders/2c/hffqqtr94nv64tjy0xrl38r89k1sty/T/tmpacozhhoo/_aced-MyExperiment_meta.zip
+```
+
 
 > I need to request or manage access to a project
 

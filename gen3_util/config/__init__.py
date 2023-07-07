@@ -3,6 +3,8 @@ import pathlib
 
 import requests
 from gen3.auth import Gen3Auth
+from gen3.file import Gen3File
+from gen3.index import Gen3Index
 from pydantic import BaseModel
 
 
@@ -78,3 +80,12 @@ class Config(BaseModel):
     """gen3 setup"""
     state_dir: pathlib.Path = pathlib.Path('~/.gen3/gen3-util-state').expanduser()
     """retry state for file transfer"""
+
+
+def gen3_services(config: Config) -> tuple[Gen3File, Gen3Index, dict]:
+    """Create Gen3 Services."""
+    auth = ensure_auth(config.gen3.refresh_file)
+    file_client = Gen3File(auth_provider=auth)
+    index_client = Gen3Index(auth_provider=auth)
+    user = auth.curl('/user/user').json()
+    return file_client, index_client, user

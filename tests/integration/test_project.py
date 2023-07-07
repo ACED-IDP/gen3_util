@@ -18,7 +18,7 @@ def test_project_ping(caplog):
     runner = CliRunner()
     result = runner.invoke(cli, ['projects', 'ping'])
     assert result.exit_code == 0
-    expected_strings = ['OK', 'http']
+    expected_strings = ['OK', 'http', 'username']
     for expected_string in expected_strings:
         assert expected_string in result.output, "Did not find connected message."
 

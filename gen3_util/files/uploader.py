@@ -11,14 +11,12 @@ from typing import List
 from urllib.parse import urlparse, ParseResult
 
 import requests
-from gen3_util.common import read_ndjson_file
-from gen3.file import Gen3File
-from gen3.index import Gen3Index
 from orjson import orjson
 from pydantic import BaseModel
 from tqdm import tqdm
 
-from gen3_util.config import Config, ensure_auth
+from gen3_util.common import read_ndjson_file
+from gen3_util.config import Config, gen3_services
 from gen3_util.files import assert_valid_project_id, assert_valid_bucket
 
 logger = logging.getLogger(__name__)
@@ -43,16 +41,17 @@ def _upload_file_to_signed_url(file_name, md5sum, metadata, signed_url):
 
 
 def _update_indexd(attachment, bucket_name, document_reference, duplicate_check, index_client, md5sum, object_name,
-                   program, project):
+                   program, project, metadata=None):
     hashes = {'md5': md5sum}
     assert 'id' in document_reference, document_reference
     guid = document_reference['id']
-    metadata = {
-        **{
-            'datanode_type': 'DocumentReference',
-            'datanode_object_id': guid
-        },
-        **hashes}
+    if metadata is None:
+        metadata = {
+            **{
+                'datanode_type': 'DocumentReference',
+                'datanode_object_id': guid
+            },
+            **hashes}
     # SYNC
     existing_record = None
     s3_url = f"s3://{bucket_name}/{guid}/{object_name}"
@@ -112,14 +111,6 @@ def _extract_extensions(document_reference):
     return attachment, md5sum, source_path_extension
 
 
-def _gen3_services(config: Config) -> (Gen3File, Gen3Index):
-    """Create Gen3 Services."""
-    auth = ensure_auth(config.gen3.refresh_file)
-    file_client = Gen3File(auth_provider=auth)
-    index_client = Gen3Index(auth_provider=auth)
-    return file_client, index_client
-
-
 def _validate_parameters(from_: str, to_: str) -> (pathlib.Path, ParseResult):
     url = urlparse(to_)
     assert url.scheme, f"{to_} does not appear to be a url"
@@ -160,10 +151,8 @@ def _upload_document_reference(config: Config, document_reference: dict, bucket_
 
     try:
         start = datetime.datetime.now()
-        # print(('starting', document_reference['id'], start.isoformat()))
 
-        file_client, index_client = _gen3_services(config=config)
-        # print("Connected to gen3")
+        file_client, index_client, user = gen3_services(config=config)
 
         attachment, md5sum, source_path_extension = _extract_extensions(document_reference)
 

@@ -1,5 +1,6 @@
 import requests
 from gen3.auth import Gen3Auth
+from requests import HTTPError
 
 from gen3_util.config import ensure_auth, Config
 
@@ -34,19 +35,21 @@ def get_request(config: Config = None, auth: Gen3Auth = None, request_id: str = 
     return auth.curl(f'/requestor/request/{request_id}').json()
 
 
-def create_request(config: Config = None, auth: Gen3Auth = None, resource_path: str = None, user_name: str = None, roles: str = None):
+def create_request(config: Config = None, auth: Gen3Auth = None, request: dict = None):
     """Get a specific request"""
-    assert resource_path, "required"
-    assert user_name, "required"
     auth = _ensure_auth(auth, config)
-    request = {"username": user_name, "resource_path": resource_path}
-    if roles is not None:
-        roles = list(map(str, roles.split(',')))
-        request.update({"role_ids": roles})
+    one_of = ['policy_id', 'resource_paths', 'resource_path']
+    assert any([k in request for k in one_of]), (f"one of {one_of} required", request)
     response = requests.post(
         auth.endpoint + "/" + 'requestor/request', json=request, auth=auth
     )
-    response.raise_for_status()
+    try:
+        response.raise_for_status()
+    except HTTPError as e:
+        print(e)
+        print(response.text)
+        raise e
+
     return response.json()
 
 
