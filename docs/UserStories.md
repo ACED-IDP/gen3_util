@@ -94,7 +94,7 @@ gen3_util projects touch aced-whatever_name_you_want
 
 Permissions can be requested from a project with:
 ```
-gen3_util access touch {you_user_name}@ohsu.edu /programs/aced/projects/whatever_project_name_you_chose --roles "storage_writer,file_uploader,indexd_admin"
+gen3_util access touch {you_user_name}@ohsu.edu --project_id aced-whatever_name_you_chose --roles "storage_writer,file_uploader,indexd_admin"
 ```
 Note: The --roles option is used to specify if you are requesting additional project permissions or not. For example if you just need read permissions, this flag is not needed, but if you need to write data to buckets you need to include these flags.
 
