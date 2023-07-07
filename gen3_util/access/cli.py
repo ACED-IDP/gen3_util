@@ -36,10 +36,17 @@ def access_touch(config: Config,  user_name: str, project_id: str, resource_path
     msgs = validate_project_id(project_id)
     # assert msgs == [], f"Invalid project id: {project_id} {msgs}"
 
+    if len(msgs) == 0:
+        resource_path = to_resource_path(project_id)
+    else:
+        resource_path = project_id  # assume resource path passed
+
     assert user_name, "required"
+
     assert (project_id or resource_path), "required"
 
-    resource_path = to_resource_path(project_id, resource_path)
+    resource_path = to_resource_path(project_id)
+
     request = {"username": user_name, "resource_path": resource_path}
     if roles is not None:
         roles = list(map(str, roles.split(',')))

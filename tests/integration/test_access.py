@@ -1,4 +1,5 @@
 import json
+import uuid
 
 from click.testing import CliRunner
 from gen3_util.cli.cli import cli
@@ -8,6 +9,8 @@ def test_access_ls(caplog):
     """Ensure we can ls access."""
     runner = CliRunner()
     result = runner.invoke(cli, ['access', 'ls'])
+    result_output = result.output
+    print('result_output', result_output)
     assert result.exit_code == 0
     # This looks like a mixup with 'gen3_util projects ping'
     # expected_strings = ['OK']
@@ -52,7 +55,10 @@ def test_access_touch_bad_project_id():
 def test_access_workflow():
     """This access request in particular creates 409s if you run the test twice"""
     runner = CliRunner()
-    result = runner.invoke(cli, '--format json access touch barr@foo.com --project_id aced-MCF10A'.split())
+
+    user_name = str(uuid.uuid4())
+    result = runner.invoke(cli, f'--format json access touch {user_name}@foo.com --project_id aced-MCF10A'.split())
+    print(result.output)
     assert result.exit_code == 0
     expected_strings = ['OK', 'request_id']
     for expected_string in expected_strings:
@@ -71,17 +77,25 @@ def test_access_workflow():
         assert expected_string in result.output, f"Did not find {expected_string} in {expected_strings}"
 
     request = json.loads(result.output)["request"]
+
     assert request['status'] == 'SUBMITTED', f"unexpected status {request['status']}"
 
     result = runner.invoke(cli, f'--format json access update {request_id} APPROVED'.split())
+
+    result_output = result.output
+    print('result_output', result_output)
     assert result.exit_code == 0
+
     expected_strings = ['request_id']
     for expected_string in expected_strings:
         assert expected_string in result.output, f"Did not find {expected_string} in {expected_strings}"
     request = json.loads(result.output)["request"]
+
     assert request['status'] == 'APPROVED', f"unexpected status {request['status']}"
 
     result = runner.invoke(cli, f'--format json access update {request_id} SIGNED'.split())
+    result_output = result.output
+    print('result_output', result_output)
     assert result.exit_code == 0
     expected_strings = ['request_id']
     for expected_string in expected_strings:

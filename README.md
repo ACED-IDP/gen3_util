@@ -170,6 +170,43 @@ msg: OK
 
 ```
 
+> I want need to do something a bit more complex, for example, I want to create a project structure with a set of files, but I need to specify the `Patient` and `Specimen` based on the path of the file.
+
+```text
+gen3_util meta  import dir tests/fixtures/dir_to_study_with_meta/ tmp/foometa --project_id aced-foometa --plugin_path ./tests/unit/plugins
+
+tests/fixtures/dir_to_study_with_meta/
+├── file-2.csv
+├── p1
+│   ├── s1
+│   │   └── file-3.pdf
+│   ├── s2
+│   │   └── file-4.tsv
+│   └── s3
+│       └── file-5
+└── p2
+    └── s4
+        └── file-1.txt
+
+Will produce the following meta data:
+
+summary:
+  ResearchStudy:
+    count: 1
+  Patient:
+    count: 2
+  Specimen:
+    count: 4
+  DocumentReference:
+    count: 5
+    size: 6013814
+
+```
+
+For more see [test_meta_plugin](./tests/unit/meta/test_plugins.py)
+
+
+
 > I need to upload the meta data about those files to the instance
 
 ```
@@ -196,6 +233,10 @@ Commands:
   cat     Show details of a specific request.
 
 ```
+
+
+
+
 
 ## Development Setup
 

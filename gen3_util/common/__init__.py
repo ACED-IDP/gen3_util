@@ -37,7 +37,11 @@ def read_ndjson_file(path: str) -> Iterator[dict]:
 def read_json_file(path: str) -> Iterator[dict]:
     """Read ndjson file, load json line by line."""
     with _file_opener(path) as jsonfile:
-        yield orjson.loads(jsonfile.read())
+        try:
+            yield orjson.loads(jsonfile.read())
+        except orjson.JSONDecodeError as e:
+            logging.error(f"Error reading {path}: {e}")
+            raise
 
 
 def read_json(path: str) -> Iterator[dict]:
@@ -167,13 +171,8 @@ def validate_email(email) -> list[str]:
     return msgs
 
 
-def to_resource_path(project_id, resource_path):
+def to_resource_path(project_id):
     """Canonical conversion of project_id to resource path."""
-
-    assert not (resource_path and project_id), "Please choose either project_id or resource_path"
-
-    if resource_path:
-        return resource_path
 
     _ = project_id.split('-')
     return f"/programs/{_[0]}/projects/{_[1]}"
