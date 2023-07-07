@@ -1,4 +1,5 @@
 import json
+import sys
 from collections import defaultdict
 
 from click.testing import CliRunner
@@ -60,3 +61,13 @@ def test_meta_plugin():
 
     print(document_subjects)
     assert expected_document_subjects == document_subjects, "DocumentReference subjects are not as expected"
+
+
+def test_meta_plugin_using_pkg_name():
+    """Import using a plugin package name"""
+    sys.path.append('tests/unit/plugins')
+    params = '--format json meta  import dir tests/fixtures/dir_to_study_with_meta/ tmp/foometa --project_id aced-foometa --plugin_path gen3_util_plugin_foo'.split()
+    runner = CliRunner()
+    result = runner.invoke(cli, params)
+    print(result.output)
+    assert result.exit_code == 0

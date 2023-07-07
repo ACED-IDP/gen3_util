@@ -241,7 +241,7 @@ class PathParser:
 
 
 def _discover_plugins(plugin_path: str) -> list[PathParser]:
-    """Discover plugins in ~/.gen3/plugins and ./plugins."""
+    """Discover plugins."""
     import importlib
     import pkgutil
     global PLUGINS_ADDED_TO_PATH
@@ -249,7 +249,7 @@ def _discover_plugins(plugin_path: str) -> list[PathParser]:
     if len(PLUGINS) > 0 or plugin_path is None:
         return PLUGINS
 
-    if not PLUGINS_ADDED_TO_PATH:
+    if not PLUGINS_ADDED_TO_PATH and pathlib.Path(plugin_path).exists():
         sys.path.append(plugin_path)
         PLUGINS_ADDED_TO_PATH = True
 
@@ -257,7 +257,7 @@ def _discover_plugins(plugin_path: str) -> list[PathParser]:
         name: importlib.import_module(name)
         for finder, name, is_pkg
         in pkgutil.iter_modules()
-        if name.startswith('gen3_util_plugin_')
+        if 'gen3_util_plugin_' in name
     }
 
     for name, pkg in discovered_plugins.items():
