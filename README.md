@@ -13,10 +13,19 @@ $python3 -m venv venv ; source venv/bin/activate
 pip install gen3_util
 
 $ gen3_util
-msg: Version 0.0.1
+msg: Version 0.0.3
 
 
 ```
+
+Note: requires [`magic`](https://github.com/ahupp/python-magic#installation) library. If it is not already installed you will see a warning like this:
+
+```text
+Requires libmagic installed on your system to determine mime-types
+Error: 'failed to find libmagic.  Check your installation'
+For installation instructions see https://github.com/ahupp/python-magic#installation
+```
+
 
 
 ## Use
@@ -150,15 +159,16 @@ commands:
 ```
 
 > Before proceeding, I need to sign those equests
+
 ```text
 gen3_util access update xxxxxx SIGNED
 ```
 
-```text
+
 
 > I want to create a simple project structure with a set of files
 
-```
+```text
 $ gen3_util meta  import dir tests/fixtures/dir_to_study/ tmp/foo --project_id aced-MyExperiment
 summary:
   ResearchStudy:

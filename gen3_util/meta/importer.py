@@ -6,7 +6,6 @@ import uuid
 from datetime import timezone, datetime
 import hashlib
 
-import magic
 import pathlib
 import click
 
@@ -22,6 +21,12 @@ from fhir.resources.identifier import Identifier
 from fhir.resources.patient import Patient
 from fhir.resources.specimen import Specimen
 from fhir.resources.resource import Resource
+
+try:
+    import magic
+except ImportError as e:
+    print(f"Requires libmagic installed on your system to determine file mime-types\nError: '{e}'\nFor installation instructions see https://github.com/ahupp/python-magic#installation")
+    sys.exit(1)
 
 PLUGINS = []
 PLUGINS_ADDED_TO_PATH = False
@@ -121,7 +126,7 @@ def dir_to_study(project_id, input_path, remove_path_prefix, output_path, patter
             print(f"output_path {_} does not exist, creating...")
             _.mkdir(parents=True, exist_ok=True)
 
-    _magic = magic.Magic(mime=True, uncompress=True)
+    _magic = magic.Magic(mime=True, uncompress=True)  # https://github.com/ahupp/python-magic#installation
     program, project = project_id.split('-')
     research_study = create_research_study(project, f"A study with files from {input_path}/{pattern}")
 
