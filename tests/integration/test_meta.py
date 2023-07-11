@@ -1,13 +1,15 @@
 import json
 import pathlib
+import shutil
+import uuid
 
 from click.testing import CliRunner
 
 from gen3_util.cli.cli import cli
 
 
-def import_from_directory():
-    params = 'meta  import dir tests/fixtures/dir_to_study/ tmp/foo --project_id aced-foo'.split()
+def import_from_directory(tmp_dir_name, project_id):
+    params = f'meta  import dir tests/fixtures/dir_to_study/ {tmp_dir_name} --project_id {project_id}'.split()
     runner = CliRunner()
     result = runner.invoke(cli, params)
     print(result.output)
@@ -16,7 +18,7 @@ def import_from_directory():
     for expected_string in expected_strings:
         assert expected_string in result.output, f"{expected_string} not found in {result.output}"
 
-    result = runner.invoke(cli, 'meta validate tmp/foo'.split())
+    result = runner.invoke(cli, f'meta validate {tmp_dir_name}'.split())
     print(result.output)
     assert result.exit_code == 0
     expected_strings = ["msg: OK"]
@@ -36,8 +38,8 @@ def ls():
     return json.loads(result.output)
 
 
-def cp_upload(data_bucket):
-    params = f'--format json meta cp tmp/foo/extractions bucket://{data_bucket} --project_id aced-foo --ignore_state'.split()
+def meta_cp_upload(tmp_dir_name, data_bucket, project_id):
+    params = f'--format json meta cp {tmp_dir_name} bucket://{data_bucket} --project_id {project_id} --ignore_state'.split()
     runner = CliRunner()
     result = runner.invoke(cli, params)
     print(result.output)
@@ -47,8 +49,8 @@ def cp_upload(data_bucket):
         assert expected_string in result.output, f"{expected_string} not found in {result.output}"
 
 
-def cp_download(did):
-    params = f'--format json meta cp {did} tmp/foo/'.split()
+def meta_cp_download(did, tmp_dir_name):
+    params = f'--format json meta cp {did} {tmp_dir_name}'.split()
     runner = CliRunner()
     result = runner.invoke(cli, params)
     print(result.output)
@@ -58,11 +60,59 @@ def cp_download(did):
         assert expected_string in result.output, f"{expected_string} not found in {result.output}"
 
 
+def create_project(project_id):
+    params = f'--format json projects touch {project_id}'.split()
+    runner = CliRunner()
+    result = runner.invoke(cli, params)
+    print(result.output)
+    assert result.exit_code == 0
+    expected_strings = [project_id]
+    for expected_string in expected_strings:
+        assert expected_string in result.output, f"{expected_string} not found in {result.output}"
+
+
+def add_policies(project_id):
+    params = f'--format json projects add policies {project_id}'.split()
+    runner = CliRunner()
+    result = runner.invoke(cli, params)
+    result_output = result.output
+    print(result_output)
+    assert result.exit_code == 0
+    expected_strings = [project_id]
+    for expected_string in expected_strings:
+        assert expected_string in result_output, f"{expected_string} not found in {result.output}"
+    result_output = json.loads(result_output)
+    assert 'Approve these requests' in result_output['msg']
+
+    for command in result_output['commands']:
+        command = command.replace('gen3_util ', '--format json ')
+        result = runner.invoke(cli, command.split())
+        result_output = result.output
+        print(result_output)
+        assert result.exit_code == 0
+        result_output = json.loads(result_output)
+        assert result_output['request']['status'] == 'SIGNED'
+
+
 def test_workflow(data_bucket):
-    import_from_directory()
-    cp_upload(data_bucket)
+
+    guid = str(uuid.uuid4())
+    tmp_dir_name = f'tmp/{guid}'
+    pathlib.Path(tmp_dir_name).mkdir(parents=True, exist_ok=True)
+    print('created temporary directory', tmp_dir_name)
+
+    project_id = f'aced-TEST_{guid.replace("-", "_")}'
+
+    create_project(project_id)
+    add_policies(project_id)
+
+    import_from_directory(tmp_dir_name, project_id)
+
+    meta_cp_upload(tmp_dir_name, data_bucket, project_id)
     records = ls()['records']
     for _ in records:
-        cp_download(_['did'])
-        stat = pathlib.Path(f"tmp/foo/{_['file_name']}").stat()
+        meta_cp_download(_['did'], tmp_dir_name)
+        stat = pathlib.Path(f"{tmp_dir_name}/{_['file_name']}").stat()
         assert stat.st_size == _['size']
+
+    shutil.rmtree(tmp_dir_name)
