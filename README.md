@@ -50,7 +50,7 @@ Commands:
 
 ## Connectivity
 
-* Leverages Gen3Auth  [See](https://uc-cdis.github.io/gen3-user-doc/appendices/api-gen3/#credentials-to-query-the-api.)
+* Leverages [Gen3Auth](https://uc-cdis.github.io/gen3-user-doc/appendices/api-gen3/#credentials-to-query-the-api.)
 * Store the `credentials.json` file in ~/.gen3/credentials.json or specify location with either env[GEN3_API_KEY], or `--cred` parameter
 
 ## Use cases
@@ -149,7 +149,8 @@ commands:
 
 ```
 
-> Before proceeding, I need to sign those equests
+> Before proceeding, I need to sign those requests
+
 ```text
 gen3_util access update xxxxxx SIGNED
 ```
