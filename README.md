@@ -154,11 +154,11 @@ commands:
 gen3_util access update xxxxxx SIGNED
 ```
 
-```text
+
 
 > I want to create a simple project structure with a set of files
 
-```
+```text
 $ gen3_util meta  import dir tests/fixtures/dir_to_study/ tmp/foo --project_id aced-MyExperiment
 summary:
   ResearchStudy:
