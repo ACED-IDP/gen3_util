@@ -188,7 +188,7 @@ def _upload_document_reference(config: Config, document_reference: dict, bucket_
 
 
 def cp(config: Config, from_: str, to_: str, ignore_state: bool, worker_count: int, project_id: str,
-       source_path: str, disable_progress_bar: bool) -> UploaderResults:
+       source_path: str, disable_progress_bar: bool, duplicate_check: bool) -> UploaderResults:
     """Copy files from local file system to bucket"""
 
     document_reference_path, to_ = _validate_parameters(from_, to_)
@@ -246,7 +246,7 @@ def cp(config: Config, from_: str, to_: str, ignore_state: bool, worker_count: i
                     bucket_name,
                     program,
                     project,
-                    ignore_state,
+                    duplicate_check,
                     source_path
                 )
             )

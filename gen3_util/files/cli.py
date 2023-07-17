@@ -37,9 +37,11 @@ def files_ls(config: Config):
               help='Path on local file system')
 @click.option('--disable_progress_bar', default=False, is_flag=True, show_default=True,
               help="Show progress bar")
+@click.option('--duplicate_check', default=False, is_flag=True, show_default=True,
+              help="Re-write metadata from indexd")
 @click.pass_obj
 def files_cp(config: Config, from_: str, to_: str, worker_count: int, ignore_state: bool, project_id: str,
-             source_path: str, disable_progress_bar: bool):
+             source_path: str, disable_progress_bar: bool, duplicate_check: bool):
     """Copy files to/from the project bucket.
 
     \b
@@ -51,7 +53,7 @@ def files_cp(config: Config, from_: str, to_: str, worker_count: int, ignore_sta
 
         if is_url(to_):
             _ = upload(config, from_, to_, worker_count=worker_count, ignore_state=ignore_state, project_id=project_id,
-                       source_path=source_path, disable_progress_bar=disable_progress_bar)
+                       source_path=source_path, disable_progress_bar=disable_progress_bar, duplicate_check=duplicate_check)
             output.update(_)
             if len(_.incomplete) > 0:
                 raise ValueError("Not all transfers complete.")
