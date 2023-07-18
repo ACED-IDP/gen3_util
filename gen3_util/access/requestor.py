@@ -31,7 +31,7 @@ def format_policy(policy: dict, project_id: str, user_name: str) -> dict:
     project_id (str): project_id to apply to policy's resource_path PROGRAM PROJECT tokens
     user_name (str): user_name to apply to policy's username
     """
-    if user_name and policy.get('username', None):
+    if user_name and policy.get('username', None) is None:
         policy['username'] = user_name
     if project_id:
         program, project = project_id.split('-')
