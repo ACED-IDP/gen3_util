@@ -1,8 +1,6 @@
 # Gen3 SDK
 gen3
 
-# lock version
-pydantic-yaml==0.11.2
 
 # CLI processor
 click
@@ -22,7 +20,9 @@ tqdm
 requests
 # modern python dataclasses
 pydantic
-pydantic_yaml
+# lock version
+pydantic-yaml==0.11.2
+
 # function caching
 # joblib
 # packaging
