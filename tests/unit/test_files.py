@@ -43,3 +43,20 @@ def test_uploader_validate_parameters():
 
     from_, to_ = uploader_validate_parameters("tests/fixtures", "bucket://foo")
     assert from_ and to_, "Should have validated"
+
+
+def test_normalize_file_url():
+    """"""
+    from gen3_util.files.uploader import _normalize_file_url
+    expected = [
+        ("s3://foo/bar", "s3://foo/bar"),
+        ("file:///foo/bar/", "foo/bar/"),
+        ("./foo/bar/", "foo/bar/"),
+        ("./foo/bar/", "foo/bar/"),
+        ("foo/bar/", "foo/bar/"),
+        ("foo/bar/.baz", "foo/bar/.baz"),
+        ("foo/bar/./baz", "foo/bar/./baz"),
+        ("foo/bar/file:///baz", "foo/bar/file:///baz"),
+    ]
+    for url, expected_url in expected:
+        assert _normalize_file_url(url) == expected_url, "Should normalize {}".format(url)

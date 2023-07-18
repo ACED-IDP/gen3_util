@@ -3,6 +3,7 @@ import base64
 import datetime
 import logging
 import pathlib
+import re
 import urllib
 from dataclasses import dataclass
 from multiprocessing import Pool
@@ -144,6 +145,13 @@ class UploadResult:
     """On error."""
 
 
+def _normalize_file_url(path: str) -> str:
+    """Strip leading ./ and file:/// from file urls."""
+    path = re.sub(r'^\.\/', '', path)
+    path = re.sub(r'^file:\/\/\/', '', path)
+    return path
+
+
 def _upload_document_reference(config: Config, document_reference: dict, bucket_name: str,
                                program: str, project: str, duplicate_check: bool,
                                source_path: str) -> UploadResult:
@@ -158,8 +166,8 @@ def _upload_document_reference(config: Config, document_reference: dict, bucket_
 
         source_path = _extract_source_path(attachment, source_path, source_path_extension)
 
-        file_name = source_path.lstrip('./').lstrip('file:///')
-        object_name = attachment['url'].lstrip('./').lstrip('file:///')
+        file_name = _normalize_file_url(source_path)
+        object_name = _normalize_file_url(attachment['url'])
 
         metadata = _update_indexd(attachment, bucket_name, document_reference, duplicate_check, index_client, md5sum,
                                   object_name, program, project)
