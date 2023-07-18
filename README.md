@@ -13,7 +13,7 @@ $python3 -m venv venv ; source venv/bin/activate
 pip install gen3_util
 
 $ gen3_util
-msg: Version 0.0.3
+msg: Version 0.0.4
 
 
 ```
@@ -26,7 +26,7 @@ Error: 'failed to find libmagic.  Check your installation'
 For installation instructions see https://github.com/ahupp/python-magic#installation
 ```
 
-
+Note: some environments will get a `_ctypes` error.  Please install 3.9.16
 
 ## Use
 

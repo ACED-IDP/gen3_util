@@ -1,7 +1,8 @@
 # Gen3 SDK
-# gen3
-# TODO pending UChicago fix
-https://github.com/ACED-IDP/gen3sdk-python/archive/fix/pypfb-version.zip
+gen3
+
+# lock version
+pydantic-yaml==0.11.2
 
 # CLI processor
 click
