@@ -1,6 +1,7 @@
 import json
 import pathlib
 import shutil
+import subprocess
 import uuid
 
 from click.testing import CliRunner
@@ -47,6 +48,20 @@ def meta_cp_upload(tmp_dir_name, data_bucket, project_id):
     expected_strings = ['Uploaded']
     for expected_string in expected_strings:
         assert expected_string in result.output, f"{expected_string} not found in {result.output}"
+
+
+def run_cmd(command_line) -> str:
+    """Run a command line, return stdout."""
+    try:
+        return subprocess.check_output(command_line, shell=True).decode("utf-8").rstrip()
+    except Exception as exc:
+        raise exc
+
+
+def meta_cp_download_via_gen3(did, tmp_dir_name):
+    params = f'gen3 file download-single --path {tmp_dir_name} {did}'
+    print(params)
+    _ = run_cmd(params)
 
 
 def meta_cp_download(did, tmp_dir_name):
@@ -109,10 +124,17 @@ def test_workflow(data_bucket):
     import_from_directory(tmp_dir_name, project_id)
 
     meta_cp_upload(tmp_dir_name, data_bucket, project_id)
+    program, project = project_id.split('-')
     records = ls()['records']
+    found_our_project = False
     for _ in records:
+        if f"/programs/{program}/projects/{project}" not in _['authz']:
+            continue
+        found_our_project = True
         meta_cp_download(_['did'], tmp_dir_name)
         stat = pathlib.Path(f"{tmp_dir_name}/{_['file_name']}").stat()
         assert stat.st_size == _['size']
-
+        # should also be able to use `gen3 file download-single`
+        meta_cp_download_via_gen3(_['did'], tmp_dir_name)
+    assert found_our_project, f"Did not find our project {project_id} in {records}"
     shutil.rmtree(tmp_dir_name)
