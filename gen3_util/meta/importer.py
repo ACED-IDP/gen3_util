@@ -148,11 +148,9 @@ def dir_to_study(project_id, input_path, remove_path_prefix, output_path, patter
         for file in input_path.glob(pattern):
             if file.is_dir():
                 continue
-            stat = file.stat()
-            modified = datetime.fromtimestamp(stat.st_mtime, tz=timezone.utc)
-            mime, encoding = mimetypes.guess_type(file)
-            if not mime:
-                mime = _magic.from_file(file)
+            if file.is_symlink():
+                logger.info(f"Skipping symlink {file}")
+                continue
 
             try:
                 resources = _extract_fhir_resources(str(file).replace(remove_path_prefix, '', 1), input_path, plugin_path)
@@ -160,6 +158,12 @@ def dir_to_study(project_id, input_path, remove_path_prefix, output_path, patter
                 # expected error if plugin does not want to process this file
                 logger.info(f"Skipping {file}")
                 continue
+
+            stat = file.stat()
+            modified = datetime.fromtimestamp(stat.st_mtime, tz=timezone.utc)
+            mime, encoding = mimetypes.guess_type(file)
+            if not mime:
+                mime = _magic.from_file(file)
 
             subject_reference = f"ResearchStudy/{research_study['id']}"  # Who/what is the subject of the document
 
