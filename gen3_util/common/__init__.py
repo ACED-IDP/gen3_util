@@ -173,6 +173,7 @@ def validate_email(email) -> list[str]:
 
 def to_resource_path(project_id):
     """Canonical conversion of project_id to resource path."""
-
+    if '-' not in project_id:
+        return project_id
     _ = project_id.split('-')
     return f"/programs/{_[0]}/projects/{_[1]}"
