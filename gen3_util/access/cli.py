@@ -18,11 +18,10 @@ def access_group(config: Config):
 
 @access_group.command(name="touch")
 @click.argument('user_name')
-@click.option('--project_id', show_default=True, default=None, help='add a project id ex: --project_id aced-Alcoholism')
-@click.option('--resource_path',  show_default=True, default=None, help='add resource paths ex: --resource_path /programs/aced/projects/Alcoholism')
+@click.argument('project_id')
 @click.option('--roles', show_default=True, default=None, help='Add comma-delimited role permissions to the access request, ex: --roles "storage_writer,file_uploader"')
 @click.pass_obj
-def access_touch(config: Config,  user_name: str, project_id: str, resource_path: str, roles: str):
+def access_touch(config: Config,  user_name: str, project_id: str, roles: str):
     """Create a request for read access.
 
     \b
