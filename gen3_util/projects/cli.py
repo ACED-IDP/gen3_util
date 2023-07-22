@@ -76,11 +76,11 @@ def project_add_user(config: Config, user_name: str, project_id: str, write: boo
         output.update(add_user(config, project_id, user_name, write))
 
 
-@project_add.command(name="policies")
+@project_add.command(name="resource")
 @click.argument('project_id')
 @click.pass_obj
 def project_add_policies(config: Config, project_id: str):
-    """Add default policies to project.
+    """Creates project resource with default policies.
     PROJECT_ID: <program-name>-<project-name>
     """
     with CLIOutput(config=config) as output:

@@ -6,7 +6,7 @@ from gen3_util.projects import ProjectSummaries, get_projects
 
 
 def touch(config: Config, project_id: str, all_: bool):
-    """Create program projects."""
+    """Create project in sheepdog database."""
 
     program = project = None
 
