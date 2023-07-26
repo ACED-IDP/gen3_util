@@ -1,13 +1,9 @@
 policies:
 # submitter policy
 - role_ids:
-  - creator
-  - updater
-  - deleter
-  - storage_writer
+  - writer
   resource_path: /programs/PROGRAM/projects/PROJECT
 # reader policy
 - role_ids:
   - reader
-  - storage_reader
   resource_path: /programs/PROGRAM/projects/PROJECT
