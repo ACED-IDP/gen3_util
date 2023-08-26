@@ -31,7 +31,7 @@ def files_ls(config: Config):
               help="Number of worker processes")
 @click.option('--ignore_state', default=False, is_flag=True, show_default=True,
               help="Upload file, even if already uploaded")
-@click.option('--project_id', default=None, required=True, show_default=True,
+@click.option('--project_id', default=None, required=False, show_default=True,
               help="Gen3 program-project")
 @click.option('--source_path', required=False, default=None, show_default=True,
               help='Path on local file system')

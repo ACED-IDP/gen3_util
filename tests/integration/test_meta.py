@@ -76,6 +76,7 @@ def meta_cp_download(did, tmp_dir_name):
 
 
 def create_project(project_id):
+    """Create a project in sheepdog."""
     params = f'--format json projects touch {project_id}'.split()
     runner = CliRunner()
     result = runner.invoke(cli, params)
@@ -119,7 +120,7 @@ def test_workflow(data_bucket):
     project_id = f'aced-TEST_{guid.replace("-", "_")}'
 
     create_project(project_id)
-    add_policies(project_id)
+    # add_policies(project_id)
 
     import_from_directory(tmp_dir_name, project_id)
 

@@ -2,7 +2,8 @@
 from gen3.submission import Gen3Submission
 
 from gen3_util.config import Config, ensure_auth
-from gen3_util.projects import ProjectSummaries, get_projects
+from gen3_util.projects import get_projects
+from gen3_util.projects.lister import ls
 
 
 def touch(config: Config, project_id: str, all_: bool):
@@ -41,10 +42,6 @@ def touch(config: Config, project_id: str, all_: bool):
                                                      json={'code': _project, 'type': 'project', "state": "open",
                                                            "dbgap_accession_number": _project, })
                 msgs.append(f"Created project: {_program}-{_project} {response['message']}")
-                project_ids[f"{_program}-{_project}"] = {'exists': True}
+                project_ids[f"{_program}-{_project}"] = {'in_sheepdog': True}
 
-    return ProjectSummaries(**{
-        'endpoint': auth.endpoint,
-        'projects': project_ids,
-        'messages': msgs
-    })
+    return ls(config, f"/programs/{_program}/projects/{_project}", msgs)

@@ -36,7 +36,7 @@ def test_meta_plugin():
     result = runner.invoke(cli, params)
     assert result.exit_code == 0
     _ = json.loads(result.output)
-    assert _['summary']['DocumentReference']['size'] == 6013814, "DocumentReference size is not 6013814"
+    assert _['summary']['DocumentReference']['size'] == 6013814, f"DocumentReference size is not 6013814 {_}"
     assert _['summary']['DocumentReference']['count'] == 5, "DocumentReference count is not 5"
     assert _['summary']['Specimen']['count'] == 4, "Specimen count is not 4"
     assert _['summary']['Patient']['count'] == 2, "Patient count is not 2"

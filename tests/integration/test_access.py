@@ -21,7 +21,7 @@ def test_access_ls(caplog):
 def test_access_touch_read_only():
     """Ensure we can add a user with default read-only access."""
     runner = CliRunner()
-    result = runner.invoke(cli, 'access touch bar@foo.com --project_id aced-Alcoholism'.split())
+    result = runner.invoke(cli, 'access touch bar@foo.com aced-Alcoholism'.split())
     assert result.exit_code == 0
     expected_strings = ['OK', 'request_id']
     for expected_string in expected_strings:
@@ -31,7 +31,7 @@ def test_access_touch_read_only():
 def test_access_touch_roles():
     """Ensure we can add a user with specific roles."""
     runner = CliRunner()
-    result = runner.invoke(cli, 'access touch bar@foo.com --project_id aced-Alcoholism --roles storage_writer,file_uploader'.split())
+    result = runner.invoke(cli, 'access touch bar@foo.com aced-Alcoholism --roles writer,reader '.split())
     assert result.exit_code == 0
     expected_strings = ['OK', 'request_id']
     for expected_string in expected_strings:
@@ -57,7 +57,7 @@ def test_access_workflow():
     runner = CliRunner()
 
     user_name = str(uuid.uuid4())
-    result = runner.invoke(cli, f'--format json access touch {user_name}@foo.com --project_id aced-MCF10A'.split())
+    result = runner.invoke(cli, f'--format json access touch {user_name}@foo.com aced-MCF10A'.split())
     print(result.output)
     assert result.exit_code == 0
     expected_strings = ['OK', 'request_id']
@@ -65,7 +65,7 @@ def test_access_workflow():
         assert expected_string in result.output, f"Did not find {expected_string} in {expected_strings}"
 
     request = json.loads(result.output)
-    print("THE VALEU OF REQUEST ", request)
+    print("THE VALUE OF REQUEST ", request)
     assert request['request_id'], "Missing request id"
     request_id = request['request_id']
     assert request['status'] == 'DRAFT', f"unexpected status {request['status']}"
