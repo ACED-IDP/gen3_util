@@ -110,6 +110,18 @@ def add_policies(project_id):
         assert result_output['request']['status'] == 'SIGNED'
 
 
+def import_metadata(project_id, object_id):
+    """import data into sheepdog and elastic."""
+    params = f'--format json jobs import {project_id} {object_id}'.split()
+    runner = CliRunner()
+    result = runner.invoke(cli, params)
+    print(result.output)
+    assert result.exit_code == 0
+    expected_strings = [project_id]
+    for expected_string in expected_strings:
+        assert expected_string in result.output, f"{expected_string} not found in {result.output}"
+
+
 def test_workflow(data_bucket):
 
     guid = str(uuid.uuid4())
@@ -137,5 +149,7 @@ def test_workflow(data_bucket):
         assert stat.st_size == _['size']
         # should also be able to use `gen3 file download-single`
         meta_cp_download_via_gen3(_['did'], tmp_dir_name)
+        # import metadata
+        import_metadata(project_id, _['did'])
     assert found_our_project, f"Did not find our project {project_id} in {records}"
     shutil.rmtree(tmp_dir_name)
