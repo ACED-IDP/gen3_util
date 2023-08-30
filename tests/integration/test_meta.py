@@ -115,6 +115,7 @@ def import_metadata(project_id, object_id):
     params = f'--format json jobs import {project_id} {object_id}'.split()
     runner = CliRunner()
     result = runner.invoke(cli, params)
+    print(params)
     print(result.output)
     assert result.exit_code == 0
     expected_strings = [project_id]

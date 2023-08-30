@@ -10,4 +10,4 @@ def dependency() -> str:
 @pytest.fixture
 def data_bucket() -> str:
     """Expected data bucket, keep in sync with development.aced-idp.org."""
-    return "aced-development-ohsu-data-bucket"
+    return "aced-ohsu-development"
