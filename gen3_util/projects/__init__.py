@@ -3,7 +3,6 @@ from collections import defaultdict
 
 from gen3.auth import Gen3Auth
 from pydantic import BaseModel
-from pydantic_yaml import YamlModel
 
 from gen3_util.config import ensure_auth, Config
 
@@ -15,7 +14,7 @@ class ProjectSummary(BaseModel):
     permissions: list[dict[str, Any]] = []
 
 
-class ProjectSummaries(YamlModel):
+class ProjectSummaries(BaseModel):
     """Summary of projects, including messages."""
     endpoint: str
     """The commons url"""

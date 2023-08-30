@@ -21,13 +21,14 @@ requests
 # modern python dataclasses
 pydantic
 # lock version
-pydantic-yaml==0.11.2
+pydantic_yaml
+
+# for 3.11 - see https://github.com/yaml/pyyaml/issues/724
+PyYAML==5.3.1
 
 # function caching
 # joblib
-# packaging
-setuptools
 # IO
-PyYAML
+
 # FHIR Model
 fhir.resources
