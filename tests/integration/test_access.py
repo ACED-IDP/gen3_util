@@ -46,7 +46,7 @@ def test_access_touch_bad_email():
 
 
 def test_access_touch_bad_project_id():
-    """Ensure we catch invalid email."""
+    """Ensure we catch project id."""
     runner = CliRunner()
     result = runner.invoke(cli, 'access touch bar@foo.com aced-Alcoholism-XXX --roles storage_writer,file_uploader'.split())
     assert result.exit_code != 0

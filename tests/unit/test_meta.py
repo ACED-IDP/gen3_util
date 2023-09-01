@@ -35,6 +35,7 @@ def test_meta_plugin():
     runner = CliRunner()
     result = runner.invoke(cli, params)
     assert result.exit_code == 0
+    print(result.output)
     _ = json.loads(result.output)
     assert _['summary']['DocumentReference']['size'] == 6013814, f"DocumentReference size is not 6013814 {_}"
     assert _['summary']['DocumentReference']['count'] == 5, "DocumentReference count is not 5"

@@ -152,8 +152,7 @@ def validate_project_id(project_id) -> list[str]:
     msgs = []
     if not project_id:
         msgs.append("project_id is missing")
-    if not project_id.count('-') == 1:
-        msgs.append(f"{project_id} should have a single '-' delimiter.")
+    assert project_id.count('-') in [0, 1], f"{project_id} should have a single '-' delimiter."
     return msgs
 
 

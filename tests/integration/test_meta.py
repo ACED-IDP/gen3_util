@@ -40,6 +40,7 @@ def ls():
 
 
 def meta_cp_upload(tmp_dir_name, data_bucket, project_id):
+    """Upload meta data file to data_bucket."""
     params = f'--format json meta cp {tmp_dir_name} bucket://{data_bucket} --project_id {project_id} --ignore_state'.split()
     runner = CliRunner()
     result = runner.invoke(cli, params)
@@ -123,6 +124,28 @@ def import_metadata(project_id, object_id):
         assert expected_string in result.output, f"{expected_string} not found in {result.output}"
 
 
+def files_cp_upload(tmp_dir_name, data_bucket, project_id):
+    """Upload files to data_bucket."""
+    runner = CliRunner()
+    result = runner.invoke(cli, ['files', 'cp', '--project_id', project_id, '--ignore_state',
+                                 f'{tmp_dir_name}/DocumentReference.ndjson', "bucket://"+data_bucket])
+
+    print(result.output)
+    assert result.exit_code == 0
+
+
+def ensure_files_uploaded(project_id):
+    """Query files in indexd."""
+    runner = CliRunner()
+    result = runner.invoke(cli, ['--format', 'json', 'files', 'ls', '--project_id', project_id])
+    assert result.exit_code == 0
+    file_names = [_["file_name"] for _ in json.loads(result.output)['records']]
+    assert sorted(file_names) == ['tests/fixtures/dir_to_study/file-1.txt', 'tests/fixtures/dir_to_study/file-2.csv',
+                                  'tests/fixtures/dir_to_study/sub-dir/file-3.pdf',
+                                  'tests/fixtures/dir_to_study/sub-dir/file-4.tsv',
+                                  'tests/fixtures/dir_to_study/sub-dir/file-5'], result.output
+
+
 def test_workflow(data_bucket):
 
     guid = str(uuid.uuid4())
@@ -136,6 +159,8 @@ def test_workflow(data_bucket):
     # add_policies(project_id)
 
     import_from_directory(tmp_dir_name, project_id)
+    files_cp_upload(tmp_dir_name, data_bucket, project_id)
+    ensure_files_uploaded(project_id)
 
     meta_cp_upload(tmp_dir_name, data_bucket, project_id)
     program, project = project_id.split('-')

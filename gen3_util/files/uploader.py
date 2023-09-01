@@ -42,15 +42,18 @@ def _upload_file_to_signed_url(file_name, md5sum, metadata, signed_url):
 
 
 def _update_indexd(attachment, bucket_name, document_reference, duplicate_check, index_client, md5sum, object_name,
-                   program, project, metadata=None):
+                   program, project, metadata=None, specimen_id=None, patient_id=None, task_id=None):
     hashes = {'md5': md5sum}
     assert 'id' in document_reference, document_reference
     guid = document_reference['id']
     if metadata is None:
         metadata = {
             **{
-                'datanode_type': 'DocumentReference',
-                'datanode_object_id': guid
+                'document_reference_id': guid,
+                'specimen_identifier': specimen_id,
+                'patient_identifier': patient_id,
+                'task_identifier': task_id,
+                'project_id': f'{program}-{project}',
             },
             **hashes}
     # SYNC
@@ -154,7 +157,7 @@ def _normalize_file_url(path: str) -> str:
 
 def _upload_document_reference(config: Config, document_reference: dict, bucket_name: str,
                                program: str, project: str, duplicate_check: bool,
-                               source_path: str) -> UploadResult:
+                               source_path: str, specimen_id: str, patient_id: str, task_id: id) -> UploadResult:
     """Write a single document reference to indexd and upload file."""
 
     try:
@@ -170,7 +173,7 @@ def _upload_document_reference(config: Config, document_reference: dict, bucket_
         object_name = _normalize_file_url(attachment['url'])
 
         metadata = _update_indexd(attachment, bucket_name, document_reference, duplicate_check, index_client, md5sum,
-                                  object_name, program, project)
+                                  object_name, program, project, specimen_id=specimen_id, patient_id=patient_id, task_id=task_id)
 
         # create a record in gen3 using document_reference's id as guid, get a signed url
         # SYNC
@@ -196,7 +199,8 @@ def _upload_document_reference(config: Config, document_reference: dict, bucket_
 
 
 def cp(config: Config, from_: str, to_: str, ignore_state: bool, worker_count: int, project_id: str,
-       source_path: str, disable_progress_bar: bool, duplicate_check: bool) -> UploaderResults:
+       source_path: str, disable_progress_bar: bool, duplicate_check: bool, specimen_id: str, patient_id: str,
+       task_id: str) -> UploaderResults:
     """Copy files from local file system to bucket"""
 
     document_reference_path, to_ = _validate_parameters(from_, to_)
@@ -255,7 +259,10 @@ def cp(config: Config, from_: str, to_: str, ignore_state: bool, worker_count: i
                     program,
                     project,
                     duplicate_check,
-                    source_path
+                    source_path,
+                    specimen_id,
+                    patient_id,
+                    task_id
                 )
             )
             results.append(result)

@@ -19,9 +19,33 @@ def file_group(config):
 
 @file_group.command(name="ls")
 @click.pass_obj
-def files_ls(config: Config):
+@click.option('--object_id', default=None, required=False, show_default=True,
+              help="id of the object in the indexd database")
+@click.option('--project_id', default=None, required=False, show_default=True,
+              help="Gen3 program-project")
+@click.option('--specimen_id', default=None, required=False, show_default=True,
+              help="fhir specimen identifier")
+@click.option('--patient_id', default=None, required=False, show_default=True,
+              help="fhir patient identifier")
+@click.option('--task_id', default=None, required=False, show_default=True,
+              help="fhir task identifier")
+@click.option('--md5', default=None, required=False, show_default=True,
+              help="file's md5")
+def files_ls(config: Config, object_id: str, project_id: str, specimen_id: str, patient_id: str, task_id: str, md5: str):
     """List files in a project."""
-    ls(config)
+    with CLIOutput(config=config) as output:
+        _ = {}
+        if project_id:
+            _['project_id'] = project_id
+        if specimen_id:
+            _['specimen_id'] = specimen_id
+        if patient_id:
+            _['patient_id'] = patient_id
+        if task_id:
+            _['task_id'] = task_id
+        if md5:
+            _['md5'] = md5
+        output.update(ls(config, object_id=object_id, metadata=_))
 
 
 @file_group.command(name="cp")
@@ -33,15 +57,22 @@ def files_ls(config: Config):
               help="Upload file, even if already uploaded")
 @click.option('--project_id', default=None, required=False, show_default=True,
               help="Gen3 program-project")
+@click.option('--specimen_id', default=None, required=False, show_default=True,
+              help="fhir specimen identifier")
+@click.option('--patient_id', default=None, required=False, show_default=True,
+              help="fhir patient identifier")
+@click.option('--task_id', default=None, required=False, show_default=True,
+              help="fhir task identifier")
 @click.option('--source_path', required=False, default=None, show_default=True,
               help='Path on local file system')
 @click.option('--disable_progress_bar', default=False, is_flag=True, show_default=True,
               help="Show progress bar")
 @click.option('--duplicate_check', default=False, is_flag=True, show_default=True,
-              help="Re-write metadata from indexd")
+              help="Update metadata in indexd")
 @click.pass_obj
 def files_cp(config: Config, from_: str, to_: str, worker_count: int, ignore_state: bool, project_id: str,
-             source_path: str, disable_progress_bar: bool, duplicate_check: bool):
+             source_path: str, disable_progress_bar: bool, duplicate_check: bool, specimen_id: str, patient_id: str,
+             task_id: str):
     """Copy files to/from the project bucket.
 
     \b
@@ -53,7 +84,8 @@ def files_cp(config: Config, from_: str, to_: str, worker_count: int, ignore_sta
 
         if is_url(to_):
             _ = upload(config, from_, to_, worker_count=worker_count, ignore_state=ignore_state, project_id=project_id,
-                       source_path=source_path, disable_progress_bar=disable_progress_bar, duplicate_check=duplicate_check)
+                       source_path=source_path, disable_progress_bar=disable_progress_bar, duplicate_check=duplicate_check,
+                       specimen_id=specimen_id, patient_id=patient_id, task_id=task_id)
             output.update(_)
             if len(_.incomplete) > 0:
                 raise ValueError("Not all transfers complete.")
