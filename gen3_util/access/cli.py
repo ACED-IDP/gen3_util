@@ -2,7 +2,7 @@ import click
 import yaml
 
 from gen3_util.access import create_request
-from gen3_util.access.requestor import ls, cat, update, format_policy
+from gen3_util.access.requestor import ls, cat, update, format_policy, LogAccess
 from gen3_util.cli import CLIOutput
 from gen3_util.cli import NaturalOrderGroup
 from gen3_util.common import validate_project_id, validate_email, to_resource_path, print_formatted
@@ -91,6 +91,39 @@ def access_update(config: Config, request_id: str, status: str):
     """
     with CLIOutput(config=config) as output:
         output.update(update(config, request_id, status))
+
+
+@access_group.command(name="sign")
+@click.option('--project_id', required=False, help='Project ID to apply to all policies in template, ex: --project_id "program-project"')
+@click.pass_obj
+def sign(config: Config, project_id: str):
+    """Sign all policies for a project.
+    \b
+    """
+    validate_project_id(project_id)
+    program, project = project_id.split('-')
+
+    with CLIOutput(config=config) as output:
+        access = ls(config, False)
+        project_requests = [_ for _ in access.requests if program in _['policy_id'] and project in _['policy_id']]
+        unsigned_requests = [_ for _ in project_requests if _['status'] != 'SIGNED']
+        if len(project_requests) == 0:
+            output.update(LogAccess(**{
+                'msg': f"No requests found for {project_id}"
+            }))
+        elif len(unsigned_requests) == 0:
+            output.update(LogAccess(**{
+                'msg': f"All requests for {project_id} are already signed"
+            }))
+        else:
+            msg = f"Signed requests for {project_id}"
+            signed_requests = []
+            for request in unsigned_requests:
+                signed_requests.append(update(config, request_id=request['request_id'], status='SIGNED').request)
+            output.update(LogAccess(**{
+                'msg': msg,
+                'requests': signed_requests,
+            }))
 
 
 @access_group.command(name="ls")

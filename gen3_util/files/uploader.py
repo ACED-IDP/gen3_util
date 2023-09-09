@@ -5,11 +5,13 @@ import logging
 import pathlib
 import re
 import urllib
+import uuid
 from dataclasses import dataclass
 from multiprocessing import Pool
 from time import sleep
 from typing import List
 from urllib.parse import urlparse, ParseResult
+import mimetypes
 
 import requests
 from orjson import orjson
@@ -19,6 +21,17 @@ from tqdm import tqdm
 from gen3_util.common import read_ndjson_file
 from gen3_util.config import Config, gen3_services
 from gen3_util.files import assert_valid_project_id, assert_valid_bucket
+
+import sys
+
+from gen3_util.meta import ACED_NAMESPACE
+from gen3_util.meta.importer import md5sum
+
+try:
+    import magic
+except ImportError as e:
+    print(f"Requires libmagic installed on your system to determine file mime-types\nError: '{e}'\nFor installation instructions see https://github.com/ahupp/python-magic#installation")
+    sys.exit(1)
 
 logger = logging.getLogger(__name__)
 
@@ -42,7 +55,7 @@ def _upload_file_to_signed_url(file_name, md5sum, metadata, signed_url):
 
 
 def _update_indexd(attachment, bucket_name, document_reference, duplicate_check, index_client, md5sum, object_name,
-                   program, project, metadata=None, specimen_id=None, patient_id=None, task_id=None):
+                   program, project, metadata=None, specimen_id=None, patient_id=None, task_id=None, observation_id=None):
     hashes = {'md5': md5sum}
     assert 'id' in document_reference, document_reference
     guid = document_reference['id']
@@ -53,6 +66,7 @@ def _update_indexd(attachment, bucket_name, document_reference, duplicate_check,
                 'specimen_identifier': specimen_id,
                 'patient_identifier': patient_id,
                 'task_identifier': task_id,
+                'observation_id': observation_id,
                 'project_id': f'{program}-{project}',
             },
             **hashes}
@@ -135,6 +149,8 @@ class UploaderResults(BaseModel):
     """Logging"""
     errors: List[str] = []
     """Logging"""
+    object_id: str = None
+    """The object_id of the uploaded file."""
 
 
 @dataclass
@@ -157,7 +173,7 @@ def _normalize_file_url(path: str) -> str:
 
 def _upload_document_reference(config: Config, document_reference: dict, bucket_name: str,
                                program: str, project: str, duplicate_check: bool,
-                               source_path: str, specimen_id: str, patient_id: str, task_id: id) -> UploadResult:
+                               source_path: str) -> UploadResult:
     """Write a single document reference to indexd and upload file."""
 
     try:
@@ -173,7 +189,7 @@ def _upload_document_reference(config: Config, document_reference: dict, bucket_
         object_name = _normalize_file_url(attachment['url'])
 
         metadata = _update_indexd(attachment, bucket_name, document_reference, duplicate_check, index_client, md5sum,
-                                  object_name, program, project, specimen_id=specimen_id, patient_id=patient_id, task_id=task_id)
+                                  object_name, program, project)
 
         # create a record in gen3 using document_reference's id as guid, get a signed url
         # SYNC
@@ -198,9 +214,120 @@ def _upload_document_reference(config: Config, document_reference: dict, bucket_
         return UploadResult(document_reference, None, e)
 
 
+def put(config: Config, from_: str, to_: str, ignore_state: bool, worker_count: int, project_id: str, source_path: str,
+        disable_progress_bar: bool, duplicate_check: bool, specimen_id: str, patient_id: str,
+        observation_id: str, task_id: str, md5: str) -> UploaderResults:
+    """Copy single file from local file system to bucket
+
+    """
+
+    object_name = _normalize_file_url(from_)
+    file = pathlib.Path(from_)
+    assert file.is_file(), f"{file} is not a file"
+
+    to_ = urlparse(to_)
+    assert to_.scheme, f"{to_} does not appear to be a url"
+
+    bucket_name = to_.hostname
+
+    assert_valid_project_id(config, project_id)
+
+    assert_valid_bucket(config, bucket_name)
+
+    program, project = project_id.split('-')
+
+    state_file = config.state_dir / "state.ndjson"
+    state_file.parent.mkdir(parents=True, exist_ok=True)
+    assert state_file.parent.exists(), f"{state_file.parent} does not exist"
+
+    # all attempts ids are incomplete until they succeed
+    incomplete = set()
+    # key:document_reference.id of completed file transfers
+    # completed = set()
+    # key:document_reference.id  of failed file transfers
+    exceptions = {}
+    info = []
+    # already_uploaded = _ensure_already_uploaded(ignore_state, state_file)
+
+    file_client, index_client, user = gen3_services(config=config)
+
+    stat = file.stat()
+    # modified = datetime.datetime.fromtimestamp(stat.st_mtime, tz=datetime.timezone.utc)
+    _magic = magic.Magic(mime=True, uncompress=True)  # https://github.com/ahupp/python-magic#installation
+
+    mime, encoding = mimetypes.guess_type(file)
+    if not mime:
+        mime = _magic.from_file(file)
+
+    id_ = str(uuid.uuid5(ACED_NAMESPACE, project_id + f"::{file}"))
+    # date_ = modified.isoformat(),  # When this document reference was created
+    if not md5:
+        md5 = md5sum(file)
+
+    s3_url = f"s3://{bucket_name}/{id_}/{object_name}"
+
+    # write to indexd
+
+    hashes = {'md5': md5}
+    metadata = {
+        **{
+            'document_reference_id': id_,
+            'specimen_identifier': specimen_id,
+            'patient_identifier': patient_id,
+            'task_identifier': task_id,
+            'observation_identifier': observation_id,
+            'project_id': f'{program}-{project}',
+            'mime_type': mime,
+        },
+        **hashes}
+
+    existing_record = None
+    if duplicate_check:
+        try:
+            existing_record = index_client.get_record(guid=id_)
+        except Exception: # noqa
+            pass
+        if existing_record:
+            info.append(f"Deleting existing record {id_} {file}")
+            index_client.delete_record(guid=id_)
+            existing_record = None
+
+    if not existing_record:
+        try:
+            _ = index_client.create_record(
+                did=id_,
+                hashes=hashes,
+                size=stat.st_size,
+                authz=[f'/programs/{program}/projects/{project}'],
+                file_name=object_name,
+                metadata=metadata,
+                urls=[s3_url]  # TODO make a DRS URL
+            )
+            info.append(f"Created indexd record {id_} for {file}")
+        except (requests.exceptions.HTTPError, AssertionError) as e:
+            if not ('already exists' in str(e)):
+                raise e
+            info.append(f"indexd record already exists {id_} {file}")
+
+    document = file_client.upload_file_to_guid(guid=id_, file_name=object_name, bucket=bucket_name)
+    assert 'url' in document, document
+    signed_url = urllib.parse.unquote(document['url'])
+    # info.append(f"Got signed url {signed_url}")
+
+    _upload_file_to_signed_url(file, md5, metadata, signed_url)
+    info.append(f"Uploaded {file} to {bucket_name}")
+
+    results = {
+        'info': info,
+        'incomplete': [_ for _ in incomplete],
+        'errors': [f"{k}: {str(v['exception'])}" for k, v in exceptions.items()],
+        'object_id': id_,
+    }
+    return UploaderResults(**results)
+
+
 def cp(config: Config, from_: str, to_: str, ignore_state: bool, worker_count: int, project_id: str,
-       source_path: str, disable_progress_bar: bool, duplicate_check: bool, specimen_id: str, patient_id: str,
-       task_id: str) -> UploaderResults:
+       source_path: str, disable_progress_bar: bool, duplicate_check: bool) -> UploaderResults:
     """Copy files from local file system to bucket"""
 
     document_reference_path, to_ = _validate_parameters(from_, to_)
@@ -260,9 +387,6 @@ def cp(config: Config, from_: str, to_: str, ignore_state: bool, worker_count: i
                     project,
                     duplicate_check,
                     source_path,
-                    specimen_id,
-                    patient_id,
-                    task_id
                 )
             )
             results.append(result)

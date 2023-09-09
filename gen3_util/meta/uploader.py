@@ -1,4 +1,5 @@
 import logging
+import os
 import pathlib
 import tempfile
 import urllib
@@ -82,7 +83,7 @@ def cp(config: Config, from_: str, to_: str, project_id: str, ignore_state: bool
 
     with tempfile.TemporaryDirectory() as temp_dir:
         temp_dir = pathlib.Path(temp_dir)
-        object_name = f'_{project_id}_meta.zip'
+        object_name = f'_{project_id}-{str(os.urandom(8))}_meta.zip'
 
         zipfile_path = temp_dir / object_name
         with ZipFile(zipfile_path, 'w') as zip_object:
@@ -114,4 +115,4 @@ def cp(config: Config, from_: str, to_: str, project_id: str, ignore_state: bool
         file_name = pathlib.Path(zipfile_path)
 
         _upload_file_to_signed_url(file_name, md5_sum, metadata, signed_url)
-        return {'msg': f"Uploaded {file_name} to {signed_url}"}
+        return {'msg': f"Uploaded {file_name}", "object_id": id_}
