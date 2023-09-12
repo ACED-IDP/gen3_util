@@ -38,7 +38,9 @@ def import_meta(config: Config, project_id: str, object_id: str):
     OBJECT_ID: indexd record id of uploaded metadata
     """
     auth = ensure_auth(config.gen3.refresh_file)
+    # delivered to sower job in env['ACCESS_TOKEN']
     jobs_client = Gen3Jobs(auth_provider=auth)
+    # delivered to sower job in env['INPUT_DATA']
     args = {'object_id': object_id, 'project_id': project_id}
 
     _ = asyncio.run(jobs_client.async_run_job_and_wait('fhir_import', args))
