@@ -95,7 +95,7 @@ gen3_util files put --project_id  test-myproject \
 
 ```text
 # create basic, minimal metadata for the project
-gen3_util meta import indexd --project_id test-myproject /tmp/test-myproject
+gen3_util meta create indexd --project_id test-myproject /tmp/test-myproject
 ```
 
 ### Optional: edit the metadata
