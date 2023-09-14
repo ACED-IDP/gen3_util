@@ -11,13 +11,14 @@ gen3_util access sign --project_id test-myproject
 
 ```
 
+# Use case: upload files and associate them with a study
 
 
 ## add files to the project
 
 ```text
 # find all files under tests/fixtures/add_files_to_study
-find tests/fixtures/add_files_to_study -type f  | xargs  -I PATH gen3_util files put --project_id  test-myproject PATH bucket://aced-development-ohsu-data-bucket
+find tests/fixtures/add_files_to_study -type f  | xargs  -I PATH gen3_util files put --project_id  test-myproject PATH
 
 ```
 
@@ -25,7 +26,7 @@ find tests/fixtures/add_files_to_study -type f  | xargs  -I PATH gen3_util files
 
 ```text
 # create basic, minimal metadata for the project
-gen3_util meta import indexd --project_id test-myproject /tmp/test-myproject
+gen3_util meta create indexd --project_id test-myproject /tmp/test-myproject
 ```
 
 ### Optional: edit the metadata
@@ -41,10 +42,89 @@ ResearchStudy.ndjson
 
 ```text
 # copy the metadata to the bucket and publish the metadata to the portal
-gen3_util meta publish  /tmp/test-myproject  bucket://aced-development-ohsu-data-bucket --project_id test-myproject
+gen3_util meta publish  /tmp/test-myproject --project_id test-myproject
 
 ```
 
 
 ## View in portal
 <img alt="image" src="https://github.com/ACED-IDP/data_model/assets/47808/133ef835-63d6-473e-80ad-9c4e0de62651">
+
+
+# Use case: upload files and associate them with a patient, specimen or observation
+
+## Add file to the project, note we assign a patient identifier to the file
+
+```commandline
+gen3_util files put --project_id  test-myproject \
+    --patient_id patient-1 \
+    tests/fixtures/add_files_to_study/file-1.txt \
+    bucket://aced-development-ohsu-data-bucket
+```
+
+## Add file to the project, note we assign a patient identifier and specimen identifier to the file
+
+```commandline
+gen3_util files put --project_id  test-myproject \
+    --patient_id patient-1 \
+    --specimen_id specimen-1 \
+    tests/fixtures/add_files_to_study/file-2.csv \
+    bucket://aced-development-ohsu-data-bucket
+```
+
+## Add file to the project, note we assign a patient identifier and observation identifier to the file
+
+```commandline
+gen3_util files put --project_id  test-myproject \
+    --patient_id patient-1 \
+    --observation_id observation-1 \
+    tests/fixtures/add_files_to_study/sub-dir/file-3.pdf \
+    bucket://aced-development-ohsu-data-bucket
+```
+
+## Add file to the project, note we assign a patient identifier, specimen identifier and a task identifier to the file
+
+```commandline
+
+gen3_util files put --project_id  test-myproject \
+    --patient_id patient-1 \
+    --observation_id observation-2 \
+    --task_id task-1 \
+    tests/fixtures/add_files_to_study/sub-dir/file-4.tsv \
+    bucket://aced-development-ohsu-data-bucket
+
+```
+
+## Create project metadata
+
+```text
+# create basic, minimal metadata for the project
+gen3_util meta import indexd --project_id test-myproject /tmp/test-myproject
+```
+
+### Optional: edit the metadata
+
+```commandline
+ls -1 /tmp/test-myproject/
+DocumentReference.ndjson
+Observation.ndjson
+Patient.ndjson
+ResearchStudy.ndjson
+ResearchSubject.ndjson
+Specimen.ndjson
+Task.ndjson
+```
+
+
+## Publish the project metadata to the portal
+
+```text
+# copy the metadata to the bucket and publish the metadata to the portal
+gen3_util meta publish  /tmp/test-myproject  bucket://aced-development-ohsu-data-bucket --project_id test-myproject
+
+```
+
+
+## View in portal
+
+<img width="1485" alt="image" src="https://github.com/ACED-IDP/gen3_util/assets/47808/d4d8c6bf-bb9a-49cf-affc-34daf78ce92c">

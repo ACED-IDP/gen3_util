@@ -62,11 +62,13 @@ def test_meta(caplog):
     assert result.exit_code == 0
     print(result.output)
     expected_strings = """
+      publish   Publish meta data on the portal from_: meta data directory
       cp        Copy meta to/from the project bucket.
-      ls        Query buckets from submitted metadata.
+      ls        Query buckets for submitted metadata.
       rm        Remove meta from a project.
-      import    Import study from directory listing.
+      create    Create meta data from imported files
       validate  Validate FHIR data in DIRECTORY.
+      node      Retrieve simplified metadata for a node.
     """.split()
     for expected_string in expected_strings:
         assert expected_string in result.output, f"Should have printed {expected_string}"

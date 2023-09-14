@@ -5,7 +5,7 @@ from gen3_util.config import Config, gen3_services, ensure_auth
 
 def ls(config: Config, object_id: str = None, metadata: dict = {}):
     """List files."""
-    file_client, index_client, user = gen3_services(config=config)
+    file_client, index_client, user, auth = gen3_services(config=config)
     if object_id:
         records = index_client.client.bulk_request(dids=[object_id])
         return {'records': [_.to_json() for _ in records]}

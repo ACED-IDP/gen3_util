@@ -10,7 +10,7 @@ from dataclasses import dataclass
 from multiprocessing import Pool
 from time import sleep
 from typing import List
-from urllib.parse import urlparse, ParseResult
+from urllib.parse import urlparse
 import mimetypes
 
 import requests
@@ -18,9 +18,10 @@ from orjson import orjson
 from pydantic import BaseModel
 from tqdm import tqdm
 
+from gen3_util.buckets import get_program_bucket
 from gen3_util.common import read_ndjson_file
 from gen3_util.config import Config, gen3_services
-from gen3_util.files import assert_valid_project_id, assert_valid_bucket
+from gen3_util.files import assert_valid_project_id
 
 import sys
 
@@ -129,9 +130,7 @@ def _extract_extensions(document_reference):
     return attachment, md5sum, source_path_extension
 
 
-def _validate_parameters(from_: str, to_: str) -> (pathlib.Path, ParseResult):
-    url = urlparse(to_)
-    assert url.scheme, f"{to_} does not appear to be a url"
+def _validate_parameters(from_: str) -> pathlib.Path:
 
     assert len(urlparse(from_).scheme) == 0, f"{from_} appears to be an url. url to url cp not supported"
 
@@ -139,7 +138,7 @@ def _validate_parameters(from_: str, to_: str) -> (pathlib.Path, ParseResult):
     assert from_.parent.exists(), f"{from_.parent} is not a directory"
     assert from_.exists(), f"{from_} does not exist"
 
-    return from_, url
+    return from_
 
 
 class UploaderResults(BaseModel):
@@ -179,7 +178,7 @@ def _upload_document_reference(config: Config, document_reference: dict, bucket_
     try:
         start = datetime.datetime.now()
 
-        file_client, index_client, user = gen3_services(config=config)
+        file_client, index_client, user, auth = gen3_services(config=config)
 
         attachment, md5sum, source_path_extension = _extract_extensions(document_reference)
 
@@ -214,7 +213,7 @@ def _upload_document_reference(config: Config, document_reference: dict, bucket_
         return UploadResult(document_reference, None, e)
 
 
-def put(config: Config, from_: str, to_: str, ignore_state: bool, worker_count: int, project_id: str, source_path: str,
+def put(config: Config, from_: str, ignore_state: bool, worker_count: int, project_id: str, source_path: str,
         disable_progress_bar: bool, duplicate_check: bool, specimen_id: str, patient_id: str,
         observation_id: str, task_id: str, md5: str) -> UploaderResults:
     """Copy single file from local file system to bucket
@@ -225,16 +224,12 @@ def put(config: Config, from_: str, to_: str, ignore_state: bool, worker_count: 
     file = pathlib.Path(from_)
     assert file.is_file(), f"{file} is not a file"
 
-    to_ = urlparse(to_)
-    assert to_.scheme, f"{to_} does not appear to be a url"
-
-    bucket_name = to_.hostname
-
     assert_valid_project_id(config, project_id)
 
-    assert_valid_bucket(config, bucket_name)
-
     program, project = project_id.split('-')
+
+    bucket_name = get_program_bucket(config, program)
+    assert bucket_name, f"could not find bucket for {program}"
 
     state_file = config.state_dir / "state.ndjson"
     state_file.parent.mkdir(parents=True, exist_ok=True)
@@ -249,7 +244,9 @@ def put(config: Config, from_: str, to_: str, ignore_state: bool, worker_count: 
     info = []
     # already_uploaded = _ensure_already_uploaded(ignore_state, state_file)
 
-    file_client, index_client, user = gen3_services(config=config)
+    file_client, index_client, user, auth = gen3_services(config=config)
+
+    # TODO get to_ from buckets given program buckets = get_buckets(auth=auth)
 
     stat = file.stat()
     # modified = datetime.datetime.fromtimestamp(stat.st_mtime, tz=datetime.timezone.utc)
@@ -326,18 +323,18 @@ def put(config: Config, from_: str, to_: str, ignore_state: bool, worker_count: 
     return UploaderResults(**results)
 
 
-def cp(config: Config, from_: str, to_: str, ignore_state: bool, worker_count: int, project_id: str,
+def cp(config: Config, from_: str, ignore_state: bool, worker_count: int, project_id: str,
        source_path: str, disable_progress_bar: bool, duplicate_check: bool) -> UploaderResults:
     """Copy files from local file system to bucket"""
 
-    document_reference_path, to_ = _validate_parameters(from_, to_)
-    bucket_name = to_.hostname
+    document_reference_path = _validate_parameters(from_)
 
     assert_valid_project_id(config, project_id)
 
-    assert_valid_bucket(config, bucket_name)
-
     program, project = project_id.split('-')
+
+    bucket_name = get_program_bucket(config, program)
+    assert bucket_name, f"could not find bucket for {program}"
 
     state_file = config.state_dir / "state.ndjson"
 

@@ -1,8 +1,9 @@
+import pathlib
+
 import click
 
 from gen3_util.cli import CLIOutput
 from gen3_util.cli import NaturalOrderGroup
-from gen3_util.common import is_url
 from gen3_util.config import Config
 from gen3_util.files.downloader import cp as download
 from gen3_util.files.lister import ls
@@ -54,7 +55,7 @@ def files_ls(config: Config, object_id: str, project_id: str, specimen_id: str, 
 
 @file_group.command(name="cp")
 @click.argument('from_', )
-@click.argument('to_')
+@click.argument('to_', )
 @click.option('--worker_count', default=10, show_default=True,
               help="Number of worker processes")
 @click.option('--ignore_state', default=False, is_flag=True, show_default=True,
@@ -82,13 +83,12 @@ def files_cp(config: Config, from_: str, to_: str, worker_count: int, ignore_sta
 
     \b
     from_: Source url or path to DocumentReference.ndjson
-    to_: Destination url or path
     """
 
     with CLIOutput(config=config) as output:
 
-        if is_url(to_):
-            _ = upload(config, from_, to_, worker_count=worker_count, ignore_state=ignore_state, project_id=project_id,
+        if pathlib.Path(from_).exists():
+            _ = upload(config, from_, worker_count=worker_count, ignore_state=ignore_state, project_id=project_id,
                        source_path=source_path, disable_progress_bar=disable_progress_bar, duplicate_check=duplicate_check)
             output.update(_)
             if len(_.incomplete) > 0:
@@ -99,7 +99,6 @@ def files_cp(config: Config, from_: str, to_: str, worker_count: int, ignore_sta
 
 @file_group.command(name="put")
 @click.argument('from_', )
-@click.argument('to_')
 @click.option('--worker_count', default=10, show_default=True,
               help="Number of worker processes")
 @click.option('--ignore_state', default=False, is_flag=True, show_default=True,
@@ -123,18 +122,17 @@ def files_cp(config: Config, from_: str, to_: str, worker_count: int, ignore_sta
 @click.option('--duplicate_check', default=False, is_flag=True, show_default=True,
               help="Update metadata in indexd")
 @click.pass_obj
-def files_put(config: Config, from_: str, to_: str, worker_count: int, ignore_state: bool, project_id: str,
+def files_put(config: Config, from_: str, worker_count: int, ignore_state: bool, project_id: str,
               source_path: str, disable_progress_bar: bool, duplicate_check: bool,
               specimen_id: str, patient_id: str, observation_id: str, task_id: str, md5: str):
     """Copy one file to the project bucket.
 
     \b
     from_: path to file
-    to_: bucket://<bucket_name>
     """
 
     with CLIOutput(config=config) as output:
-        _ = put(config, from_, to_, worker_count=worker_count, ignore_state=ignore_state, project_id=project_id,
+        _ = put(config, from_, worker_count=worker_count, ignore_state=ignore_state, project_id=project_id,
                 source_path=source_path, disable_progress_bar=disable_progress_bar, duplicate_check=duplicate_check,
                 specimen_id=specimen_id, patient_id=patient_id, observation_id=observation_id, task_id=task_id,
                 md5=md5

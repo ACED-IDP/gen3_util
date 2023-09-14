@@ -1,13 +1,14 @@
 import logging
-import os
 import pathlib
 import tempfile
 import urllib
 import uuid
-from urllib.parse import urlparse, ParseResult
+from datetime import datetime
+from urllib.parse import urlparse
 
 import requests
 
+from gen3_util.buckets import get_program_bucket
 from gen3_util.config import Config, gen3_services
 from zipfile import ZipFile
 
@@ -62,28 +63,32 @@ def _update_indexd(id_, bucket_name, duplicate_check, index_client, md5_sum, obj
     return existing_record
 
 
-def _validate_parameters(from_: str, to_: str) -> (pathlib.Path, ParseResult):
-    url = urlparse(to_)
-    assert url.scheme, f"{to_} does not appear to be a url"
+def _validate_parameters(from_: str) -> pathlib.Path:
 
     assert len(urlparse(from_).scheme) == 0, f"{from_} appears to be an url. url to url cp not supported"
 
     from_ = pathlib.Path(from_)
     assert from_.is_dir(), f"{from_} is not a directory"
 
-    return from_, url
+    return from_
 
 
-def cp(config: Config, from_: str, to_: str, project_id: str, ignore_state: bool):
+def cp(config: Config, from_: str, project_id: str, ignore_state: bool):
     """Copy meta to bucket"""
-    from_, to_ = _validate_parameters(from_, to_)
-    bucket_name = to_.hostname
+    from_ = _validate_parameters(from_)
 
-    file_client, index_client, user = gen3_services(config=config)
+    file_client, index_client, user, auth = gen3_services(config=config)
+
+    program, project = project_id.split('-')
+
+    bucket_name = get_program_bucket(config, program, auth=auth)
+    assert bucket_name, f"could not find bucket for {program}"
 
     with tempfile.TemporaryDirectory() as temp_dir:
         temp_dir = pathlib.Path(temp_dir)
-        object_name = f'_{project_id}-{str(os.urandom(8))}_meta.zip'
+        # TODO - use a better name, add timestamp instead of random
+        now = datetime.now().strftime("%Y%m%d-%H%M%S")
+        object_name = f'_{project_id}-{now}_meta.zip'
 
         zipfile_path = temp_dir / object_name
         with ZipFile(zipfile_path, 'w') as zip_object:
@@ -93,7 +98,6 @@ def cp(config: Config, from_: str, to_: str, project_id: str, ignore_state: bool
         stat = zipfile_path.stat()
         md5_sum = md5sum(zipfile_path)
         id_ = str(uuid.uuid5(ACED_NAMESPACE, object_name))
-        program, project = project_id.split('-')
 
         metadata = _update_indexd(
             id_,

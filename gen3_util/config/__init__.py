@@ -85,10 +85,10 @@ class Config(BaseModel):
     """retry state for file transfer"""
 
 
-def gen3_services(config: Config) -> tuple[Gen3File, Gen3Index, dict]:
+def gen3_services(config: Config) -> tuple[Gen3File, Gen3Index, dict, Gen3Auth]:
     """Create Gen3 Services."""
     auth = ensure_auth(config.gen3.refresh_file)
     file_client = Gen3File(auth_provider=auth)
     index_client = Gen3Index(auth_provider=auth)
     user = auth.curl('/user/user').json()
-    return file_client, index_client, user
+    return file_client, index_client, user, auth

@@ -22,5 +22,5 @@ def cp(config: Config, from_: str, to_: str):
     """Copy files from bucket to local file system."""
     # from_, to_ = _validate_parameters(from_, to_)
     # print_formatted(config, {'msg': 'Please use "gen3 file download-single OBJECT_ID"'})
-    file_client, index_client, user = gen3_services(config=config)
+    file_client, index_client, user, auth = gen3_services(config=config)
     file_client.download_single(from_, to_)

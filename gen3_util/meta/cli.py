@@ -13,7 +13,7 @@ from gen3_util.meta.remover import rm
 from gen3_util.meta.uploader import cp as cp_upload
 from gen3_util.meta.validator import validate
 
-from gen3_util.meta.importer import import_dir, import_indexd
+from gen3_util.meta.importer import import_indexd
 from gen3_util.meta.delta import get as delta_get
 
 
@@ -26,32 +26,30 @@ def meta_group(config):
 
 @meta_group.command(name="publish")
 @click.argument('from_')
-@click.argument('to_')
 @click.option('--ignore_state', default=False, is_flag=True, show_default=True,
               help="Upload file, even if already uploaded")
 @click.option('--project_id', default=None, show_default=True,
               help="Gen3 program-project")
 @click.pass_obj
-def meta_publish(config: Config, from_: str, to_: str, project_id: str, ignore_state: bool):
+def meta_publish(config: Config, from_: str,  project_id: str, ignore_state: bool):
     """Publish meta data on the portal
 
     \b
-    from_: meta data directory
-    to_: destination  bucket"""
+    from_: meta data directory"""
 
     msgs = []
     with CLIOutput(config=config) as output:
         assert pathlib.Path(from_).is_dir(), f"{from_} is not a directory"
         assert project_id is not None, "--project_id is required for uploads"
-        upload_result = cp_upload(config, from_, to_, project_id, ignore_state)
+        upload_result = cp_upload(config, from_, project_id, ignore_state)
         msgs.append(upload_result['msg'])
         object_id = upload_result['object_id']
 
         auth = ensure_auth(config.gen3.refresh_file)
         jobs_client = Gen3Jobs(auth_provider=auth)
-        args = {'object_id': object_id, 'project_id': project_id}
+        args = {'object_id': object_id, 'project_id': project_id, 'method': 'put'}
 
-        _ = asyncio.run(jobs_client.async_run_job_and_wait('fhir_import', args))
+        _ = asyncio.run(jobs_client.async_run_job_and_wait('fhir_import_export', args))
         _ = json.loads(_['output'])
         output.update(_)
 
@@ -94,15 +92,14 @@ def meta_rm(config: Config):
     rm(config)
 
 
-@meta_group.group(name="import")
+@meta_group.group(name="create")
 @click.pass_obj
-def meta_import(config: Config):
-    """Import study from directory listing."""
+def meta_create(config: Config):
+    """Create meta data from imported files"""
     pass
 
 
-meta_import.add_command(import_dir)
-meta_import.add_command(import_indexd)
+meta_create.add_command(import_indexd)
 
 
 @meta_group.command(name="validate")
@@ -114,13 +111,13 @@ def meta_validate(config: Config, directory):
         output.update(validate(config, directory))
 
 
-@meta_group.command(name="delta")
+@meta_group.command(name="node")
 @click.option('--project_id', default=None, show_default=True,
               help="Gen3 program-project")
 @click.option('--node_id', default=None, show_default=True,
               help="Gen3 node id")
 @click.pass_obj
 def delta(config: Config, project_id: str, node_id: str):
-    """Validate FHIR data in DIRECTORY."""
+    """Retrieve simplified metadata for a node."""
     with CLIOutput(config) as output:
         output.update(delta_get(config, project_id, node_id))

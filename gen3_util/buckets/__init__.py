@@ -23,3 +23,15 @@ def get_buckets(config: Config = None, auth: Gen3Auth = None) -> dict:
 
     assert response.status_code == 200, (response.status_code, response.content)
     return response.json()
+
+
+def get_program_bucket(config: Config, program: str, auth: Gen3Auth = None) -> str:
+    """Get the bucket for a program."""
+    buckets = get_buckets(config=config, auth=auth)
+    bucket_name = None
+    for k, v in buckets['S3_BUCKETS'].items():
+        if program in v['programs']:
+            bucket_name = k
+            break
+    # assert bucket_name, f"could not find bucket for {program}"
+    return bucket_name
