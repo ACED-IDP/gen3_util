@@ -58,8 +58,7 @@ gen3_util meta publish  /tmp/test-myproject --project_id test-myproject
 ```commandline
 gen3_util files put --project_id  test-myproject \
     --patient_id patient-1 \
-    tests/fixtures/add_files_to_study/file-1.txt \
-    bucket://aced-development-ohsu-data-bucket
+    tests/fixtures/add_files_to_study/file-1.txt
 ```
 
 ## Add file to the project, note we assign a patient identifier and specimen identifier to the file
@@ -68,8 +67,7 @@ gen3_util files put --project_id  test-myproject \
 gen3_util files put --project_id  test-myproject \
     --patient_id patient-1 \
     --specimen_id specimen-1 \
-    tests/fixtures/add_files_to_study/file-2.csv \
-    bucket://aced-development-ohsu-data-bucket
+    tests/fixtures/add_files_to_study/file-2.csv
 ```
 
 ## Add file to the project, note we assign a patient identifier and observation identifier to the file
@@ -78,8 +76,7 @@ gen3_util files put --project_id  test-myproject \
 gen3_util files put --project_id  test-myproject \
     --patient_id patient-1 \
     --observation_id observation-1 \
-    tests/fixtures/add_files_to_study/sub-dir/file-3.pdf \
-    bucket://aced-development-ohsu-data-bucket
+    tests/fixtures/add_files_to_study/sub-dir/file-3.pdf
 ```
 
 ## Add file to the project, note we assign a patient identifier, specimen identifier and a task identifier to the file
@@ -90,8 +87,7 @@ gen3_util files put --project_id  test-myproject \
     --patient_id patient-1 \
     --observation_id observation-2 \
     --task_id task-1 \
-    tests/fixtures/add_files_to_study/sub-dir/file-4.tsv \
-    bucket://aced-development-ohsu-data-bucket
+    tests/fixtures/add_files_to_study/sub-dir/file-4.tsv
 
 ```
 
@@ -120,7 +116,7 @@ Task.ndjson
 
 ```text
 # copy the metadata to the bucket and publish the metadata to the portal
-gen3_util meta publish  /tmp/test-myproject  bucket://aced-development-ohsu-data-bucket --project_id test-myproject
+gen3_util meta publish  /tmp/test-myproject --project_id test-myproject
 
 ```
 
