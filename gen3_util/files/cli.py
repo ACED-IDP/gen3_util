@@ -25,13 +25,13 @@ def file_group(config):
 @click.option('--project_id', default=None, required=False, show_default=True,
               help="Gen3 program-project", envvar='PROJECT_ID')
 @click.option('--specimen_id', default=None, required=False, show_default=True,
-              help="fhir specimen identifier")
+              help="fhir specimen identifier", envvar='SPECIMEN_ID')
 @click.option('--patient_id', default=None, required=False, show_default=True,
-              help="fhir patient identifier")
+              help="fhir patient identifier", envvar='PATIENT_ID')
 @click.option('--observation_id', default=None, required=False, show_default=True,
-              help="fhir observation identifier")
+              help="fhir observation identifier", envvar='OBSERVATION_ID')
 @click.option('--task_id', default=None, required=False, show_default=True,
-              help="fhir task identifier")
+              help="fhir task identifier", envvar='TASK_ID')
 @click.option('--md5', default=None, required=False, show_default=True,
               help="file's md5")
 def files_ls(config: Config, object_id: str, project_id: str, specimen_id: str, patient_id: str, observation_id: str, task_id: str, md5: str):
@@ -108,13 +108,13 @@ def files_cp(config: Config, from_: str, to_: str, worker_count: int, ignore_sta
 @click.option('--source_path', required=False, default=None, show_default=True,
               help='Path on local file system')
 @click.option('--specimen_id', default=None, required=False, show_default=True,
-              help="fhir specimen identifier")
+              help="fhir specimen identifier", envvar='SPECIMEN_ID')
 @click.option('--patient_id', default=None, required=False, show_default=True,
-              help="fhir patient identifier")
+              help="fhir patient identifier", envvar='PATIENT_ID')
 @click.option('--task_id', default=None, required=False, show_default=True,
-              help="fhir task identifier")
+              help="fhir task identifier", envvar='TASK_ID')
 @click.option('--observation_id', default=None, required=False, show_default=True,
-              help="fhir observation identifier")
+              help="fhir observation identifier", envvar='OBSERVATION_ID')
 @click.option('--md5', default=None, required=False, show_default=True,
               help="MD5 sum, if not provided, will be calculated before upload")
 @click.option('--disable_progress_bar', default=False, is_flag=True, show_default=True,
