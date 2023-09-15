@@ -12,6 +12,7 @@ from gen3_util.files.cli import file_group
 from gen3_util.meta.cli import meta_group
 from gen3_util.projects.cli import project_group
 from gen3_util.buckets.cli import bucket_group
+from gen3_util.jobs.cli import job_group
 from gen3_util.common import print_formatted
 
 
@@ -53,6 +54,7 @@ cli.add_command(meta_group)
 cli.add_command(file_group)
 cli.add_command(access_group)
 cli.add_command(config_group)
+cli.add_command(job_group)
 
 
 if __name__ == '__main__':

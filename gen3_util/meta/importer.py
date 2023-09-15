@@ -15,12 +15,15 @@ import mimetypes
 from gen3_util.cli import CLIOutput
 from gen3_util.common import EmitterContextManager
 from gen3_util.config import Config
+from gen3_util.files.lister import meta_nodes
 from gen3_util.meta import ACED_NAMESPACE
 
 from fhir.resources.identifier import Identifier
 from fhir.resources.patient import Patient
 from fhir.resources.specimen import Specimen
 from fhir.resources.resource import Resource
+
+from gen3_util.meta.skeleton import indexd_to_study
 
 try:
     import magic
@@ -104,7 +107,7 @@ def _extract_fhir_resources(file, input_path, plugin_path) -> list[Resource]:
               show_default=True,
               help='Read plugins from this path.')
 @click.pass_obj
-def cli(config: Config, input_path, output_path, project_id, remove_path_prefix, pattern, plugin_path):
+def import_dir(config: Config, input_path, output_path, project_id, remove_path_prefix, pattern, plugin_path):
     """Create minimal study meta from matching files in INPUT_PATH, write to OUTPUT_PATH.
     """
     with CLIOutput(config=config) as output:
@@ -303,3 +306,25 @@ def _discover_plugins(plugin_path: str) -> list[PathParser]:
                 PLUGINS.append(obj())
 
     return PLUGINS
+
+
+@click.command('indexd')
+@click.argument('output_path')
+@click.option('--project_id', required=True,
+              default=None,
+              show_default=True,
+              help='Gen3 program-project'
+              )
+@click.option("--overwrite", is_flag=True, show_default=True, default=False, help="Ignore existing records.")
+@click.pass_obj
+def import_indexd(config: Config, output_path, project_id, overwrite):
+    """Create minimal study meta from files already uploaded to project_id, write to OUTPUT_PATH.
+    """
+    existing_resource_ids = set()
+    if not overwrite:
+        nodes = meta_nodes(config, project_id)
+        existing_resource_ids = set([_['id'] for _ in nodes])
+
+    with CLIOutput(config=config) as output:
+        output.update(indexd_to_study(config=config, project_id=project_id, output_path=output_path,
+                                      existing_resource_ids=existing_resource_ids))

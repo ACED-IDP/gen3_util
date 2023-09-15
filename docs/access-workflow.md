@@ -1,6 +1,7 @@
 
 ### `access` module that interfaces w/ Gen3's [requestor](https://github.com/uc-cdis/requestor)
 
+> How gen3_util access works with Requestor service
 
 #### Enables `User` and `Someone who makes access decisions`
 

@@ -10,6 +10,8 @@ class LogBuckets(BaseModel):
     buckets: dict
     """List of buckets"""
 
+# add a cache to this to avoid hitting arborist too much (or at all), time it out after 1 hour
+
 
 def ls(config: Config):
     """List projects."""

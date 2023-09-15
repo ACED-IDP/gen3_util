@@ -30,19 +30,15 @@ def test_uploader_validate_parameters():
     """Checks uploader from and to."""
 
     with pytest.raises(AssertionError) as exec_info:
-        from_, to_ = uploader_validate_parameters("bucket://foo", "xxx")
-    assert 'xxx does not appear to be a url' in str(exec_info)
-
-    with pytest.raises(AssertionError) as exec_info:
-        from_, to_ = uploader_validate_parameters("bucket://foo", "bucket://foo")
+        from_ = uploader_validate_parameters("bucket://foo")
     assert 'url to url cp not supported' in str(exec_info)
 
     with pytest.raises(AssertionError) as exec_info:
-        from_, to_ = uploader_validate_parameters("xxx", "bucket://foo")
+        from_ = uploader_validate_parameters("xxx")
     assert 'xxx does not exist' in str(exec_info)
 
-    from_, to_ = uploader_validate_parameters("tests/fixtures", "bucket://foo")
-    assert from_ and to_, "Should have validated"
+    from_ = uploader_validate_parameters("tests/fixtures")
+    assert from_, "Should have validated"
 
 
 def test_normalize_file_url():

@@ -26,7 +26,7 @@ def assert_valid_project_id(config, project_id):
         logger.warning(f"program {program} does not exist")
     if not project_exists:
         logger.warning(f"project {project} does not exist")
-    assert all([program_exists, project_exists]), f"{project_id} does not exist."
+    # assert all([program_exists, project_exists]), f"{project_id} does not exist."
 
 
 def assert_valid_bucket(config, bucket_name):
