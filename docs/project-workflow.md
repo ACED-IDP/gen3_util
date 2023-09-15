@@ -12,7 +12,7 @@
     * TASK_ID
 
   You may set them as environmental variables or pass them as parameters to the command line.
-    * `--observation_id=observation-1` or export `OBSERVATION_ID=observation-1`
+    * `--observation_id=observation-1` or `export OBSERVATION_ID=observation-1`
 
   The following parameters may be used to control system wide behavior:
     * GEN3_UTIL_CONFIG: Path to config file. [default: None]
