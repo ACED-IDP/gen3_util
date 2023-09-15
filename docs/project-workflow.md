@@ -5,6 +5,7 @@
 `gen3_util projects [OPTIONS] COMMAND [ARGS]...`
 
   The following `--parameters` and environmental variables are synonymous:
+
     * OBSERVATION_ID
     * PATIENT_ID
     * PROJECT_ID
@@ -12,9 +13,11 @@
     * TASK_ID
 
   You may set them as environmental variables or pass them as parameters to the command line.
+
     * `--observation_id=observation-1` or `export OBSERVATION_ID=observation-1`
 
   The following parameters may be used to control system wide behavior:
+
     * GEN3_UTIL_CONFIG: Path to config file. [default: None]
     * GEN3_UTIL_FORMAT: Output format. [default yaml]
     * GEN3_UTIL_STATE_DIR: Path for logs and state information.  [default: ~/.gen3/gen3_util]
