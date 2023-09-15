@@ -28,7 +28,7 @@ def project_ls(config: Config):
 
 @job_group.command('import')
 @click.option('--project_id', default=None, show_default=True,
-              help="Gen3 program-project")
+              help="Gen3 program-project", envvar='PROJECT_ID')
 @click.argument('object_id')
 @click.pass_obj
 def import_meta(config: Config, project_id: str, object_id: str):
@@ -56,7 +56,7 @@ def import_meta(config: Config, project_id: str, object_id: str):
 
 @job_group.command('export')
 @click.option('--project_id', default=None, show_default=True,
-              help="Gen3 program-project")
+              help="Gen3 program-project", envvar='PROJECT_ID')
 @click.argument('path')
 @click.pass_obj
 def export_meta(config: Config, project_id: str, path: str):

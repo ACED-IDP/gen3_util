@@ -29,7 +29,7 @@ def meta_group(config):
 @click.option('--ignore_state', default=False, is_flag=True, show_default=True,
               help="Upload file, even if already uploaded")
 @click.option('--project_id', default=None, show_default=True,
-              help="Gen3 program-project")
+              help="Gen3 program-project", envvar='PROJECT_ID')
 @click.pass_obj
 def meta_publish(config: Config, from_: str,  project_id: str, ignore_state: bool):
     """Publish meta data on the portal
@@ -60,7 +60,7 @@ def meta_publish(config: Config, from_: str,  project_id: str, ignore_state: boo
 @click.option('--ignore_state', default=False, is_flag=True, show_default=True,
               help="Upload file, even if already uploaded")
 @click.option('--project_id', default=None, show_default=True,
-              help="Gen3 program-project")
+              help="Gen3 program-project", envvar='PROJECT_ID')
 @click.pass_obj
 def meta_cp(config: Config, from_: str, to_: str, project_id: str, ignore_state: bool):
     """Copy meta to/from the project bucket.
@@ -113,7 +113,7 @@ def meta_validate(config: Config, directory):
 
 @meta_group.command(name="node")
 @click.option('--project_id', default=None, show_default=True,
-              help="Gen3 program-project")
+              help="Gen3 program-project", envvar='PROJECT_ID')
 @click.option('--node_id', default=None, show_default=True,
               help="Gen3 node id")
 @click.pass_obj

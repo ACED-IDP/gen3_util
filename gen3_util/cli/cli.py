@@ -56,6 +56,7 @@ cli.add_command(access_group)
 cli.add_command(config_group)
 cli.add_command(job_group)
 
+# print("gen3_util version:", pkg_resources.require("gen3_util")[0].version, __name__)
 
 if __name__ == '__main__':
     cli()

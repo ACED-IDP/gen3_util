@@ -58,7 +58,7 @@ def access_touch(config: Config,  user_name: str, project_id: str, roles: str):
 @access_group.command(name="cp")
 @click.argument('path')
 @click.option('--user_name', required=False, help='User email address to apply to all policies, defaults to current user')
-@click.option('--project_id', required=False, help='Project ID to apply to all policies in template, ex: --project_id "program-project"')
+@click.option('--project_id', required=False, help='Project ID to apply to all policies in template, ex: --project_id "program-project"', envvar='PROJECT_ID')
 @click.pass_obj
 def access_cp(config: Config,  path: str, user_name: str, project_id: str):
     """Read YAML file and create a request for access.
@@ -94,7 +94,7 @@ def access_update(config: Config, request_id: str, status: str):
 
 
 @access_group.command(name="sign")
-@click.option('--project_id', required=False, help='Project ID to apply to all policies in template, ex: --project_id "program-project"')
+@click.option('--project_id', required=False, help='Project ID to apply to all policies in template, ex: --project_id "program-project"', envvar='PROJECT_ID')
 @click.pass_obj
 def sign(config: Config, project_id: str):
     """Sign all policies for a project.

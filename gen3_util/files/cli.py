@@ -23,7 +23,7 @@ def file_group(config):
 @click.option('--object_id', default=None, required=False, show_default=True,
               help="id of the object in the indexd database")
 @click.option('--project_id', default=None, required=False, show_default=True,
-              help="Gen3 program-project")
+              help="Gen3 program-project", envvar='PROJECT_ID')
 @click.option('--specimen_id', default=None, required=False, show_default=True,
               help="fhir specimen identifier")
 @click.option('--patient_id', default=None, required=False, show_default=True,
@@ -61,7 +61,7 @@ def files_ls(config: Config, object_id: str, project_id: str, specimen_id: str, 
 @click.option('--ignore_state', default=False, is_flag=True, show_default=True,
               help="Upload file, even if already uploaded")
 @click.option('--project_id', default=None, required=False, show_default=True,
-              help="Gen3 program-project")
+              help="Gen3 program-project", envvar='PROJECT_ID')
 @click.option('--source_path', required=False, default=None, show_default=True,
               help='Path on local file system')
 # @click.option('--specimen_id', default=None, required=False, show_default=True,
@@ -104,7 +104,7 @@ def files_cp(config: Config, from_: str, to_: str, worker_count: int, ignore_sta
 @click.option('--ignore_state', default=False, is_flag=True, show_default=True,
               help="Upload file, even if already uploaded")
 @click.option('--project_id', default=None, required=False, show_default=True,
-              help="Gen3 program-project")
+              help="Gen3 program-project", envvar='PROJECT_ID')
 @click.option('--source_path', required=False, default=None, show_default=True,
               help='Path on local file system')
 @click.option('--specimen_id', default=None, required=False, show_default=True,
