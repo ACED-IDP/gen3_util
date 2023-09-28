@@ -107,24 +107,32 @@ class CLIOutput:
         if self.output.obj is not None:
             if isinstance(self.output.obj, dict):
                 _.update(self.output.obj)
+            elif isinstance(self.output.obj, list):
+                _ = self.output.obj
             else:
                 _.update(self.output.obj.dict())
         if exc_type is not None:
-            _['exception'] = f"{str(exc_val)}"
+            if isinstance(self.output.obj, dict):
+                _['exception'] = f"{str(exc_val)}"
+            elif isinstance(self.output.obj, list):
+                _.append(f"{str(exc_val)}")
+            else:
+                _.update({'exception': f"{str(exc_val)}"})
             rc = 1
             logging.getLogger(__name__).exception(exc_val)
-        if 'msg' not in _:
+        if isinstance(_, dict) and 'msg' not in _:
             if rc == 1:
                 _['msg'] = 'FAIL'
             else:
                 _['msg'] = 'OK'
         prune = []
-        for k, v in _.items():
-            if not v:
-                prune.append(k)
-        for k in prune:
-            del _[k]
+        if isinstance(_, dict):
+            for k, v in _.items():
+                if not v:
+                    prune.append(k)
+            for k in prune:
+                del _[k]
         print_formatted(self.config, _)
         self.output.exit_code = rc
-        if self.exit_on_error:
+        if rc != 0 and self.exit_on_error:
             exit(rc)

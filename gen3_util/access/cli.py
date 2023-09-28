@@ -94,9 +94,10 @@ def access_update(config: Config, request_id: str, status: str):
 
 
 @access_group.command(name="sign")
-@click.option('--project_id', required=False, help='Project ID to apply to all policies in template, ex: --project_id "program-project"', envvar='PROJECT_ID')
+@click.option('--project_id', required=False, help='Sign all requests for Project ID', envvar='PROJECT_ID')
+@click.option('--username', required=False, help='Sign all requests for user within a project')
 @click.pass_obj
-def sign(config: Config, project_id: str):
+def sign(config: Config, project_id: str, username: str):
     """Sign all policies for a project.
     \b
     """
@@ -107,13 +108,19 @@ def sign(config: Config, project_id: str):
         access = ls(config, False)
         project_requests = [_ for _ in access.requests if program in _['policy_id'] and project in _['policy_id']]
         unsigned_requests = [_ for _ in project_requests if _['status'] != 'SIGNED']
+        if username:
+            unsigned_requests = [_ for _ in unsigned_requests if _['username'] == username]
+
         if len(project_requests) == 0:
             output.update(LogAccess(**{
                 'msg': f"No requests found for {project_id}"
             }))
         elif len(unsigned_requests) == 0:
+            _ = f"All requests for {project_id} are already signed"
+            if username:
+                _ = f"All requests for {project_id} {username} are already signed"
             output.update(LogAccess(**{
-                'msg': f"All requests for {project_id} are already signed"
+                'msg': _
             }))
         else:
             msg = f"Signed requests for {project_id}"

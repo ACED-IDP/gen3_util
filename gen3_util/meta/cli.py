@@ -2,6 +2,8 @@ import json
 import pathlib
 
 import asyncio
+from json import JSONDecodeError
+
 import click
 from gen3.jobs import Gen3Jobs
 
@@ -38,20 +40,26 @@ def meta_publish(config: Config, from_: str,  project_id: str, ignore_state: boo
     from_: meta data directory"""
 
     msgs = []
-    with CLIOutput(config=config) as output:
-        assert pathlib.Path(from_).is_dir(), f"{from_} is not a directory"
-        assert project_id is not None, "--project_id is required for uploads"
-        upload_result = cp_upload(config, from_, project_id, ignore_state)
-        msgs.append(upload_result['msg'])
-        object_id = upload_result['object_id']
 
-        auth = ensure_auth(config.gen3.refresh_file)
-        jobs_client = Gen3Jobs(auth_provider=auth)
-        args = {'object_id': object_id, 'project_id': project_id, 'method': 'put'}
+    assert pathlib.Path(from_).is_dir(), f"{from_} is not a directory"
+    assert project_id is not None, "--project_id is required for uploads"
+    upload_result = cp_upload(config, from_, project_id, ignore_state)
+    msgs.append(upload_result['msg'])
+    object_id = upload_result['object_id']
 
-        _ = asyncio.run(jobs_client.async_run_job_and_wait('fhir_import_export', args))
-        _ = json.loads(_['output'])
-        output.update(_)
+    auth = ensure_auth(config.gen3.refresh_file)
+    jobs_client = Gen3Jobs(auth_provider=auth)
+    args = {'object_id': object_id, 'project_id': project_id, 'method': 'put'}
+
+    _ = asyncio.run(jobs_client.async_run_job_and_wait('fhir_import_export', args))
+    try:
+        output = json.loads(_['output'])
+
+        with CLIOutput(config=config) as console_output:
+            console_output.update(output)
+
+    except JSONDecodeError:
+        print("jobs_client.async_run_job_and_wait() (raw):", _)
 
 
 @meta_group.command(name="cp")
@@ -71,7 +79,7 @@ def meta_cp(config: Config, from_: str, to_: str, project_id: str, ignore_state:
     with CLIOutput(config=config) as output:
         if pathlib.Path(from_).is_dir():
             assert project_id is not None, "--project_id is required for uploads"
-            output.update(cp_upload(config, from_, to_, project_id, ignore_state))
+            output.update(cp_upload(config, from_, project_id, ignore_state))
         else:
             pathlib.Path(to_).parent.mkdir(parents=True, exist_ok=True)
             output.update(cp_download(config, from_, to_))

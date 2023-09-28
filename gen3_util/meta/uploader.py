@@ -119,4 +119,4 @@ def cp(config: Config, from_: str, project_id: str, ignore_state: bool):
         file_name = pathlib.Path(zipfile_path)
 
         _upload_file_to_signed_url(file_name, md5_sum, metadata, signed_url)
-        return {'msg': f"Uploaded {file_name}", "object_id": id_}
+        return {'msg': f"Uploaded {file_name} to {bucket_name} {id_}", "object_id": id_}

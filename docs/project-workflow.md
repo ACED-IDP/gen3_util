@@ -27,22 +27,44 @@
 ## Create a project in authorization system
 
 ```text
+export PROJECT_ID=test-myproject
 # request a project create a project
-gen3_util projects add resource test-myproject
+gen3_util projects new
 
 # user with appropriate authority signs requests for the project
-gen3_util access sign --project_id test-myproject
+# optionally, use the `--username nancy@example.com` to limit the approvals to a specific user
+gen3_util access sign
 
 ```
 
 # Use case: upload files and associate them with a study
 
 
-## add files to the project
+## add files to the manifest
 
 ```text
 # find all files under tests/fixtures/add_files_to_study
-find tests/fixtures/add_files_to_study -type f  | xargs  -I PATH gen3_util files put --project_id  test-myproject PATH
+find tests/fixtures/add_files_to_study -type f  | xargs  -I PATH gen3_util files manifest put PATH
+
+```
+
+```text
+# list the file names in the upload manifest
+$ gen3_util files manifest ls | grep file_name
+  file_name: tests/fixtures/dir_to_study/file-1.txt
+  file_name: tests/fixtures/add_files_to_study/sub-dir/file-4.tsv
+  file_name: tests/fixtures/add_files_to_study/sub-dir/file-3.pdf
+  file_name: tests/fixtures/add_files_to_study/sub-dir/file-5
+  file_name: tests/fixtures/add_files_to_study/file-1.txt
+  file_name: tests/fixtures/add_files_to_study/README.md
+  file_name: tests/fixtures/add_files_to_study/file-2.csv
+
+```
+
+## upload and index the files
+
+```text
+gen3_util files manifest upload
 
 ```
 
@@ -50,13 +72,13 @@ find tests/fixtures/add_files_to_study -type f  | xargs  -I PATH gen3_util files
 
 ```text
 # create basic, minimal metadata for the project
-gen3_util meta create indexd --project_id test-myproject /tmp/test-myproject
+gen3_util meta create indexd /tmp/$PROJECT_ID
 ```
 
 ### Optional: edit the metadata
 ```text
 # files created from the previous step
-ls -1 /tmp/test-myproject
+ls -1 /tmp/$PROJECT_ID
 DocumentReference.ndjson
 ResearchStudy.ndjson
 ```
@@ -66,7 +88,7 @@ ResearchStudy.ndjson
 
 ```text
 # copy the metadata to the bucket and publish the metadata to the portal
-gen3_util meta publish  /tmp/test-myproject --project_id test-myproject
+gen3_util meta publish  /tmp/$PROJECT_ID
 
 ```
 

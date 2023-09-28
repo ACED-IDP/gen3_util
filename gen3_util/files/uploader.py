@@ -5,34 +5,16 @@ import logging
 import pathlib
 import re
 import urllib
-import uuid
 from dataclasses import dataclass
-from multiprocessing import Pool
-from time import sleep
 from typing import List
 from urllib.parse import urlparse
-import mimetypes
 
 import requests
 from orjson import orjson
 from pydantic import BaseModel
-from tqdm import tqdm
 
-from gen3_util.buckets import get_program_bucket
-from gen3_util.common import read_ndjson_file
 from gen3_util.config import Config, gen3_services
-from gen3_util.files import assert_valid_project_id
-
-import sys
-
-from gen3_util.meta import ACED_NAMESPACE
 from gen3_util.meta.importer import md5sum
-
-try:
-    import magic
-except ImportError as e:
-    print(f"Requires libmagic installed on your system to determine file mime-types\nError: '{e}'\nFor installation instructions see https://github.com/ahupp/python-magic#installation")
-    sys.exit(1)
 
 logger = logging.getLogger(__name__)
 
@@ -55,9 +37,9 @@ def _upload_file_to_signed_url(file_name, md5sum, metadata, signed_url):
         assert response.status_code == 200, (signed_url, response_text)
 
 
-def _update_indexd(attachment, bucket_name, document_reference, duplicate_check, index_client, md5sum, object_name,
-                   program, project, metadata=None, specimen_id=None, patient_id=None, task_id=None, observation_id=None):
-    hashes = {'md5': md5sum}
+def update_indexd(attachment, bucket_name, document_reference, duplicate_check, index_client, md5, object_name,
+                  program, project, metadata=None, specimen_id=None, patient_id=None, task_id=None, observation_id=None):
+    hashes = {'md5': md5}
     assert 'id' in document_reference, document_reference
     guid = document_reference['id']
     if metadata is None:
@@ -187,8 +169,8 @@ def _upload_document_reference(config: Config, document_reference: dict, bucket_
         file_name = _normalize_file_url(source_path)
         object_name = _normalize_file_url(attachment['url'])
 
-        metadata = _update_indexd(attachment, bucket_name, document_reference, duplicate_check, index_client, md5sum,
-                                  object_name, program, project)
+        metadata = update_indexd(attachment, bucket_name, document_reference, duplicate_check, index_client, md5sum,
+                                 object_name, program, project)
 
         # create a record in gen3 using document_reference's id as guid, get a signed url
         # SYNC
@@ -211,254 +193,6 @@ def _upload_document_reference(config: Config, document_reference: dict, bucket_
         return UploadResult(document_reference, end - start)
     except Exception as e:  # noqa
         return UploadResult(document_reference, None, e)
-
-
-def put(config: Config, from_: str, ignore_state: bool, worker_count: int, project_id: str, source_path: str,
-        disable_progress_bar: bool, duplicate_check: bool, specimen_id: str, patient_id: str,
-        observation_id: str, task_id: str, md5: str) -> UploaderResults:
-    """Copy single file from local file system to bucket
-
-    """
-
-    object_name = _normalize_file_url(from_)
-    file = pathlib.Path(from_)
-    assert file.is_file(), f"{file} is not a file"
-
-    assert_valid_project_id(config, project_id)
-
-    program, project = project_id.split('-')
-
-    bucket_name = get_program_bucket(config, program)
-    assert bucket_name, f"could not find bucket for {program}"
-
-    state_file = config.state_dir / "state.ndjson"
-    state_file.parent.mkdir(parents=True, exist_ok=True)
-    assert state_file.parent.exists(), f"{state_file.parent} does not exist"
-
-    # all attempts ids are incomplete until they succeed
-    incomplete = set()
-    # key:document_reference.id of completed file transfers
-    # completed = set()
-    # key:document_reference.id  of failed file transfers
-    exceptions = {}
-    info = []
-    # already_uploaded = _ensure_already_uploaded(ignore_state, state_file)
-
-    file_client, index_client, user, auth = gen3_services(config=config)
-
-    # TODO get to_ from buckets given program buckets = get_buckets(auth=auth)
-
-    stat = file.stat()
-    # modified = datetime.datetime.fromtimestamp(stat.st_mtime, tz=datetime.timezone.utc)
-    _magic = magic.Magic(mime=True, uncompress=True)  # https://github.com/ahupp/python-magic#installation
-
-    mime, encoding = mimetypes.guess_type(file)
-    if not mime:
-        mime = _magic.from_file(file)
-
-    id_ = str(uuid.uuid5(ACED_NAMESPACE, project_id + f"::{file}"))
-    # date_ = modified.isoformat(),  # When this document reference was created
-    if not md5:
-        md5 = md5sum(file)
-
-    s3_url = f"s3://{bucket_name}/{id_}/{object_name}"
-
-    # write to indexd
-
-    hashes = {'md5': md5}
-    metadata = {
-        **{
-            'document_reference_id': id_,
-            'specimen_identifier': specimen_id,
-            'patient_identifier': patient_id,
-            'task_identifier': task_id,
-            'observation_identifier': observation_id,
-            'project_id': f'{program}-{project}',
-            'mime_type': mime,
-        },
-        **hashes}
-
-    existing_record = None
-    if duplicate_check:
-        try:
-            existing_record = index_client.get_record(guid=id_)
-        except Exception: # noqa
-            pass
-        if existing_record:
-            info.append(f"Deleting existing record {id_} {file}")
-            index_client.delete_record(guid=id_)
-            existing_record = None
-
-    if not existing_record:
-        try:
-            _ = index_client.create_record(
-                did=id_,
-                hashes=hashes,
-                size=stat.st_size,
-                authz=[f'/programs/{program}/projects/{project}'],
-                file_name=object_name,
-                metadata=metadata,
-                urls=[s3_url]  # TODO make a DRS URL
-            )
-            info.append(f"Created indexd record {id_} for {file}")
-        except (requests.exceptions.HTTPError, AssertionError) as e:
-            if not ('already exists' in str(e)):
-                raise e
-            info.append(f"indexd record already exists {id_} {file}")
-
-    document = file_client.upload_file_to_guid(guid=id_, file_name=object_name, bucket=bucket_name)
-    assert 'url' in document, document
-    signed_url = urllib.parse.unquote(document['url'])
-    # info.append(f"Got signed url {signed_url}")
-
-    _upload_file_to_signed_url(file, md5, metadata, signed_url)
-    info.append(f"Uploaded {file} to {bucket_name}")
-
-    results = {
-        'info': info,
-        'incomplete': [_ for _ in incomplete],
-        'errors': [f"{k}: {str(v['exception'])}" for k, v in exceptions.items()],
-        'object_id': id_,
-    }
-    return UploaderResults(**results)
-
-
-def cp(config: Config, from_: str, ignore_state: bool, worker_count: int, project_id: str,
-       source_path: str, disable_progress_bar: bool, duplicate_check: bool) -> UploaderResults:
-    """Copy files from local file system to bucket"""
-
-    document_reference_path = _validate_parameters(from_)
-
-    assert_valid_project_id(config, project_id)
-
-    program, project = project_id.split('-')
-
-    bucket_name = get_program_bucket(config, program)
-    assert bucket_name, f"could not find bucket for {program}"
-
-    state_file = config.state_dir / "state.ndjson"
-
-    state_file.parent.mkdir(parents=True, exist_ok=True)
-    assert state_file.parent.exists(), f"{state_file.parent} does not exist"
-
-    # all attempts ids are incomplete until they succeed
-    incomplete = set()
-    # key:document_reference.id of completed file transfers
-    completed = set()
-    # key:document_reference.id  of failed file transfers
-    exceptions = {}
-
-    info = []
-
-    document_reference_lookup = {}
-
-    # progress bar control
-    document_references_size = 0
-    # loop control
-    document_references_length = 0
-
-    already_uploaded = _ensure_already_uploaded(ignore_state, state_file)
-
-    for _ in read_ndjson_file(document_reference_path):
-        if _['id'] not in already_uploaded:
-            incomplete.add(_['id'])
-            document_references_size += _['content'][0]['attachment']['size']
-            document_references_length += 1
-        else:
-            info.append(f"{_['id']} already uploaded, skipping")
-    # print("loaded manifest from document references")
-
-    # process a chunk at a time
-    with Pool(processes=worker_count) as pool:
-        results = []
-        for document_reference in read_ndjson_file(document_reference_path):
-            if document_reference['id'] in already_uploaded:
-                continue
-            result = pool.apply_async(
-                func=_upload_document_reference,
-                args=(
-                    config,
-                    document_reference,
-                    bucket_name,
-                    program,
-                    project,
-                    duplicate_check,
-                    source_path,
-                )
-            )
-            results.append(result)
-            document_reference_lookup[id(result)] = document_reference['id']
-
-        # close the process pool
-        pool.close()
-
-        # poll the results every sec.
-        with tqdm(total=document_references_size, unit='B', disable=disable_progress_bar,
-                  unit_scale=True, unit_divisor=1024) as pbar:
-            while True:
-                results_to_remove = []
-                for record in results:
-                    if record.ready() and record.successful():
-                        r = record.get()
-                        if r.exception:
-                            exceptions[r.document_reference['id']] = {
-                                'exception': str(r.exception),
-                                'document_reference': {
-                                    'id': r.document_reference
-                                }
-                            }
-                        elif r.document_reference['id'] not in completed:
-                            completed.add(r.document_reference['id'])
-                            incomplete.remove(r.document_reference['id'])
-
-                        results_to_remove.append(record)
-                        document_references_length = document_references_length - 1
-                        pbar.set_postfix(file=f"{r.document_reference['id'][-6:]}", elapsed=f"{r.elapsed}")
-                        pbar.update(r.document_reference['content'][0]['attachment']['size'])
-                        sleep(.1)  # give screen a chance to refresh
-
-                    if record.ready() and not record.successful():
-                        print('record.ready() and not record.successful()')
-                        document_reference_id = document_reference_lookup[id(record)]
-                        try:
-                            record.get()
-                        except Exception as e:  # noqa
-                            if document_reference_id not in exceptions:
-                                exceptions[document_reference_id] = {
-                                    'exception': str(e),
-                                    'document_reference': {
-                                        'id': document_reference_id
-                                    }
-                                }
-                                document_references_length = document_references_length - 1
-
-                if document_references_length == 0:
-                    break
-
-                sleep(1)
-
-                # using list comprehension to cull processed results
-                results = [_ for _ in results if _ not in results_to_remove]
-
-        with open(state_file, "a+b") as fp:
-            fp.write(orjson.dumps(
-                {
-                    'timestamp': datetime.datetime.now().isoformat(),
-                    'completed': [_ for _ in completed],
-                    'incomplete': [_ for _ in incomplete],
-                    'exceptions': exceptions
-                },
-                option=orjson.OPT_APPEND_NEWLINE
-            ))
-
-        info.append(f"Wrote state to {state_file}")
-
-    results = {
-        'info': info,
-        'incomplete': [_ for _ in incomplete],
-        'errors': [f"{k}: {str(v['exception'])}" for k, v in exceptions.items()],
-    }
-    return UploaderResults(**results)
 
 
 def _ensure_already_uploaded(ignore_state, state_file):

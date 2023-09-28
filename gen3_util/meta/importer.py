@@ -313,7 +313,8 @@ def _discover_plugins(plugin_path: str) -> list[PathParser]:
 @click.option('--project_id', required=True,
               default=None,
               show_default=True,
-              help='Gen3 program-project'
+              help='Gen3 program-project',
+              envvar='PROJECT_ID'
               )
 @click.option("--overwrite", is_flag=True, show_default=True, default=False, help="Ignore existing records.")
 @click.pass_obj

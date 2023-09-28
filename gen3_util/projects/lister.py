@@ -22,6 +22,9 @@ def ls(config: Config, resource_filter: str = None, msgs: list[str] = []):
                 f"/programs/{_program}/projects/{_project}"
             ] = ProjectSummary(in_sheepdog=projects[_program][_project]['in_sheepdog'], permissions=projects[_program][_project]['permissions'])
 
+    if len(project_messages) == 0:
+        msgs.append("No projects found.")
+
     return ProjectSummaries(**{
         'endpoint': auth.endpoint,
         'projects': project_messages,
