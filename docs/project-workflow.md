@@ -99,10 +99,17 @@ gen3_util meta publish  /tmp/$PROJECT_ID
 
 # Use case: upload files and associate them with a patient, specimen or observation
 
+## Create a project in authorization system
+
+> see above
+
 ## Add file to the project, note we assign a patient identifier to the file
 
 ```commandline
-gen3_util files put --project_id  test-myproject \
+
+export PROJECT_ID=test-myproject
+
+gen3_util files manifest put \
     --patient_id patient-1 \
     tests/fixtures/add_files_to_study/file-1.txt
 ```
@@ -110,7 +117,7 @@ gen3_util files put --project_id  test-myproject \
 ## Add file to the project, note we assign a patient identifier and specimen identifier to the file
 
 ```commandline
-gen3_util files put --project_id  test-myproject \
+gen3_util files manifest put \
     --patient_id patient-1 \
     --specimen_id specimen-1 \
     tests/fixtures/add_files_to_study/file-2.csv
@@ -119,7 +126,7 @@ gen3_util files put --project_id  test-myproject \
 ## Add file to the project, note we assign a patient identifier and observation identifier to the file
 
 ```commandline
-gen3_util files put --project_id  test-myproject \
+gen3_util files manifest put \
     --patient_id patient-1 \
     --observation_id observation-1 \
     tests/fixtures/add_files_to_study/sub-dir/file-3.pdf
@@ -129,7 +136,7 @@ gen3_util files put --project_id  test-myproject \
 
 ```commandline
 
-gen3_util files put --project_id  test-myproject \
+gen3_util files manifest put \
     --patient_id patient-1 \
     --observation_id observation-2 \
     --task_id task-1 \
@@ -137,17 +144,25 @@ gen3_util files put --project_id  test-myproject \
 
 ```
 
+## upload and index the files
+
+```text
+gen3_util files manifest upload
+
+```
+
+
 ## Create project metadata
 
 ```text
 # create basic, minimal metadata for the project
-gen3_util meta create indexd --project_id test-myproject /tmp/test-myproject
+gen3_util meta create indexd /tmp/$PROJECT_ID
 ```
 
 ### Optional: edit the metadata
 
 ```commandline
-ls -1 /tmp/test-myproject/
+ls -1 /tmp/$PROJECT_ID
 DocumentReference.ndjson
 Observation.ndjson
 Patient.ndjson
@@ -162,7 +177,7 @@ Task.ndjson
 
 ```text
 # copy the metadata to the bucket and publish the metadata to the portal
-gen3_util meta publish  /tmp/test-myproject --project_id test-myproject
+gen3_util meta publish  /tmp/$PROJECT_ID
 
 ```
 
