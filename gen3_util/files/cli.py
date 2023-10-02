@@ -9,7 +9,7 @@ from gen3_util.files.lister import ls
 from gen3_util.files.remover import rm
 
 from gen3_util.files.manifest import put as manifest_put, save as manifest_save, ls as manifest_ls, upload_indexd, \
-    upload_files
+    upload_files, rm as manifest_rm
 
 
 @click.group(name='files', cls=NaturalOrderGroup)
@@ -157,8 +157,8 @@ def _manifest_rm(config: Config, project_id: str, object_id: str):
     """
 
     with CLIOutput(config=config) as output:
-        # _ = manifest_rm(config, project_id=project_id, object_id=object_id)
-        output.update({'msg': 'not implemented'})  # TODO implement
+        _ = manifest_rm(config, project_id=project_id, object_id=object_id)
+        output.update(_)
 
 
 @file_group.command(name="rm")
