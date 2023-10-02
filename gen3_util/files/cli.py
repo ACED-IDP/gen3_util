@@ -137,6 +137,7 @@ def _manifest_upload(config: Config, project_id: str, profile: str, duplicate_ch
 @manifest_group.command(name="export")
 @click.option('--project_id', default=None, required=False, show_default=True,
               help="Gen3 program-project", envvar='PROJECT_ID')
+@click.option('--object_id', default=None, required=False, show_default=True, help="file UUID", envvar='OBJECT_ID')
 @click.pass_obj
 def manifest_export(config: Config, project_id: str, object_id: str):
     """Export the local manifest
