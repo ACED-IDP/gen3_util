@@ -323,8 +323,10 @@ def import_indexd(config: Config, output_path, project_id, overwrite):
     """
     existing_resource_ids = set()
     if not overwrite:
+        print("Checking for existing records...", file=sys.stderr)
         nodes = meta_nodes(config, project_id)
         existing_resource_ids = set([_['id'] for _ in nodes])
+        print("Done", file=sys.stderr)
 
     with CLIOutput(config=config) as output:
         output.update(indexd_to_study(config=config, project_id=project_id, output_path=output_path,

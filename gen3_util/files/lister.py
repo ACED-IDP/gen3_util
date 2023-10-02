@@ -15,17 +15,27 @@ def ls(config: Config, object_id: str = None, metadata: dict = {}):
     return {'records': [_.to_json() for _ in records]}
 
 
-def meta_nodes(config: Config, project_id: str):
+def meta_nodes(config: Config, project_id: str, gen3_type: str = 'document_reference'):
     """Retrieve all the nodes in a project."""
-    query = """
-    {
-      node(project_id: "PROJECT_ID") {
-        id
-        __typename
-      }
-    }
-    """.replace('PROJECT_ID', project_id)
 
     auth = ensure_auth(config.gen3.refresh_file)
-    response = Gen3Submission(auth).query(query)
-    return response['data']['node']
+
+    offset = 0
+    batch_size = 1000
+    _nodes = []
+    while True:
+        query = """
+        {
+          node(project_id: "PROJECT_ID", of_type: "document_reference", first: FIRST, offset: OFFSET) {
+            id
+            __typename
+          }
+        }
+        """.replace('PROJECT_ID', project_id).replace('FIRST', str(batch_size)).replace('OFFSET', str(offset))
+        response = Gen3Submission(auth).query(query)
+        if len(response['data']['node']) == 0:
+            break
+        _nodes.extend(response['data']['node'])
+        offset += batch_size
+
+    return _nodes
