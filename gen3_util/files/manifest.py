@@ -6,6 +6,8 @@ import sqlite3
 import subprocess
 import uuid
 from datetime import datetime
+import multiprocessing
+from multiprocessing.pool import Pool
 
 import orjson
 import requests
@@ -86,7 +88,66 @@ def ls(config: Config, project_id: str, object_id: str):
         return [orjson.loads(_[0]) for _ in cursor.fetchall()]
 
 
-def upload_indexd(config: Config, project_id: str, object_id: str = None, duplicate_check: bool = False) -> list[dict]:
+def _write_indexd(index_client, project_id: str, manifest_item: dict, bucket_name: str, duplicate_check: bool) -> bool:
+    """Write manifest entry to indexd."""
+    manifest_item['project_id'] = project_id
+    program, project = project_id.split('-')
+
+    # SYNC
+    existing_record = None
+    hashes = {'md5': manifest_item['md5']}
+    metadata = {
+        **{
+            'document_reference_id': manifest_item['object_id'],
+            'specimen_identifier': manifest_item.get('specimen_id', None),
+            'patient_identifier': manifest_item.get('patient_id', None),
+            'task_identifier': manifest_item.get('task_id', None),
+            'observation_identifier': manifest_item.get('observation_id', None),
+            'project_id': f'{program}-{project}',
+        },
+        **hashes}
+
+    if duplicate_check:
+        try:
+            existing_record = index_client.get_record(guid=manifest_item["object_id"])
+        except Exception:  # noqa
+            pass
+        if existing_record:
+            md5_match = existing_record['hashes']['md5'] == manifest_item['md5']
+            if md5_match:
+                # SYNC
+                logger.info(f"Deleting existing record {manifest_item['object_id']}")
+                index_client.delete_record(guid=manifest_item['object_id'])
+                existing_record = None
+            else:
+                logger.info(
+                    f"NOT DELETING, MD5 didn't match existing record {manifest_item['object_id']} existing_record_md5:{existing_record['hashes']['md5']} manifest_md5:{manifest_item['md5']}")
+    if not existing_record:
+        try:
+            response = index_client.create_record(
+                did=manifest_item["object_id"],
+                hashes=hashes,
+                size=manifest_item["size"],
+                authz=[f'/programs/{program}/projects/{project}'],
+                file_name=manifest_item['file_name'],
+                metadata=metadata,
+                urls=[f"s3://{bucket_name}/{manifest_item['object_id']}/{manifest_item['file_name']}"]
+            )
+            assert response, "Expected response from indexd create_record"
+        except (requests.exceptions.HTTPError, AssertionError) as e:
+            if not ('already exists' in str(e)):
+                raise e
+            logger.info(f"indexd record already exists, continuing upload. {manifest_item['object_id']}")
+    return True
+
+
+def worker_count():
+    """Return number of workers for multiprocessing."""
+    return multiprocessing.cpu_count() - 1
+
+
+def upload_indexd(config: Config, project_id: str, object_id: str = None, duplicate_check: bool = False,
+                  manifest_path: str = None) -> list[dict]:
     """Save manifest to indexd, returns list of manifest entries"""
 
     manifest_entries = []
@@ -100,57 +161,27 @@ def upload_indexd(config: Config, project_id: str, object_id: str = None, duplic
     bucket_name = get_program_bucket(config, program, auth=auth)
     assert bucket_name, f"could not find bucket for {program}"
 
-    for _ in ls(config, project_id=project_id, object_id=object_id):
-        # _['config'] = config
-        _['project_id'] = project_id
-        program, project = project_id.split('-')
+    if manifest_path:
+        assert pathlib.Path(manifest_path).is_file(), f"{manifest_path} is not a file"
+        with open(manifest_path) as manifest_file:
+            _generator = json.load(manifest_file)
+    else:
+        _generator = ls(config, project_id=project_id, object_id=object_id)
 
-        # SYNC
-        existing_record = None
-        hashes = {'md5': _['md5']}
-        metadata = {
-            **{
-                'document_reference_id': _['object_id'],
-                'specimen_identifier': _['specimen_id'],
-                'patient_identifier': _['patient_id'],
-                'task_identifier': _['task_id'],
-                'observation_identifier': _['observation_id'],
-                'project_id': f'{program}-{project}',
-            },
-            **hashes}
-
-        if duplicate_check:
-            try:
-                existing_record = index_client.get_record(guid=_["object_id"])
-            except Exception: # noqa
-                pass
-            if existing_record:
-                md5_match = existing_record['hashes']['md5'] == _['md5']
-                if md5_match:
-                    # SYNC
-                    logger.info(f"Deleting existing record {_['object_id']}")
-                    index_client.delete_record(guid=_['object_id'])
-                    existing_record = None
-                else:
-                    logger.info(f"NOT DELETING, MD5 didn't match existing record {_['object_id']} existing_record_md5:{existing_record['hashes']['md5']} manifest_md5:{_['md5']}")
-        if not existing_record:
-            try:
-                response = index_client.create_record(
-                    did=_["object_id"],
-                    hashes=hashes,
-                    size=_["size"],
-                    authz=[f'/programs/{program}/projects/{project}'],
-                    file_name=_['file_name'],
-                    metadata=metadata,
-                    urls=[f"s3://{bucket_name}/{_['object_id']}"]  # TODO make a DRS URL
+    with Pool(processes=worker_count()) as pool:
+        for manifest_item in _generator:
+            _ = pool.apply(
+                func=_write_indexd,
+                args=(
+                    index_client,
+                    project_id,
+                    manifest_item,
+                    bucket_name,
+                    duplicate_check
                 )
-                assert response, "Expected response from indexd create_record"
-            except (requests.exceptions.HTTPError, AssertionError) as e:
-                if not ('already exists' in str(e)):
-                    raise e
-                logger.info(f"indexd record already exists, continuing upload. {_['object_id']}")
-
-            manifest_entries.append(_)
+            )
+            assert _, "Expected a result from _write_indexd"
+            manifest_entries.append(manifest_item)
     return manifest_entries
 
 
@@ -172,7 +203,7 @@ def upload_files(config: Config, manifest_entries: list[dict], project_id: str, 
     with open(manifest_path, 'w') as manifest_file:
         json.dump(manifest_entries, manifest_file)
 
-    cmd = f"gen3-client upload-multiple --manifest {manifest_path} --profile {profile} --upload-path {upload_path} --bucket {bucket_name}".split()
+    cmd = f"gen3-client upload-multiple --manifest {manifest_path} --profile {profile} --upload-path {upload_path} --bucket {bucket_name} --numparallel {worker_count()}".split()
     upload_results = subprocess.run(cmd)
     assert upload_results.returncode == 0, upload_results
     return upload_results

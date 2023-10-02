@@ -117,19 +117,32 @@ def _manifest_ls(config: Config, project_id: str, object_id: str):
 @click.option('--profile', show_default=True, help="gen3-client profile", envvar='PROFILE')
 @click.option('--upload-path', default='.', show_default=True, help="gen3-client upload path")
 @click.option('--duplicate_check', default=False, is_flag=True, show_default=True, help="Update files records")
+@click.option('--manifest_path', default=None, show_default=True, help="Provide your own manifest file.")
 @click.pass_obj
-def _manifest_upload(config: Config, project_id: str, profile: str, duplicate_check: bool, upload_path: str):
-    """Add manifest to the index and upload files to the project bucket.
+def _manifest_upload(config: Config, project_id: str, profile: str, duplicate_check: bool, upload_path: str, manifest_path: str):
+    """Upload to index and project bucket.  Uses local manifest, or manifest_path.
+
     """
 
     assert profile, "Please provide a profile for gen3-client"
     os.chdir(upload_path)
 
     with CLIOutput(config=config) as output:
-        manifest_entries = upload_indexd(config, project_id=project_id, duplicate_check=duplicate_check)
+        manifest_entries = upload_indexd(config, project_id=project_id, duplicate_check=duplicate_check, manifest_path=manifest_path)
         output.update(manifest_entries)
         completed_process = upload_files(config=config, project_id=project_id, manifest_entries=manifest_entries, profile=profile, upload_path=upload_path)
         assert completed_process.returncode == 0, f"upload_files failed with {completed_process.returncode}"
+
+
+@manifest_group.command(name="export")
+@click.option('--project_id', default=None, required=False, show_default=True,
+              help="Gen3 program-project", envvar='PROJECT_ID')
+@click.pass_obj
+def manifest_export(config: Config, project_id: str, object_id: str):
+    """Export the local manifest
+    """
+    with CLIOutput(config=config) as output:
+        output.update(manifest_ls(config, project_id=project_id, object_id=object_id))
 
 
 @manifest_group.command(name="rm")
