@@ -20,7 +20,9 @@ logger = logging.getLogger(__name__)
 
 
 def _upload_file_to_signed_url(file_name, md5sum, metadata, signed_url):
-    """Upload file """
+    """Upload file to bucket.  Provided here for environments where gen3-client is not installed.
+
+     For example, in the job container, only an access token is available"""
 
     # When you use this header, Amazon S3 checks the object against the provided MD5 value and,
     # if they do not match, returns an error.
@@ -53,6 +55,9 @@ def update_indexd(attachment, bucket_name, document_reference, duplicate_check, 
                 'project_id': f'{program}-{project}',
             },
             **hashes}
+    # trim None values
+    metadata = {k: v for k, v in metadata.items() if v is not None}
+
     # SYNC
     existing_record = None
     s3_url = f"s3://{bucket_name}/{guid}/{object_name}"
