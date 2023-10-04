@@ -113,9 +113,9 @@ def _manifest_ls(config: Config, project_id: str, object_id: str):
 
 @manifest_group.command(name="upload")
 @click.option('--project_id', default=None, required=False, show_default=True,
-              help="Gen3 program-project", envvar='PROJECT_ID')
+              help="Gen3 program-project authorization", envvar='PROJECT_ID')
 @click.option('--restricted_project_id', default=None, required=False, show_default=True,
-              help="Gen3 program-project, additional access restriction", envvar='RESTRICTED_PROJECT_ID')
+              help="Gen3 program-project, additional authorization", envvar='RESTRICTED_PROJECT_ID')
 @click.option('--profile', show_default=True, help="gen3-client profile", envvar='PROFILE')
 @click.option('--upload-path', default='.', show_default=True, help="gen3-client upload path")
 @click.option('--duplicate_check', default=False, is_flag=True, show_default=True, help="Update files records")
