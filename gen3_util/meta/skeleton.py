@@ -1,4 +1,5 @@
 import pathlib
+import sys
 import uuid
 
 from fhir.resources.attachment import Attachment
@@ -15,8 +16,8 @@ from fhir.resources.task import Task, TaskOutput, TaskInput
 from orjson import orjson
 
 from gen3_util.common import EmitterContextManager
-from gen3_util.config import Config
-from gen3_util.files.lister import ls
+from gen3_util.config import Config, ensure_auth
+from gen3_util.files.lister import ls, meta_nodes
 from gen3_util.meta import ACED_NAMESPACE
 
 
@@ -52,25 +53,34 @@ def update_document_reference(document_reference, index_record):
     document_reference.content = [content]
 
 
-def indexd_to_study(config: Config, project_id: str, output_path: str, existing_resource_ids=set()) -> list[Resource]:
+def indexd_to_study(config: Config, project_id: str, output_path: str, overwrite: bool) -> list[Resource]:
     """Read files uploaded to indexd and create a skeleton graph for document and ancestors from a set of identifiers.
 
     Args:
         config:
         project_id:
         output_path:
-        existing_resource_ids: set of existing resources ids
+        overwrite: check for existing records and skip if found
     """
 
     assert project_id, "project_id required"
     assert project_id.count('-') == 1, "project_id must be of the form program-project"
+
+    auth = ensure_auth(config.gen3.refresh_file)
+
+    existing_resource_ids = set()
+    if not overwrite:
+        print("Checking for existing records...", file=sys.stderr)
+        nodes = meta_nodes(config, project_id, auth=auth)  # fetches document_ids by default
+        existing_resource_ids = set([_['id'] for _ in nodes])
+        print("Done", file=sys.stderr)
 
     # get file client
     records = ls(config, metadata={'project_id': project_id})['records']
 
     with EmitterContextManager(output_path, file_mode="w") as emitter:
         for _ in records:
-            resources = create_skeleton(metadata=_['metadata'])
+            resources = create_skeleton(metadata=_['metadata'], auth=auth)
             for resource in resources:
                 if resource.id in existing_resource_ids:
                     continue
@@ -83,13 +93,14 @@ def indexd_to_study(config: Config, project_id: str, output_path: str, existing_
                 subject = ''
                 if hasattr(resource, 'subject') and resource.subject:
                     subject = resource.subject.reference
-                print(f"Writing {resource.resource_type} {resource.id} {ids} {subject}")
+
+                print(f"Writing {resource.resource_type} {resource.id} {ids} {subject}", file=sys.stderr)
                 emitter.emit(resource.resource_type).write(
                     resource.json(option=orjson.OPT_APPEND_NEWLINE)
                 )
 
 
-def create_skeleton(metadata: dict) -> list[Resource]:
+def create_skeleton(metadata: dict, auth=None) -> list[Resource]:  # TODO fix caller auth
     """
     Create a skeleton graph for document and ancestors from a set of identifiers.
     """

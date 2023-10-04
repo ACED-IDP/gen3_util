@@ -1,6 +1,6 @@
 from gen3.submission import Gen3Submission
 
-from gen3_util.config import Config, gen3_services, ensure_auth
+from gen3_util.config import Config, gen3_services
 
 
 def ls(config: Config, object_id: str = None, metadata: dict = {}):
@@ -15,14 +15,13 @@ def ls(config: Config, object_id: str = None, metadata: dict = {}):
     return {'records': [_.to_json() for _ in records]}
 
 
-def meta_nodes(config: Config, project_id: str, gen3_type: str = 'document_reference'):
+def meta_nodes(config: Config, project_id: str, auth, gen3_type: str = 'document_reference'):
     """Retrieve all the nodes in a project."""
-
-    auth = ensure_auth(config.gen3.refresh_file)
 
     offset = 0
     batch_size = 1000
     _nodes = []
+    submission_client = Gen3Submission(auth)
     while True:
         query = """
         {
@@ -32,10 +31,39 @@ def meta_nodes(config: Config, project_id: str, gen3_type: str = 'document_refer
           }
         }
         """.replace('PROJECT_ID', project_id).replace('FIRST', str(batch_size)).replace('OFFSET', str(offset))
-        response = Gen3Submission(auth).query(query)
+        response = submission_client.query(query)
         if len(response['data']['node']) == 0:
             break
         _nodes.extend(response['data']['node'])
         offset += batch_size
 
     return _nodes
+
+
+def meta_resources(config: Config, project_id: str, auth, gen3_type: str, identifier: str):
+    """Retrieve all the resources in a project."""
+
+    offset = 0
+    batch_size = 1000
+    _resources = []
+    submission_client = Gen3Submission(auth)
+    while True:
+        query = """
+        {
+          GEN3_TYPE(project_id: "PROJECT_ID", identifier: "IDENTIFIER", first: FIRST, offset: OFFSET) {
+            id
+            resourceType
+          }
+        }
+        """.replace('GEN3_TYPE', gen3_type)\
+            .replace('PROJECT_ID', project_id)\
+            .replace('IDENTIFIER', identifier)\
+            .replace('FIRST', str(batch_size))\
+            .replace('OFFSET', str(offset))
+        response = submission_client.query(query)
+        if len(response['data'][gen3_type]) == 0:
+            break
+        _resources.extend(response['data'][gen3_type])
+        offset += batch_size
+
+    return _resources

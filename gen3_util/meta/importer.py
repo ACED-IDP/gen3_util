@@ -15,7 +15,6 @@ import mimetypes
 from gen3_util.cli import CLIOutput
 from gen3_util.common import EmitterContextManager
 from gen3_util.config import Config
-from gen3_util.files.lister import meta_nodes
 from gen3_util.meta import ACED_NAMESPACE
 
 from fhir.resources.identifier import Identifier
@@ -321,13 +320,7 @@ def _discover_plugins(plugin_path: str) -> list[PathParser]:
 def import_indexd(config: Config, output_path, project_id, overwrite):
     """Create minimal study meta from files already uploaded to project_id, write to OUTPUT_PATH.
     """
-    existing_resource_ids = set()
-    if not overwrite:
-        print("Checking for existing records...", file=sys.stderr)
-        nodes = meta_nodes(config, project_id)
-        existing_resource_ids = set([_['id'] for _ in nodes])
-        print("Done", file=sys.stderr)
 
     with CLIOutput(config=config) as output:
         output.update(indexd_to_study(config=config, project_id=project_id, output_path=output_path,
-                                      existing_resource_ids=existing_resource_ids))
+                                      overwrite=overwrite))
