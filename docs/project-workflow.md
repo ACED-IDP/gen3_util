@@ -2,8 +2,8 @@
 
 ## Dependencies
 
-* `~/.gen3/credentials.json` [identity file](https://gen3.org/resources/user/using-api/#credentials-to-send-api-requests) from the [portal](https://aced-training.compbio.ohsu.edu/identity)
-* [gen3-client](https://gen3.org/resources/user/gen3-client/#1-installation-instructions)
+* Meta data management: `~/.gen3/credentials.json` [identity file](https://gen3.org/resources/user/using-api/#credentials-to-send-api-requests) from the [portal](https://aced-training.compbio.ohsu.edu/identity)
+* Upload and download: A configured [gen3-client](https://gen3.org/resources/user/gen3-client/#1-installation-instructions) for file uploads and downloads
 
 ## Usage:
 
@@ -49,13 +49,13 @@ gen3_util access sign
 
 ```text
 # find all files under tests/fixtures/add_files_to_study
-find tests/fixtures/add_files_to_study -type f  | xargs  -I PATH gen3_util files manifest put PATH
+find tests/fixtures/add_files_to_study -type f  | xargs -P 9 -I PATH gen3_util files manifest put PATH
 
 ```
 
 ```text
 # list the file names in the upload manifest
-$ gen3_util files manifest ls | grep file_name
+gen3_util files manifest ls | grep file_name
   file_name: tests/fixtures/dir_to_study/file-1.txt
   file_name: tests/fixtures/add_files_to_study/sub-dir/file-4.tsv
   file_name: tests/fixtures/add_files_to_study/sub-dir/file-3.pdf
@@ -69,7 +69,7 @@ $ gen3_util files manifest ls | grep file_name
 ## upload and index the files
 
 ```text
-gen3_util files manifest upload
+gen3_util files manifest upload --profile $GEN3_CLIENT_PROFILE
 
 ```
 
@@ -108,8 +108,13 @@ gen3_util meta publish  /tmp/$PROJECT_ID
 
 > see above
 
-## Add file to the project, note we assign a patient identifier to the file
+## Add file to the project, we assign a patient identifier to the file
 
+> Note: the identifiers used are arbitrary, they are not validated.
+> * a unique alphanumeric identifier for that record across the whole project and is specified by the data submitter
+> * **No PHI values should be used.**
+> For more see: https://build.fhir.org/datatypes.html#Identifier
+>
 ```commandline
 
 export PROJECT_ID=test-myproject
@@ -152,7 +157,7 @@ gen3_util files manifest put \
 ## upload and index the files
 
 ```text
-gen3_util files manifest upload
+gen3_util files manifest upload --profile $GEN3_CLIENT_PROFILE
 
 ```
 
