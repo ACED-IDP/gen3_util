@@ -114,12 +114,14 @@ def _manifest_ls(config: Config, project_id: str, object_id: str):
 @manifest_group.command(name="upload")
 @click.option('--project_id', default=None, required=False, show_default=True,
               help="Gen3 program-project", envvar='PROJECT_ID')
+@click.option('--restricted_project_id', default=None, required=False, show_default=True,
+              help="Gen3 program-project, additional access restriction", envvar='RESTRICTED_PROJECT_ID')
 @click.option('--profile', show_default=True, help="gen3-client profile", envvar='PROFILE')
 @click.option('--upload-path', default='.', show_default=True, help="gen3-client upload path")
 @click.option('--duplicate_check', default=False, is_flag=True, show_default=True, help="Update files records")
 @click.option('--manifest_path', default=None, show_default=True, help="Provide your own manifest file.")
 @click.pass_obj
-def _manifest_upload(config: Config, project_id: str, profile: str, duplicate_check: bool, upload_path: str, manifest_path: str):
+def _manifest_upload(config: Config, project_id: str, profile: str, duplicate_check: bool, upload_path: str, manifest_path: str, restricted_project_id: str):
     """Upload to index and project bucket.  Uses local manifest, or manifest_path.
 
     """
@@ -128,7 +130,7 @@ def _manifest_upload(config: Config, project_id: str, profile: str, duplicate_ch
     os.chdir(upload_path)
 
     with CLIOutput(config=config) as output:
-        manifest_entries = upload_indexd(config, project_id=project_id, duplicate_check=duplicate_check, manifest_path=manifest_path)
+        manifest_entries = upload_indexd(config, project_id=project_id, duplicate_check=duplicate_check, manifest_path=manifest_path, restricted_project_id=restricted_project_id)
         output.update(manifest_entries)
         completed_process = upload_files(config=config, project_id=project_id, manifest_entries=manifest_entries, profile=profile, upload_path=upload_path)
         assert completed_process.returncode == 0, f"upload_files failed with {completed_process.returncode}"

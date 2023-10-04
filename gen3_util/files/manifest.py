@@ -88,7 +88,7 @@ def ls(config: Config, project_id: str, object_id: str):
         return [orjson.loads(_[0]) for _ in cursor.fetchall()]
 
 
-def _write_indexd(index_client, project_id: str, manifest_item: dict, bucket_name: str, duplicate_check: bool) -> bool:
+def _write_indexd(index_client, project_id: str, manifest_item: dict, bucket_name: str, duplicate_check: bool, restricted_project_id: str) -> bool:
     """Write manifest entry to indexd."""
     manifest_item['project_id'] = project_id
     program, project = project_id.split('-')
@@ -122,13 +122,19 @@ def _write_indexd(index_client, project_id: str, manifest_item: dict, bucket_nam
             else:
                 logger.info(
                     f"NOT DELETING, MD5 didn't match existing record {manifest_item['object_id']} existing_record_md5:{existing_record['hashes']['md5']} manifest_md5:{manifest_item['md5']}")
+
+    authz = [f'/programs/{program}/projects/{project}']
+    if restricted_project_id:
+        _ = restricted_project_id.split('-')
+        authz.append(f'/programs/{_[0]}/projects/{_[1]}')
+
     if not existing_record:
         try:
             response = index_client.create_record(
                 did=manifest_item["object_id"],
                 hashes=hashes,
                 size=manifest_item["size"],
-                authz=[f'/programs/{program}/projects/{project}'],
+                authz=authz,
                 file_name=manifest_item['file_name'],
                 metadata=metadata,
                 urls=[f"s3://{bucket_name}/{manifest_item['object_id']}/{manifest_item['file_name']}"]
@@ -147,7 +153,7 @@ def worker_count():
 
 
 def upload_indexd(config: Config, project_id: str, object_id: str = None, duplicate_check: bool = False,
-                  manifest_path: str = None) -> list[dict]:
+                  manifest_path: str = None, restricted_project_id: str = None) -> list[dict]:
     """Save manifest to indexd, returns list of manifest entries"""
 
     manifest_entries = []
@@ -155,6 +161,9 @@ def upload_indexd(config: Config, project_id: str, object_id: str = None, duplic
     assert project_id, "project_id is missing"
     assert project_id.count('-') == 1, f"{project_id} should have a single '-' delimiter."
     program, project = project_id.split('-')
+
+    if restricted_project_id:
+        assert restricted_project_id.count('-') == 1, f"{restricted_project_id} should have a single '-' delimiter."
 
     file_client, index_client, user, auth = gen3_services(config=config)
 
@@ -177,7 +186,8 @@ def upload_indexd(config: Config, project_id: str, object_id: str = None, duplic
                     project_id,
                     manifest_item,
                     bucket_name,
-                    duplicate_check
+                    duplicate_check,
+                    restricted_project_id
                 )
             )
             assert _, "Expected a result from _write_indexd"
