@@ -3,7 +3,7 @@ import pytest
 from gen3_util.meta.skeleton import create_skeleton
 
 
-def test_meta_skeleton_full():
+def test_meta_skeleton_full(submission_client):
     """Ensure FHIR resources created from identifiers document reference -> observation, specimen, patient, task,research subject, research study"""
     resources = create_skeleton(
         metadata={
@@ -13,7 +13,8 @@ def test_meta_skeleton_full():
             'task_identifier': 'task-1',
             'observation_identifier': 'observation-1',
             'project_id': 'aced-foo'
-        }
+        },
+        submission_client=submission_client
     )
 
     # check that we have the expected resources
@@ -71,7 +72,7 @@ def test_meta_skeleton_full():
     assert observation.id in document_reference.subject.reference, f"expected {observation.id} in {document_reference.subject.reference}"
 
 
-def test_meta_skeleton_specimen():
+def test_meta_skeleton_specimen(submission_client):
     """Ensure FHIR resources created from identifiers for only document reference -> specimen"""
     resources = create_skeleton(
         metadata={
@@ -79,7 +80,8 @@ def test_meta_skeleton_specimen():
             'specimen_identifier': 'specimen-1',
             'patient_identifier': 'patient-1',
             'project_id': 'aced-foo'
-        }
+        },
+        submission_client=submission_client
     )
     # check that we have the expected resources
     assert len(resources) == 5, f"expected 5 resources, got {len(resources)}"
@@ -96,14 +98,15 @@ def test_meta_skeleton_specimen():
     assert specimen.id in document_reference.subject.reference, f"expected {specimen.id} in {document_reference.subject.reference}"
 
 
-def test_meta_skeleton_patient():
+def test_meta_skeleton_patient(submission_client):
     """Ensure FHIR resources created from identifiers for only document reference -> patient"""
     resources = create_skeleton(
         metadata={
             'document_reference_id': 'ca71e316-48e1-11ee-be56-0242ac120002',
             'patient_identifier': 'patient-1',
             'project_id': 'aced-foo'
-        }
+        },
+        submission_client=submission_client
     )
     # check that we have the expected resources
     assert len(resources) == 4, f"expected 4 resources, got {len(resources)}"
@@ -120,37 +123,41 @@ def test_meta_skeleton_patient():
     assert patient.id in document_reference.subject.reference, f"expected {patient.id} in {document_reference.subject.reference}"
 
 
-def test_meta_skeleton_bad_parameters():
+def test_meta_skeleton_bad_parameters(submission_client):
     """Ensure FHIR resources created from identifiers for only document reference -> patient"""
     _ = create_skeleton(
         metadata={
             'document_reference_id': 'ca71e316-48e1-11ee-be56-0242ac120002',
             'project_id': 'aced-foo'
-        }
+        },
+        submission_client=submission_client
     )
 
     with pytest.raises(AssertionError):
         _ = create_skeleton(
             metadata={
                 'project_id': 'aced-foo'
-            }
+            },
+            submission_client=submission_client
         )
 
     with pytest.raises(AssertionError):
         _ = create_skeleton(
             metadata={
                 'document_reference_id': 'ca71e316-48e1-11ee-be56-0242ac120002',
-            }
+            },
+            submission_client=submission_client
         )
 
 
-def test_meta_skeleton_minimal():
+def test_meta_skeleton_minimal(submission_client):
     """Ensure FHIR resources created from identifiers for only document reference and research study"""
     resources = create_skeleton(
         metadata={
             'document_reference_id': 'ca71e316-48e1-11ee-be56-0242ac120002',
             'project_id': 'aced-foo'
-        }
+        },
+        submission_client=submission_client
     )
 
     # check that we have the expected resources

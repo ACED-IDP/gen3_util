@@ -1,3 +1,5 @@
+from functools import lru_cache
+
 from gen3.submission import Gen3Submission
 
 from gen3_util.config import Config, gen3_services
@@ -40,30 +42,34 @@ def meta_nodes(config: Config, project_id: str, auth, gen3_type: str = 'document
     return _nodes
 
 
-def meta_resources(config: Config, project_id: str, auth, gen3_type: str, identifier: str):
-    """Retrieve all the resources in a project."""
+@lru_cache(maxsize=None)
+def meta_resource(submission_client: Gen3Submission, project_id: str, gen3_type: str, identifier: str):
+    """Retrieve an existing node from the Gen3 Graph."""
 
-    offset = 0
-    batch_size = 1000
-    _resources = []
-    submission_client = Gen3Submission(auth)
-    while True:
+    if identifier:
         query = """
         {
-          GEN3_TYPE(project_id: "PROJECT_ID", identifier: "IDENTIFIER", first: FIRST, offset: OFFSET) {
+          GEN3_TYPE(project_id: "PROJECT_ID", identifier: "IDENTIFIER") {
             id
             resourceType
           }
         }
-        """.replace('GEN3_TYPE', gen3_type)\
-            .replace('PROJECT_ID', project_id)\
-            .replace('IDENTIFIER', identifier)\
-            .replace('FIRST', str(batch_size))\
-            .replace('OFFSET', str(offset))
-        response = submission_client.query(query)
-        if len(response['data'][gen3_type]) == 0:
-            break
-        _resources.extend(response['data'][gen3_type])
-        offset += batch_size
+        """.replace('GEN3_TYPE', gen3_type) \
+            .replace('PROJECT_ID', project_id) \
+            .replace('IDENTIFIER', identifier)
+    else:
+        query = """
+        {
+          GEN3_TYPE(project_id: "PROJECT_ID") {
+            id
+            resourceType
+          }
+        }
+        """.replace('GEN3_TYPE', gen3_type) \
+            .replace('PROJECT_ID', project_id)
 
-    return _resources
+    response = submission_client.query(query)
+
+    if len(response['data'][gen3_type]) > 0:
+        return response['data'][gen3_type][0]
+    return None

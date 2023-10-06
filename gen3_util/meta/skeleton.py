@@ -13,11 +13,12 @@ from fhir.resources.patient import Patient
 from fhir.resources.researchstudy import ResearchStudy
 from fhir.resources.specimen import Specimen
 from fhir.resources.task import Task, TaskOutput, TaskInput
+from gen3.submission import Gen3Submission
 from orjson import orjson
 
 from gen3_util.common import EmitterContextManager
 from gen3_util.config import Config, ensure_auth
-from gen3_util.files.lister import ls, meta_nodes
+from gen3_util.files.lister import ls, meta_nodes, meta_resource
 from gen3_util.meta import ACED_NAMESPACE
 
 
@@ -78,13 +79,17 @@ def indexd_to_study(config: Config, project_id: str, output_path: str, overwrite
     # get file client
     records = ls(config, metadata={'project_id': project_id})['records']
 
+    submission_client = Gen3Submission(auth_provider=auth)
+
     with EmitterContextManager(output_path, file_mode="w") as emitter:
         for _ in records:
-            resources = create_skeleton(metadata=_['metadata'], auth=auth)
+            resources = create_skeleton(metadata=_['metadata'], submission_client=submission_client)
             for resource in resources:
+                # check document references
                 if resource.id in existing_resource_ids:
                     continue
                 existing_resource_ids.add(resource.id)
+
                 if resource.resource_type == 'DocumentReference':
                     update_document_reference(resource, _)
                 ids = ''
@@ -100,7 +105,15 @@ def indexd_to_study(config: Config, project_id: str, output_path: str, overwrite
                 )
 
 
-def create_skeleton(metadata: dict, auth=None) -> list[Resource]:  # TODO fix caller auth
+def _get_system(identifier: str, project_id: str):
+    """Return system component of simplified identifier"""
+    if '#' in identifier:
+        return identifier.split('#')[0]
+    # default
+    return f"https://aced-idp.org/{project_id}"
+
+
+def create_skeleton(metadata: dict, submission_client: Gen3Submission) -> list[Resource]:  # TODO fix caller auth
     """
     Create a skeleton graph for document and ancestors from a set of identifiers.
     """
@@ -121,49 +134,61 @@ def create_skeleton(metadata: dict, auth=None) -> list[Resource]:  # TODO fix ca
     assert project_id.count('-') == 1, "project_id must be of the form program-project"
     program, project = project_id.split('-')
 
-    system = f"https://aced-idp.org/{project_id}"
-
     # create entities
-    research_subject = observation = specimen = patient = task = None
+    research_study = research_subject = observation = specimen = patient = task = None
 
-    research_study = ResearchStudy(status='active')
-    research_study.id = str(uuid.uuid5(ACED_NAMESPACE, f"{project_id}/ResearchStudy/{project}"))
-    research_study.description = f"Skeleton ResearchStudy for {project_id}"
+    _existing_research_study = meta_resource(submission_client=submission_client, identifier=None, project_id=project_id, gen3_type='research_study')
+    if not _existing_research_study:
+        research_study = ResearchStudy(status='active')
+        research_study.id = str(uuid.uuid5(ACED_NAMESPACE, f"{project_id}/ResearchStudy/{project}"))
+        research_study.description = f"Skeleton ResearchStudy for {project_id}"
+        research_study_id = research_study.id
+    else:
+        research_study_id = _existing_research_study['id']
 
     document_reference = DocumentReference(status='current', content=[{'attachment': {'url': f"file://{document_reference_id}"}}])
     document_reference.id = document_reference_id
 
     if patient_identifier:
-        patient = Patient()
-        patient.id = str(uuid.uuid5(ACED_NAMESPACE, f"{project_id}/Patient/{patient_identifier}"))
-        patient.identifier = [Identifier(value=patient_identifier, system=system, use='official')]
+        _existing_patient = meta_resource(submission_client=submission_client, identifier=patient_identifier, project_id=project_id, gen3_type='patient')
+        if not _existing_patient:
+            patient = Patient()
 
-        research_subject = ResearchSubject(
-            status='active',
-            study={'reference': f"ResearchStudy/{research_study.id}"},
-            subject={'reference': f"Patient/{patient.id}"}
-        )
-        research_subject.id = str(uuid.uuid5(ACED_NAMESPACE, f"{project_id}/ResearchSubject/{patient_identifier}"))
-        research_subject.identifier = [Identifier(value=patient_identifier, system=system, use='official')]
+            patient.id = str(uuid.uuid5(ACED_NAMESPACE, f"{project_id}/Patient/{patient_identifier}"))
+            patient.identifier = [Identifier(value=patient_identifier, system=_get_system(patient_identifier, project_id=project_id), use='official')]
+
+            research_subject = ResearchSubject(
+                status='active',
+                study={'reference': f"ResearchStudy/{research_study_id}"},
+                subject={'reference': f"Patient/{patient.id}"}
+            )
+            research_subject.id = str(uuid.uuid5(ACED_NAMESPACE, f"{project_id}/ResearchSubject/{patient_identifier}"))
+            research_subject.identifier = [Identifier(value=patient_identifier, system=_get_system(patient_identifier, project_id=project_id), use='official')]
 
     if observation_identifier:
-        assert patient, "patient required for observation"
-        observation = Observation(status='final', code={'text': 'unknown'})
-        observation.id = str(uuid.uuid5(ACED_NAMESPACE, f"{project_id}/Observation/{observation_identifier}"))
-        observation.identifier = [Identifier(value=observation_identifier, system=system, use='official')]
-        observation.subject = {'reference': f"Patient/{patient.id}"}
+        _existing_observation = meta_resource(submission_client=submission_client, identifier=observation_identifier, project_id=project_id, gen3_type='observation')
+        if not _existing_observation:
+            assert patient, "patient required for observation"
+            observation = Observation(status='final', code={'text': 'unknown'})
+            observation.id = str(uuid.uuid5(ACED_NAMESPACE, f"{project_id}/Observation/{observation_identifier}"))
+            observation.identifier = [Identifier(value=observation_identifier, system=_get_system(observation_identifier, project_id=project_id), use='official')]
+            observation.subject = {'reference': f"Patient/{patient.id}"}
 
     if specimen_identifier:
-        assert patient, "patient required for specimen"
-        specimen = Specimen()
-        specimen.id = str(uuid.uuid5(ACED_NAMESPACE, f"{project_id}/Specimen/{specimen_identifier}"))
-        specimen.identifier = [Identifier(value=specimen_identifier, system=system, use='official')]
-        specimen.subject = {'reference': f"Patient/{patient.id}"}
+        _existing_specimen = meta_resource(submission_client=submission_client, identifier=specimen_identifier, project_id=project_id, gen3_type='specimen')
+        if not _existing_specimen:
+            assert patient, "patient required for specimen"
+            specimen = Specimen()
+            specimen.id = str(uuid.uuid5(ACED_NAMESPACE, f"{project_id}/Specimen/{specimen_identifier}"))
+            specimen.identifier = [Identifier(value=specimen_identifier, system=_get_system(specimen_identifier, project_id=project_id), use='official')]
+            specimen.subject = {'reference': f"Patient/{patient.id}"}
 
     if task_identifier:
-        task = Task(intent='unknown', status='completed')
-        task.identifier = [Identifier(value=task_identifier, system=system, use='official')]
-        task.id = str(uuid.uuid5(ACED_NAMESPACE, f"{project_id}/Task/{task_identifier}"))
+        _existing_task = meta_resource(submission_client=submission_client, identifier=task_identifier, project_id=project_id, gen3_type='task')
+        if not _existing_task:
+            task = Task(intent='unknown', status='completed')
+            task.identifier = [Identifier(value=task_identifier, system=_get_system(task_identifier, project_id=project_id), use='official')]
+            task.id = str(uuid.uuid5(ACED_NAMESPACE, f"{project_id}/Task/{task_identifier}"))
 
     # create relationships
 
@@ -203,6 +228,6 @@ def create_skeleton(metadata: dict, auth=None) -> list[Resource]:  # TODO fix ca
     if patient and not document_reference.subject:
         document_reference.subject = {'reference': f"Patient/{patient.id}"}
     if not document_reference.subject:
-        document_reference.subject = {'reference': f"ResearchStudy/{research_study.id}"}
+        document_reference.subject = {'reference': f"ResearchStudy/{research_study_id}"}
 
     return [_ for _ in [research_study, research_subject, patient, observation, specimen, task, document_reference] if _]
