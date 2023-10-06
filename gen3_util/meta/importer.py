@@ -307,7 +307,7 @@ def _discover_plugins(plugin_path: str) -> list[PathParser]:
     return PLUGINS
 
 
-@click.command('indexd')
+@click.command('create')
 @click.argument('output_path')
 @click.option('--project_id', required=True,
               default=None,
@@ -318,7 +318,7 @@ def _discover_plugins(plugin_path: str) -> list[PathParser]:
 @click.option("--overwrite", is_flag=True, show_default=True, default=False, help="Ignore existing records.")
 @click.pass_obj
 def import_indexd(config: Config, output_path, project_id, overwrite):
-    """Create minimal study meta from files already uploaded to project_id, write to OUTPUT_PATH.
+    """Create minimal study meta from files uploaded to indexd, write to OUTPUT_PATH.
     """
 
     with CLIOutput(config=config) as output:

@@ -100,14 +100,7 @@ def meta_rm(config: Config):
     rm(config)
 
 
-@meta_group.group(name="create")
-@click.pass_obj
-def meta_create(config: Config):
-    """Create meta data from imported files"""
-    pass
-
-
-meta_create.add_command(import_indexd)
+meta_group.add_command(import_indexd)
 
 
 @meta_group.command(name="validate")
