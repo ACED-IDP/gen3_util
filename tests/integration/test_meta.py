@@ -150,7 +150,7 @@ def import_from_indexd(project_id) -> str:
     """Create data from indexd."""
 
     runner = CliRunner()
-    result = runner.invoke(cli, f'meta create indexd /tmp/{project_id} --project_id {project_id}'.split())
+    result = runner.invoke(cli, f'meta create /tmp/{project_id} --project_id {project_id}'.split())
     assert result.exit_code == 0
     assert sorted([str(_).split('/')[-1] for _ in pathlib.Path(f"/tmp/{project_id}/").glob("*.ndjson")]) == ['DocumentReference.ndjson', 'ResearchStudy.ndjson']
     return f"/tmp/{project_id}"
