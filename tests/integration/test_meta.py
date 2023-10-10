@@ -194,7 +194,7 @@ def test_incremental_workflow(program, profile):
 
     for file_name in pathlib.Path('tests/fixtures/dir_to_study/').glob('**/*'):
         if file_name.is_file():
-            manifest_put(file_name, project_id)
+            manifest_put("file:///" + str(file_name), project_id)
 
     upload_manifest(project_id, profile)
 

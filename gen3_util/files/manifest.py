@@ -8,6 +8,7 @@ import uuid
 from datetime import datetime
 import multiprocessing
 from multiprocessing.pool import Pool
+from urllib.parse import urlparse
 
 import orjson
 import requests
@@ -32,7 +33,7 @@ logger = logging.getLogger(__name__)
 def put(config: Config, file_name: str, project_id: str, md5: str):
     """Create manifest entry for a file."""
     object_name = _normalize_file_url(file_name)
-    file = pathlib.Path(file_name)
+    file = pathlib.Path(object_name)
     assert file.is_file(), f"{file} is not a file"
 
     assert project_id, "project_id is missing"
@@ -127,6 +128,9 @@ def _write_indexd(index_client, project_id: str, manifest_item: dict, bucket_nam
     if restricted_project_id:
         _ = restricted_project_id.split('-')
         authz.append(f'/programs/{_[0]}/projects/{_[1]}')
+
+    # strip any file:/// prefix
+    manifest_item['file_name'] = urlparse(manifest_item['file_name']).path
 
     if not existing_record:
         try:

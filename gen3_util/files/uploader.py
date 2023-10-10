@@ -152,8 +152,8 @@ class UploadResult:
 
 def _normalize_file_url(path: str) -> str:
     """Strip leading ./ and file:/// from file urls."""
-    path = re.sub(r'^\.\/', '', path)
     path = re.sub(r'^file:\/\/\/', '', path)
+    path = re.sub(r'^\.\/', '', path)
     return path
 
 
