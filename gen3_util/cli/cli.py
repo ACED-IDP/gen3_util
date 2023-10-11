@@ -1,5 +1,6 @@
 import logging
 import pathlib
+import subprocess
 
 import click
 import pkg_resources  # part of setuptools
@@ -68,8 +69,37 @@ def version(config):
 def ping(config: Config):
     """Test connectivity to Gen3 endpoint."""
     with CLIOutput(config=config) as output:
+        msgs = []
+        ok = True
         auth = ensure_auth(config.gen3.refresh_file, validate=True)
-        output.update({'endpoint': auth.endpoint, 'username': auth.curl('/user/user').json()['username']})
+        msgs.append("access key found")
+        cmd = "gen3-client --version".split()
+        gen3_client_installed = subprocess.run(cmd, capture_output=True)
+        if gen3_client_installed.returncode == 0:
+            msgs.append("gen3-client found")
+        else:
+            msgs.append("gen3-client not installed")
+            ok = False
+
+        gen_client_ini_file = pathlib.Path.home() / ".gen3" / "gen3_client_config.ini"
+        if not gen_client_ini_file.exists():
+            msgs.append("gen3-client not configured")
+            ok = False
+        else:
+            api_endpoint_found = False
+            with open(gen_client_ini_file.absolute()) as fp:
+                for _ in fp.readlines():
+                    if auth.endpoint in _:
+                        api_endpoint_found = True
+            if not api_endpoint_found:
+                msgs.append(f"{auth.endpoint} not found in {gen_client_ini_file}")
+                ok = False
+        if ok:
+            msgs.insert(0, "Configuration OK")
+        else:
+            msgs.insert(0, "Configuration ERROR")
+
+        output.update({'msg': ', '.join(msgs), 'endpoint': auth.endpoint, 'username': auth.curl('/user/user').json()['username']})
 
 
 if __name__ == '__main__':
