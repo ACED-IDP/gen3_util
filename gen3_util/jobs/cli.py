@@ -6,6 +6,7 @@ from json import JSONDecodeError
 import click
 from gen3.jobs import Gen3Jobs
 
+from gen3_util import gen3_client_profile
 from gen3_util.cli import CLIOutput
 from gen3_util.cli import NaturalOrderGroup
 from gen3_util.config import Config, ensure_auth
@@ -58,7 +59,7 @@ def import_meta(config: Config, project_id: str, object_id: str):
 @click.option('--project_id', default=None, show_default=True,
               help="Gen3 program-project", envvar='PROJECT_ID')
 @click.option('--profile', show_default=True, help="gen3-client profile",
-              envvar='PROFILE')
+              envvar='GEN3_PROFILE')
 @click.argument('path')
 @click.pass_obj
 def export_meta(config: Config, project_id: str, path: str, profile: str):
@@ -68,10 +69,13 @@ def export_meta(config: Config, project_id: str, path: str, profile: str):
     PATH: path to save metadata
     """
 
-    assert profile, "Please provide a profile for gen3-client"
     assert project_id, "--project_id required"
     assert project_id.count('-') == 1, "--project_id must be of the form program-project"
     auth = ensure_auth(config.gen3.refresh_file)
+
+    if not profile:
+        profile = gen3_client_profile(endpoint=auth.endpoint)
+
     # delivered to sower job in env['ACCESS_TOKEN']
     jobs_client = Gen3Jobs(auth_provider=auth)
     # delivered to sower job in env['INPUT_DATA']

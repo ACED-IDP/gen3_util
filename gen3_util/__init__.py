@@ -1,5 +1,6 @@
 from typing import Union
 from gen3_util.config import config
+import pathlib
 
 default_config = config.default()
 
@@ -24,4 +25,31 @@ def monkey_patch_url_validate():
     fhir.resources.fhirtypes.Url.validate = better_url_validate
 
 
+def read_ini(path: str):
+    """Read ini file."""
+    import configparser
+    import pathlib
+
+    path = pathlib.Path(path)
+    assert path.is_file(), f"{path} is not a file"
+    _ = configparser.ConfigParser()
+    _.read(path)
+    return _
+
+
+def gen_client_ini_path():
+    """Return path to gen3-client ini file."""
+    return pathlib.Path(pathlib.Path.home() / ".gen3" / "gen3_client_config.ini")
+
+
+def gen3_client_profile(endpoint: str, path: str = gen_client_ini_path().absolute()):
+    """Read gen3-client ini file, return profile name or none if endpoint not found."""
+    gen3_util_ini = read_ini(path)
+    for section in gen3_util_ini.sections():
+        if gen3_util_ini[section]['api_endpoint'] == endpoint:
+            return section
+    return None
+
+
+# main
 monkey_patch_url_validate()

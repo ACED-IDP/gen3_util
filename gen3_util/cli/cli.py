@@ -81,19 +81,17 @@ def ping(config: Config):
             msgs.append("gen3-client not installed")
             ok = False
 
-        gen_client_ini_file = pathlib.Path.home() / ".gen3" / "gen3_client_config.ini"
+        gen_client_ini_file = gen3_util.gen_client_ini_path()
         if not gen_client_ini_file.exists():
             msgs.append("gen3-client not configured")
             ok = False
         else:
-            api_endpoint_found = False
-            with open(gen_client_ini_file.absolute()) as fp:
-                for _ in fp.readlines():
-                    if auth.endpoint in _:
-                        api_endpoint_found = True
-            if not api_endpoint_found:
+            profile = gen3_util.gen3_client_profile(endpoint=auth.endpoint)
+            if not profile:
                 msgs.append(f"{auth.endpoint} not found in {gen_client_ini_file}")
                 ok = False
+            else:
+                msgs.append(f"gen3-client profile found '{profile}'")
         if ok:
             msgs.insert(0, "Configuration OK")
         else:
