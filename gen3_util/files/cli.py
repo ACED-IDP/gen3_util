@@ -64,7 +64,8 @@ def manifest_group(config):
 
 
 @manifest_group.command(name="put")
-@click.argument('file_name', )
+@click.argument('local_path', )
+@click.argument('remote_path', required=False, default=None)
 @click.option('--project_id', default=None, required=False, show_default=True,
               help="Gen3 program-project", envvar='PROJECT_ID')
 # @click.option('--source_path', required=False, default=None, show_default=True,
@@ -80,20 +81,22 @@ def manifest_group(config):
 @click.option('--md5', default=None, required=False, show_default=True,
               help="MD5 sum, if not provided, will be calculated before upload")
 @click.pass_obj
-def _manifest_put(config: Config, file_name: str, project_id: str, md5: str,
+def _manifest_put(config: Config, local_path: str, remote_path: str, project_id: str, md5: str,
                   specimen_id: str, patient_id: str, observation_id: str, task_id: str):
     """Add file meta information to the manifest.
 
     \b
-    file_name: path to file
+    local_path: path to file on local file system
+    remote_path: name of the file in bucket, defaults to local_path
     """
 
     with CLIOutput(config=config) as output:
-        _ = manifest_put(config, file_name, project_id=project_id, md5=md5)
+        _ = manifest_put(config, local_path, project_id=project_id, md5=md5)
         _['observation_id'] = observation_id
         _['patient_id'] = patient_id
         _['specimen_id'] = specimen_id
         _['task_id'] = task_id
+        _['remote_path'] = remote_path
         output.update(_)
         manifest_save(config, project_id, [_])
 

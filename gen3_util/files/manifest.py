@@ -134,14 +134,15 @@ def _write_indexd(index_client, project_id: str, manifest_item: dict, bucket_nam
 
     if not existing_record:
         try:
+            file_name = manifest_item['remote_path'] or manifest_item['file_name']
             response = index_client.create_record(
                 did=manifest_item["object_id"],
                 hashes=hashes,
                 size=manifest_item["size"],
                 authz=authz,
-                file_name=manifest_item['file_name'],
+                file_name=file_name,
                 metadata=metadata,
-                urls=[f"s3://{bucket_name}/{manifest_item['object_id']}/{manifest_item['file_name']}"]
+                urls=[f"s3://{bucket_name}/{manifest_item['object_id']}/{file_name}"]
             )
             assert response, "Expected response from indexd create_record"
         except (requests.exceptions.HTTPError, AssertionError) as e:
