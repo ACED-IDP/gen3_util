@@ -71,7 +71,7 @@ def put(config: Config, file_name: str, project_id: str, md5: str):
 
 def save(config: Config, project_id: str, generator):
     """Write to local sqlite."""
-    connection = _get_connection()
+    connection = _get_connection(config)
     with connection:
         connection.executemany('INSERT OR REPLACE into manifest values (?, ?, ?)',
                                [(
