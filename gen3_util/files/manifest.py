@@ -30,6 +30,14 @@ except ImportError as e:
 logger = logging.getLogger(__name__)
 
 
+def _get_connection(config: Config):
+    """Return sqlite connection, ensure table exists."""
+    _connection = sqlite3.connect(config.state_dir / 'manifest.sqlite')
+    with _connection:
+        _connection.execute('CREATE TABLE if not exists manifest (object_id PRIMARY KEY, project_id Text, entity Text)')
+    return _connection
+
+
 def put(config: Config, file_name: str, project_id: str, md5: str):
     """Create manifest entry for a file."""
     object_name = _normalize_file_url(file_name)
@@ -63,23 +71,21 @@ def put(config: Config, file_name: str, project_id: str, md5: str):
 
 def save(config: Config, project_id: str, generator):
     """Write to local sqlite."""
-    connection = sqlite3.connect(config.state_dir / 'manifest.sqlite')
+    connection = _get_connection()
     with connection:
-        connection.execute('CREATE TABLE if not exists manifest (object_id PRIMARY KEY, project_id Text, entity Text)')
-        with connection:
-            connection.executemany('INSERT OR REPLACE into manifest values (?, ?, ?)',
-                                   [(
-                                       _['object_id'],
-                                       project_id,
-                                       orjson.dumps(
-                                           _, default=pydantic_encoder
-                                       ).decode()
-                                     ) for _ in generator])
+        connection.executemany('INSERT OR REPLACE into manifest values (?, ?, ?)',
+                               [(
+                                   _['object_id'],
+                                   project_id,
+                                   orjson.dumps(
+                                       _, default=pydantic_encoder
+                                   ).decode()
+                                 ) for _ in generator])
 
 
 def ls(config: Config, project_id: str, object_id: str):
     """Read from local sqlite."""
-    connection = sqlite3.connect(config.state_dir / 'manifest.sqlite')
+    connection = _get_connection(config)
     with connection:
         cursor = connection.cursor()
         if object_id:
@@ -226,7 +232,7 @@ def upload_files(config: Config, manifest_entries: list[dict], project_id: str, 
 
 def rm(config: Config, project_id: str, object_id: str):
     """Remove manifest entry from local sqlite."""
-    connection = sqlite3.connect(config.state_dir / 'manifest.sqlite')
+    connection = _get_connection(config)
     with connection:
         if object_id:
             connection.execute('DELETE from manifest where object_id = ?', (object_id,))
