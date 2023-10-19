@@ -1,16 +1,22 @@
+import json
 import pathlib
 
+import asyncio
+from json import JSONDecodeError
+
 import click
+from gen3.jobs import Gen3Jobs
 
 from gen3_util.cli import NaturalOrderGroup, CLIOutput
-from gen3_util.config import Config
+from gen3_util.config import Config, ensure_auth
 from gen3_util.meta.downloader import cp as cp_download
 from gen3_util.meta.lister import ls
 from gen3_util.meta.remover import rm
 from gen3_util.meta.uploader import cp as cp_upload
 from gen3_util.meta.validator import validate
 
-from gen3_util.meta.importer import cli as importer_cli
+from gen3_util.meta.importer import import_indexd
+from gen3_util.meta.delta import get as delta_get
 
 
 @click.group(name='meta', cls=NaturalOrderGroup)
@@ -20,13 +26,49 @@ def meta_group(config):
     pass
 
 
+@meta_group.command(name="publish")
+@click.argument('from_')
+@click.option('--ignore_state', default=False, is_flag=True, show_default=True,
+              help="Upload file, even if already uploaded")
+@click.option('--project_id', default=None, show_default=True,
+              help="Gen3 program-project", envvar='PROJECT_ID')
+@click.pass_obj
+def meta_publish(config: Config, from_: str,  project_id: str, ignore_state: bool):
+    """Publish meta data on the portal
+
+    \b
+    from_: meta data directory"""
+
+    msgs = []
+
+    assert pathlib.Path(from_).is_dir(), f"{from_} is not a directory"
+    assert project_id is not None, "--project_id is required for uploads"
+    upload_result = cp_upload(config, from_, project_id, ignore_state)
+    msgs.append(upload_result['msg'])
+    object_id = upload_result['object_id']
+
+    auth = ensure_auth(config.gen3.refresh_file)
+    jobs_client = Gen3Jobs(auth_provider=auth)
+    args = {'object_id': object_id, 'project_id': project_id, 'method': 'put'}
+
+    _ = asyncio.run(jobs_client.async_run_job_and_wait('fhir_import_export', args))
+    try:
+        output = json.loads(_['output'])
+
+        with CLIOutput(config=config) as console_output:
+            console_output.update(output)
+
+    except JSONDecodeError:
+        print("jobs_client.async_run_job_and_wait() (raw):", _)
+
+
 @meta_group.command(name="cp")
 @click.argument('from_')
 @click.argument('to_')
 @click.option('--ignore_state', default=False, is_flag=True, show_default=True,
               help="Upload file, even if already uploaded")
 @click.option('--project_id', default=None, show_default=True,
-              help="Gen3 program-project")
+              help="Gen3 program-project", envvar='PROJECT_ID')
 @click.pass_obj
 def meta_cp(config: Config, from_: str, to_: str, project_id: str, ignore_state: bool):
     """Copy meta to/from the project bucket.
@@ -37,7 +79,7 @@ def meta_cp(config: Config, from_: str, to_: str, project_id: str, ignore_state:
     with CLIOutput(config=config) as output:
         if pathlib.Path(from_).is_dir():
             assert project_id is not None, "--project_id is required for uploads"
-            output.update(cp_upload(config, from_, to_, project_id, ignore_state))
+            output.update(cp_upload(config, from_, project_id, ignore_state))
         else:
             pathlib.Path(to_).parent.mkdir(parents=True, exist_ok=True)
             output.update(cp_download(config, from_, to_))
@@ -58,14 +100,7 @@ def meta_rm(config: Config):
     rm(config)
 
 
-@meta_group.group(name="import")
-@click.pass_obj
-def meta_import(config: Config):
-    """Import study from directory listing."""
-    pass
-
-
-meta_import.add_command(importer_cli)
+meta_group.add_command(import_indexd)
 
 
 @meta_group.command(name="validate")
@@ -75,3 +110,15 @@ def meta_validate(config: Config, directory):
     """Validate FHIR data in DIRECTORY."""
     with CLIOutput(config) as output:
         output.update(validate(config, directory))
+
+
+@meta_group.command(name="node")
+@click.option('--project_id', default=None, show_default=True,
+              help="Gen3 program-project", envvar='PROJECT_ID')
+@click.option('--node_id', default=None, show_default=True,
+              help="Gen3 node id")
+@click.pass_obj
+def delta(config: Config, project_id: str, node_id: str):
+    """Retrieve simplified metadata for a node."""
+    with CLIOutput(config) as output:
+        output.update(delta_get(config, project_id, node_id))

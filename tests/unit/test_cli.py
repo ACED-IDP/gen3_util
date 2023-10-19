@@ -5,9 +5,9 @@ from gen3_util.cli.cli import cli
 def test_default_command(caplog):
     """Ensure it prints version if no other command"""
     runner = CliRunner()
-    result = runner.invoke(cli)
+    result = runner.invoke(cli, ['version'])
     assert result.exit_code == 0
-    expected = ['Version']
+    expected = ['version']
     for _ in expected:
         assert _ in result.output, f"Should have printed expected={_} actual={result.output}"
 
@@ -47,9 +47,9 @@ def test_projects(caplog):
     assert result.exit_code == 0
     print(result.output)
     expected_strings = """
-      ls     List all projects.
-      touch  Create a project
-      rm     Remove project.
+      new  Creates project resource with default policies.
+      ls   List all projects user has access to.
+      rm   Remove project.
     """.split()
     for expected_string in expected_strings:
         assert expected_string in result.output, f"Should have printed {expected_string}"
@@ -62,11 +62,13 @@ def test_meta(caplog):
     assert result.exit_code == 0
     print(result.output)
     expected_strings = """
-      cp        Copy meta to/from the project bucket.
-      ls        Query buckets from submitted metadata.
-      rm        Remove meta from a project.
-      import    Import study from directory listing.
-      validate  Validate FHIR data in DIRECTORY.
+  publish   Publish meta data on the portal from_: meta data directory
+  cp        Copy meta to/from the project bucket.
+  ls        Query buckets for submitted metadata.
+  rm        Remove meta from a project.
+  create    Create minimal study meta from files uploaded to indexd, write to...
+  validate  Validate FHIR data in DIRECTORY.
+  node      Retrieve simplified metadata for a node.
     """.split()
     for expected_string in expected_strings:
         assert expected_string in result.output, f"Should have printed {expected_string}"
@@ -79,9 +81,9 @@ def test_file(caplog):
     assert result.exit_code == 0
     print(result.output)
     expected_strings = """
-      ls  List files in a project.
-      cp  Copy files to/from the project bucket.
-      rm  Remove files from a project.
+      ls        List files in a project.
+      manifest  Manage file transfers using a manifest.
+      rm        Remove files from a project.
     """.split()
     for expected_string in expected_strings:
         assert expected_string in result.output, f"Should have printed {expected_string}"

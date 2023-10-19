@@ -8,6 +8,12 @@ def dependency() -> str:
 
 
 @pytest.fixture
-def data_bucket() -> str:
-    """Expected data bucket, keep in sync with development.aced-idp.org."""
-    return "aced-development-ohsu-data-bucket"
+def profile() -> str:
+    """gen3-client profile to use for testing."""
+    return "aced-training"
+
+
+@pytest.fixture
+def program() -> str:
+    """program to use for testing projects i.e. program-projects"""
+    return "test"

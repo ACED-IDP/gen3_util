@@ -1,20 +1,20 @@
-from typing import List
+from typing import List, Any
 from collections import defaultdict
 
 from gen3.auth import Gen3Auth
 from pydantic import BaseModel
-from pydantic_yaml import YamlModel
 
 from gen3_util.config import ensure_auth, Config
 
 
 class ProjectSummary(BaseModel):
     """Summary of a project."""
-    exists: bool
+    in_sheepdog: bool = False
     """Project exists flag"""
+    permissions: list[dict[str, Any]] = []
 
 
-class ProjectSummaries(YamlModel):
+class ProjectSummaries(BaseModel):
     """Summary of projects, including messages."""
     endpoint: str
     """The commons url"""
@@ -39,32 +39,37 @@ def recursive_defaultdict():
 def get_projects(auth, submission) -> dict:
     """Return a dict of programs, projects and their existence flag."""
 
+    # get the list of programs in sheepdog
     response = submission.get_programs()
     assert 'links' in response, f'submission.get_program returned unexpected response: {response}'
     program_links = response['links']
-    # print(program_links)
     programs = [_.split('/')[-1] for _ in program_links]
     project_links = []
-    projects = recursive_defaultdict()
+    sheepdog_projects = recursive_defaultdict()
+    # add projects to it
     for program in programs:
         # print(program)
         project_links.extend(submission.get_projects(program)['links'])
-        projects[program]['exists'] = True
-        projects[program]['projects'] = {}
+        sheepdog_projects[program]['in_sheepdog'] = True
+        sheepdog_projects[program]['projects'] = {}
     for _ in project_links:
         program, project = _.replace('/v0/submission/', '').split('/')
-        projects[program]['projects'][project] = True
+        sheepdog_projects[program]['projects'][project] = True
+
+    # get the list of programs and projects from arborist, will be different from sheepdog
     user = get_user(auth=auth)
+    arborist_projects = recursive_defaultdict()
     for _ in user['authz'].keys():
         if not all([_.startswith('/programs'), 'projects/' in _]):
             continue
+        permissions = user['authz'][_]
         _ = _.replace('/programs/', '')
         _ = _.split('/')
         _program = _[0]
         _project = _[-1]
-        if _program not in programs:
-            projects[_program]['exists'] = False
-        if all([_program in programs, _project in projects[_program]['projects']]):
-            continue
-        projects[_program]['projects'][_project] = False
-    return projects
+        arborist_projects[_program][_project]['permissions'] = permissions
+        arborist_projects[_program][_project]['in_sheepdog'] = False
+        if _program in sheepdog_projects and _project in sheepdog_projects[_program]['projects']:
+            arborist_projects[_program][_project]['in_sheepdog'] = True
+
+    return arborist_projects

@@ -35,14 +35,20 @@ def get_request(config: Config = None, auth: Gen3Auth = None, request_id: str = 
     return auth.curl(f'/requestor/request/{request_id}').json()
 
 
-def create_request(config: Config = None, auth: Gen3Auth = None, request: dict = None):
-    """Get a specific request"""
+def create_request(config: Config = None, auth: Gen3Auth = None, request: dict = None, revoke: bin = False):
+    """Create a specific request"""
     auth = _ensure_auth(auth, config)
     one_of = ['policy_id', 'resource_paths', 'resource_path']
     assert any([k in request for k in one_of]), (f"one of {one_of} required", request)
+
+    url = auth.endpoint + "/" + 'requestor/request'
+    if revoke:
+        url = url + "?revoke"
+
     response = requests.post(
-        auth.endpoint + "/" + 'requestor/request', json=request, auth=auth
+        url, json=request, auth=auth
     )
+
     try:
         response.raise_for_status()
     except HTTPError as e:

@@ -86,12 +86,12 @@ def touch(config: Config, resource_path: str, user_name: str, roles: str) -> Log
     })
 
 
-def cp(config: Config, request: dict) -> LogAccess:
+def cp(config: Config, request: dict, revoke: bool = False) -> LogAccess:
     """List requests."""
 
     auth = ensure_auth(config.gen3.refresh_file)
 
-    request = create_request(auth=auth, request=request)
+    request = create_request(auth=auth, request=request, revoke=revoke)
     return LogAccess(**{
         'endpoint': auth.endpoint,
         'request': request,
@@ -146,8 +146,35 @@ def add_user(config: Config, project_id: str, user_name: str, write: bool) -> Lo
     })
 
 
+def rm_user(config: Config, project_id: str, user_name: str) -> LogAccess:
+    """Revoke user from project's policies."""
+
+    # implement read from resource_path
+    policies_ = []
+    file_names = ['add-user-read.yaml', 'add-user-write.yaml']
+
+    for file_name in file_names:
+        with pkg_resources.open_text(policies, file_name) as f:
+            policies_.extend([_ for _ in yaml.safe_load(f)['policies']])
+
+    requests = []
+    request_ids = []
+    for policy in policies_:
+        policy = format_policy(policy, project_id, user_name)
+        requests.append(cp(request=policy, config=config, revoke=True).request)
+    commands = [f"gen3_util access update {request_id} SIGNED" for request_id in request_ids]
+    msg = f"Approve these requests to add {user_name} to {project_id}"
+
+    return LogAccess(**{
+        'requests': requests,
+        'commands': commands,
+        'msg': msg,
+    })
+
+
+# TODO Remove?
 def add_policies(config: Config, project_id: str) -> LogAccess:
-    """Add policies to project."""
+    """Add policies to project. """
     # implement read from resource_path
     policies_ = []
     file_names = ['add-project-default.yaml']

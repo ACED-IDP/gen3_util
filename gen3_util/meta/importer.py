@@ -22,6 +22,8 @@ from fhir.resources.patient import Patient
 from fhir.resources.specimen import Specimen
 from fhir.resources.resource import Resource
 
+from gen3_util.meta.skeleton import indexd_to_study
+
 try:
     import magic
 except ImportError as e:
@@ -104,7 +106,7 @@ def _extract_fhir_resources(file, input_path, plugin_path) -> list[Resource]:
               show_default=True,
               help='Read plugins from this path.')
 @click.pass_obj
-def cli(config: Config, input_path, output_path, project_id, remove_path_prefix, pattern, plugin_path):
+def import_dir(config: Config, input_path, output_path, project_id, remove_path_prefix, pattern, plugin_path):
     """Create minimal study meta from matching files in INPUT_PATH, write to OUTPUT_PATH.
     """
     with CLIOutput(config=config) as output:
@@ -303,3 +305,22 @@ def _discover_plugins(plugin_path: str) -> list[PathParser]:
                 PLUGINS.append(obj())
 
     return PLUGINS
+
+
+@click.command('create')
+@click.argument('output_path')
+@click.option('--project_id', required=True,
+              default=None,
+              show_default=True,
+              help='Gen3 program-project',
+              envvar='PROJECT_ID'
+              )
+@click.option("--overwrite", is_flag=True, show_default=True, default=False, help="Ignore existing records.")
+@click.pass_obj
+def import_indexd(config: Config, output_path, project_id, overwrite):
+    """Create minimal study meta from files uploaded to indexd, write to OUTPUT_PATH.
+    """
+
+    with CLIOutput(config=config) as output:
+        output.update(indexd_to_study(config=config, project_id=project_id, output_path=output_path,
+                                      overwrite=overwrite))

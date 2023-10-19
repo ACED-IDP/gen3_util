@@ -16,7 +16,8 @@ def test_project_ls(caplog):
 def test_project_ping(caplog):
     """Ensure we can retrieve connected message."""
     runner = CliRunner()
-    result = runner.invoke(cli, ['projects', 'ping'])
+    result = runner.invoke(cli, ['ping'])
+    print(result.stdout)
     assert result.exit_code == 0
     expected_strings = ['OK', 'http', 'username']
     for expected_string in expected_strings:
@@ -26,8 +27,9 @@ def test_project_ping(caplog):
 def test_project_bad_ping(caplog):
     """Ensure we can descriptive error."""
     runner = CliRunner(mix_stderr=False)
-    result = runner.invoke(cli, ['--cred', 'BAD_PATH', 'projects', 'ping'], )
-    print(result.stdout)
+    result = runner.invoke(cli, ['--cred', 'BAD_PATH', 'ping'], )
+    print('>>>', result.stdout, '<<<')
+    print(']]]', result.stderr, '[[[')
     assert result.exit_code == 1
     expected_strings = ['Could not get access.']
     for expected_string in expected_strings:

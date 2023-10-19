@@ -1,8 +1,8 @@
 import pathlib
 from urllib.parse import ParseResult, urlparse
 
-from gen3_util.config import Config
-from gen3_util.common import print_formatted
+from gen3_util.config import Config, gen3_services
+# from gen3_util.common import print_formatted
 
 
 def _validate_parameters(from_, to_) -> (ParseResult, pathlib.Path):
@@ -21,4 +21,6 @@ def _validate_parameters(from_, to_) -> (ParseResult, pathlib.Path):
 def cp(config: Config, from_: str, to_: str):
     """Copy files from bucket to local file system."""
     # from_, to_ = _validate_parameters(from_, to_)
-    print_formatted(config, {'msg': 'Please use "gen3 file download-single OBJECT_ID"'})
+    # print_formatted(config, {'msg': 'Please use "gen3 file download-single OBJECT_ID"'})
+    file_client, index_client, user, auth = gen3_services(config=config)
+    file_client.download_single(from_, to_)
