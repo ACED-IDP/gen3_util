@@ -224,7 +224,9 @@ def upload_files(config: Config, manifest_entries: list[dict], project_id: str, 
     with open(manifest_path, 'w') as manifest_file:
         json.dump(manifest_entries, manifest_file)
 
-    cmd = f"gen3-client upload-multiple --manifest {manifest_path} --profile {profile} --upload-path {upload_path} --bucket {bucket_name} --numparallel {worker_count()}".split()
+    cmd = f"gen3-client upload-multiple --manifest {manifest_path} --profile {profile} --upload-path {upload_path} --bucket {bucket_name} --numparallel {worker_count()}"
+    print(f"Running: {cmd}", sys.stderr)
+    cmd = cmd.split()
     upload_results = subprocess.run(cmd)
     assert upload_results.returncode == 0, upload_results
     return upload_results
