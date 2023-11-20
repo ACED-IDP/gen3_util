@@ -133,13 +133,13 @@ def test_meta_skeleton_bad_parameters(submission_client):
         submission_client=submission_client
     )
 
-    with pytest.raises(AssertionError):
-        _ = create_skeleton(
-            metadata={
-                'project_id': 'aced-foo'
-            },
-            submission_client=submission_client
-        )
+    _ = create_skeleton(
+        metadata={
+            'project_id': 'aced-foo'
+        },
+        submission_client=submission_client
+    )
+    assert _ == [], "Should have returned empty list"
 
     with pytest.raises(AssertionError):
         _ = create_skeleton(

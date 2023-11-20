@@ -71,10 +71,10 @@ def indexd_to_study(config: Config, project_id: str, output_path: str, overwrite
 
     existing_resource_ids = set()
     if not overwrite:
-        print("Checking for existing records...", file=sys.stderr)
+        print(f"Checking for existing records for project_id:{project_id}...", file=sys.stderr)
         nodes = meta_nodes(config, project_id, auth=auth)  # fetches document_ids by default
         existing_resource_ids = set([_['id'] for _ in nodes])
-        print("Done", file=sys.stderr)
+        print(f"Retrieved {len(existing_resource_ids)} existing records.", file=sys.stderr)
 
     # get file client
     records = ls(config, metadata={'project_id': project_id})['records']
@@ -128,7 +128,9 @@ def create_skeleton(metadata: dict, submission_client: Gen3Submission) -> list[R
     if not document_reference_id:
         document_reference_id = metadata.get('datanode_object_id', None)
 
-    assert document_reference_id, f"document_reference_id required {metadata}"
+    if not document_reference_id:
+        return []
+        # metadata can include submission files, etc. that are not attached to a document reference ie is_metadata = True
 
     assert project_id, "project_id required"
     assert project_id.count('-') == 1, "project_id must be of the form program-project"
