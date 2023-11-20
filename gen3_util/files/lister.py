@@ -13,8 +13,19 @@ def ls(config: Config, object_id: str = None, metadata: dict = {}):
         return {'records': [_.to_json() for _ in records]}
 
     params = {'metadata': metadata}
+    project_id = metadata.get('project_id', None)
+    if 'project_id' in metadata and len(metadata.keys()) == 1:
+        program, project = project_id.split('-')
+        params = {'authz': f"/programs/{program}/projects/{project}"}
+
     records = index_client.client.list_with_params(params=params)
-    return {'records': [_.to_json() for _ in records]}
+
+    def _ensure_project_id(record):
+        if 'project_id' not in record['metadata'] and project_id:
+            record['metadata']['project_id'] = project_id
+        return record
+
+    return {'records': [_ensure_project_id(_.to_json()) for _ in records]}
 
 
 def meta_nodes(config: Config, project_id: str, auth, gen3_type: str = 'document_reference'):
