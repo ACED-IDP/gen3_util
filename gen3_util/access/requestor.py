@@ -35,12 +35,12 @@ def format_policy(policy: dict, project_id: str, user_name: str) -> dict:
         policy['username'] = user_name
     if project_id:
         program, project = project_id.split('-')
-        if policy.get('resource_path', None):
-            policy['resource_path'] = policy['resource_path'].replace('PROGRAM', program).replace('PROJECT', project)
+        if policy.get('resource_paths', None):
+            policy['resource_paths'] = [_.replace('PROGRAM', program).replace('PROJECT', project) for _ in policy['resource_paths']]
         elif policy.get('policy_id', None):
             policy['policy_id'] = policy['policy_id'].replace('PROGRAM', program).replace('PROJECT', project)
         else:
-            raise ValueError(f"No resource_path specified, can't apply project_id {policy}")
+            raise ValueError(f"No resource_paths or policy_id specified, can't apply project_id {policy}")
     else:
         if 'PROGRAM' in policy['resource_path'] or 'PROJECT' in policy['resource_path']:
             raise ValueError(f"specify project_id for {policy['resource_path']}")

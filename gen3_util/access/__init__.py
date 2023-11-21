@@ -53,6 +53,7 @@ def create_request(config: Config = None, auth: Gen3Auth = None, request: dict =
         response.raise_for_status()
     except HTTPError as e:
         print(e)
+        print(request)
         print(response.text)
         raise e
 
