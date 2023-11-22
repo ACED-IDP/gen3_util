@@ -4,9 +4,6 @@ policies:
   - writer
   resource_paths:
   - /programs/PROGRAM/projects/PROJECT
-  - /data_file
-  - /sower
-# reader policy
 - role_ids:
   - reader
   resource_paths:

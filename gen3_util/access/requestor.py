@@ -47,10 +47,12 @@ def format_policy(policy: dict, project_id: str, user_name: str) -> dict:
     return policy
 
 
-def ls(config: Config, mine: bool) -> LogAccess:
+def ls(config: Config, mine: bool, active: bool = False, username: str = None) -> LogAccess:
     """List requests."""
     auth = ensure_auth(config.gen3.refresh_file)
-    requests = get_requests(auth=auth, mine=mine)
+    requests = get_requests(auth=auth, mine=mine, active=active, username=username)
+    if not isinstance(requests, list):
+        raise Exception(f"Unexpected response: {requests}")
     return LogAccess(**{
         'endpoint': auth.endpoint,
         'requests': [_ for _ in requests],

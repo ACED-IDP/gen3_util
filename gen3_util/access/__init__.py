@@ -13,17 +13,31 @@ def _ensure_auth(auth, config):
     return auth
 
 
-def get_requests(config: Config = None, auth: Gen3Auth = None, mine: bool = False) -> dict:
+def get_requests(config: Config = None, auth: Gen3Auth = None, mine: bool = False, active: bool = False, username: str = None) -> dict:
     """Fetch information about the user."""
     auth = _ensure_auth(auth, config)
     if mine:
         # returns a list of dicts
         # https://github.com/uc-cdis/requestor/blob/master/src/requestor/routes/query.py#L200
-        return auth.curl('/requestor/request/user').json()
+        url = '/requestor/request/user'
+        parms = []
+        if active:
+            parms.append("active")
+        if len(parms) > 0:
+            url = url + "?" + "&".join(parms)
+        return auth.curl(url).json()
     else:
         # returns a list of dicts
         # https://github.com/uc-cdis/requestor/blob/master/src/requestor/routes/query.py#L158
-        return auth.curl('/requestor/request').json()
+        url = '/requestor/request'
+        parms = []
+        if username:
+            parms.append(f"username={username}")
+        if active:
+            parms.append("active")
+        if len(parms) > 0:
+            url = url + "?" + "&".join(parms)
+        return auth.curl(url).json()
 
 
 def get_request(config: Config = None, auth: Gen3Auth = None, request_id: str = None):
