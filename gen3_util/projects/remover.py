@@ -11,7 +11,7 @@ def rm(config: Config, project_id: str):
     program, project = project_id.split('-')
     assert program and project, f'Invalid project_id: {project_id}'
 
-    auth = ensure_auth(config.gen3.refresh_file)
+    auth = ensure_auth(profile=config.gen3.profile)
     submission = Gen3Submission(auth)
 
     try:

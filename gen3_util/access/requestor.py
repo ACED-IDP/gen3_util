@@ -49,7 +49,7 @@ def format_policy(policy: dict, project_id: str, user_name: str) -> dict:
 
 def ls(config: Config, mine: bool, active: bool = False, username: str = None) -> LogAccess:
     """List requests."""
-    auth = ensure_auth(config.gen3.refresh_file)
+    auth = ensure_auth(profile=config.gen3.profile)
     requests = get_requests(auth=auth, mine=mine, active=active, username=username)
     if not isinstance(requests, list):
         raise Exception(f"Unexpected response: {requests}")
@@ -61,7 +61,7 @@ def ls(config: Config, mine: bool, active: bool = False, username: str = None) -
 
 def cat(config: Config, request_id: str) -> dict:
     """Show a specific request requests."""
-    auth = ensure_auth(config.gen3.refresh_file)
+    auth = ensure_auth(profile=config.gen3.profile)
     request = get_request(auth=auth, request_id=request_id)
     return LogAccess(**{
         'endpoint': auth.endpoint,
@@ -79,7 +79,7 @@ def touch(config: Config, resource_path: str, user_name: str, roles: str) -> Log
         roles = list(map(str, roles.split(',')))
         request.update({"role_ids": roles})
 
-    auth = ensure_auth(config.gen3.refresh_file)
+    auth = ensure_auth(profile=config.gen3.profile)
 
     request = create_request(auth=auth, request=request)
     return LogAccess(**{
@@ -91,7 +91,7 @@ def touch(config: Config, resource_path: str, user_name: str, roles: str) -> Log
 def cp(config: Config, request: dict, revoke: bool = False) -> LogAccess:
     """List requests."""
 
-    auth = ensure_auth(config.gen3.refresh_file)
+    auth = ensure_auth(profile=config.gen3.profile)
 
     request = create_request(auth=auth, request=request, revoke=revoke)
     return LogAccess(**{
@@ -110,7 +110,7 @@ def update(config: Config, request_id: str, status: str) -> LogAccess:
     status = status.upper()
     assert status in ALLOWED_REQUEST_STATUSES, f"{status} not in {ALLOWED_REQUEST_STATUSES}"
 
-    auth = ensure_auth(config.gen3.refresh_file)
+    auth = ensure_auth(profile=config.gen3.profile)
     request = update_request(auth=auth, request_id=request_id, status=status)
     return LogAccess(**{
         'endpoint': auth.endpoint,

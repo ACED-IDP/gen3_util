@@ -132,7 +132,7 @@ def _manifest_upload(config: Config, project_id: str, profile: str, duplicate_ch
     """
 
     if not profile:
-        auth = ensure_auth(config.gen3.refresh_file)
+        auth = ensure_auth(profile=config.gen3.profile)
         profile = gen3_client_profile(endpoint=auth.endpoint)
 
     os.chdir(upload_path)

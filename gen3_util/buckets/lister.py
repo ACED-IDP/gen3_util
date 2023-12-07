@@ -15,7 +15,7 @@ class LogBuckets(BaseModel):
 
 def ls(config: Config):
     """List projects."""
-    auth = ensure_auth(config.gen3.refresh_file)
+    auth = ensure_auth(profile=config.gen3.profile)
     buckets = get_buckets(auth=auth)
     return LogBuckets(**{
         'endpoint': auth.endpoint,

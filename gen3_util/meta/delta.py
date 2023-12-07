@@ -4,7 +4,7 @@ from gen3_util.config import ensure_auth, Config
 
 def get(config: Config, project_id: str, node_ids: list[str]):
     """Check if a node exists in the sheepdog database."""
-    auth = ensure_auth(config.gen3.refresh_file)
+    auth = ensure_auth(profile=config.gen3.profile)
     submission_client = Gen3Submission(auth)
 
     assert project_id, "project_id is required"

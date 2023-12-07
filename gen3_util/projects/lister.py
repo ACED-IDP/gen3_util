@@ -8,7 +8,7 @@ from gen3_util.projects import ProjectSummaries, get_projects, ProjectSummary
 def ls(config: Config, resource_filter: str = None, msgs: list[str] = []):
     """List projects."""
 
-    auth = ensure_auth(config.gen3.refresh_file)
+    auth = ensure_auth(profile=config.gen3.profile)
     submission = Gen3Submission(auth)
 
     projects = get_projects(auth, submission)

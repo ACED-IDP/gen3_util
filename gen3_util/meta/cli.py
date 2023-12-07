@@ -47,7 +47,7 @@ def meta_publish(config: Config, from_: str,  project_id: str, ignore_state: boo
     msgs.append(upload_result['msg'])
     object_id = upload_result['object_id']
 
-    auth = ensure_auth(config.gen3.refresh_file)
+    auth = ensure_auth(profile=config.gen3.profile)
     jobs_client = Gen3Jobs(auth_provider=auth)
     args = {'object_id': object_id, 'project_id': project_id, 'method': 'put'}
 

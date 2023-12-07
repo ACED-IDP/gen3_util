@@ -9,7 +9,7 @@ def _ensure_auth(auth, config):
     """Create auth from config, if we don't have one already."""
     if not auth:
         assert config
-        auth = ensure_auth(config.gen3.refresh_file)
+        auth = ensure_auth(config.gen3.profile)
     return auth
 
 

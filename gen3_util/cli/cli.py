@@ -21,7 +21,7 @@ from gen3_util.users.cli import users_group
 
 @click.group(cls=StdNaturalOrderGroup)
 @click.pass_context
-def cli(ctx, config, output_format, cred, state_dir):
+def cli(ctx, config, output_format, profile, state_dir):
     """Gen3 Management Utilities"""
 
     config__ = gen3_util.default_config
@@ -33,8 +33,8 @@ def cli(ctx, config, output_format, cred, state_dir):
     if output_format:
         config__.output.format = output_format
 
-    if cred:
-        config__.gen3.refresh_file = pathlib.Path(cred).expanduser()
+    if profile:
+        config__.gen3.profile = profile
 
     if state_dir:
         _ = pathlib.Path(state_dir).expanduser()
@@ -71,33 +71,35 @@ def ping(config: Config):
     with CLIOutput(config=config) as output:
         msgs = []
         ok = True
-        auth = ensure_auth(config.gen3.refresh_file, validate=True)
-        msgs.append("access key found")
         cmd = "gen3-client --version".split()
         gen3_client_installed = subprocess.run(cmd, capture_output=True)
-        if gen3_client_installed.returncode == 0:
-            msgs.append("gen3-client found")
-        else:
+        if gen3_client_installed.returncode != 0:
             msgs.append("gen3-client not installed")
             ok = False
 
         gen_client_ini_file = gen3_util.gen_client_ini_path()
+        auth = None
         if not gen_client_ini_file.exists():
-            msgs.append("gen3-client not configured")
+            msgs.append("not configured")
             ok = False
         else:
-            profile = gen3_util.gen3_client_profile(endpoint=auth.endpoint)
-            if not profile:
-                msgs.append(f"{auth.endpoint} not found in {gen_client_ini_file}")
+            try:
+                auth = ensure_auth(profile=config.gen3.profile, validate=True) # , profile=profile)
+                msgs.append(f"Connected using profile:{config.gen3.profile}")
+            except (AssertionError, ValueError) as e:
+                msgs.append(f"Could not get access: {e}")
                 ok = False
-            else:
-                msgs.append(f"gen3-client profile found '{profile}'")
-        if ok:
-            msgs.insert(0, "Configuration OK")
-        else:
-            msgs.insert(0, "Configuration ERROR")
 
-        output.update({'msg': ', '.join(msgs), 'endpoint': auth.endpoint, 'username': auth.curl('/user/user').json()['username']})
+        if ok:
+            _ = "Configuration OK: "
+        else:
+            _ = "Configuration ERROR: "
+
+        _ = {'msg': _ + ', '.join(msgs)}
+        if auth:
+            _['endpoint'] = auth.endpoint
+            _['username'] = auth.curl('/user/user').json()['username']
+        output.update(_)
 
 
 if __name__ == '__main__':

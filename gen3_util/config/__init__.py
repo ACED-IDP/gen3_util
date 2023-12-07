@@ -9,12 +9,37 @@ from gen3.index import Gen3Index
 from pydantic import BaseModel
 
 
-def ensure_auth(refresh_file: [pathlib.Path, str] = None, validate: bool = False) -> Gen3Auth:
+def gen_client_ini_path() -> pathlib.Path:
+    """Return path to gen3-client ini file."""
+    return pathlib.Path(pathlib.Path.home() / ".gen3" / "gen3_client_config.ini")
+
+
+def _get_gen3_client_key(path: pathlib.Path, profile: str = None) -> str:
+    """Read gen3-client ini file, return api_key for profile."""
+
+    from gen3_util import read_ini
+
+    gen3_util_ini = read_ini(path)
+
+    if not profile and len(gen3_util_ini.sections()) == 1:
+        # default to first section if only one section
+        profile = gen3_util_ini.sections()[0]
+    if not profile:
+        # default to default section if no profile specified
+        profile = gen3_util_ini.default_section
+    for section in gen3_util_ini.sections():
+        if section == profile:
+            return gen3_util_ini[section]['api_key']
+    raise ValueError(f"no profile {profile} found in {path}, specify one of {gen3_util_ini.sections()}")
+
+
+def ensure_auth(refresh_file: [pathlib.Path, str] = None, validate: bool = False, profile: str = None) -> Gen3Auth:
     """Confirm connection to Gen3 using their conventions.
 
     Args:
         refresh_file (pathlib.Path): The file containing the downloaded JSON web token.
         validate: check the connection by getting a new token
+        profile: gen3-client profile
 
     """
 
@@ -25,6 +50,11 @@ def ensure_auth(refresh_file: [pathlib.Path, str] = None, validate: bool = False
             auth = Gen3Auth(refresh_file=refresh_file.name)
         elif 'ACCESS_TOKEN' in os.environ:
             auth = Gen3Auth(refresh_file=f"accesstoken:///{os.getenv('ACCESS_TOKEN')}")
+        elif gen_client_ini_path().exists():
+            # https://github.com/uc-cdis/gen3sdk-python/blob/master/gen3/auth.py#L190-L191
+            auth = Gen3Auth(refresh_token={
+                'api_key': _get_gen3_client_key(gen_client_ini_path(), profile=profile),
+            })
         else:
             auth = Gen3Auth()
 
@@ -65,10 +95,10 @@ class _DataclassConfig:
 
 class Gen3Config(BaseModel):
 
-    refresh_file: str = None
-    """The file containing the downloaded JSON web token.
+    profile: str = None
+    """The name of the gen3-client profile.
 
-    See https://uc-cdis.github.io/gen3sdk-python/_build/html/auth.html#gen3-auth-helper"""
+    See https://bit.ly/3NbKGi4"""
 
 
 class Config(BaseModel):
@@ -87,7 +117,7 @@ class Config(BaseModel):
 
 def gen3_services(config: Config) -> tuple[Gen3File, Gen3Index, dict, Gen3Auth]:
     """Create Gen3 Services."""
-    auth = ensure_auth(config.gen3.refresh_file)
+    auth = ensure_auth(profile=config.gen3.profile)
     file_client = Gen3File(auth_provider=auth)
     index_client = Gen3Index(auth_provider=auth)
     user = auth.curl('/user/user').json()

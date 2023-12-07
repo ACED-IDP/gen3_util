@@ -38,7 +38,7 @@ def _gen3_client_version() -> str:
 
 def _access_token_info(config: Config) -> dict:
     """Get the access token info."""
-    auth = ensure_auth(config.gen3.refresh_file)
+    auth = ensure_auth(profile=config.gen3.profile)
     _ = {'endpoint': auth.endpoint, 'access_token': auth.get_access_token()}
 
     return _

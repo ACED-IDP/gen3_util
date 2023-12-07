@@ -83,7 +83,7 @@ def save(config: Config, project_id: str, generator):
                                  ) for _ in generator])
 
 
-def ls(config: Config, project_id: str, object_id: str):
+def ls(config: Config, project_id: str, object_id: str = None):
     """Read from local sqlite."""
     connection = _get_connection(config)
     with connection:
@@ -102,17 +102,7 @@ def _write_indexd(index_client, project_id: str, manifest_item: dict, bucket_nam
 
     # SYNC
     existing_record = None
-    hashes = {'md5': manifest_item['md5']}
-    metadata = {
-        **{
-            'document_reference_id': manifest_item['object_id'],
-            'specimen_identifier': manifest_item.get('specimen_id', None),
-            'patient_identifier': manifest_item.get('patient_id', None),
-            'task_identifier': manifest_item.get('task_id', None),
-            'observation_identifier': manifest_item.get('observation_id', None),
-            'project_id': f'{program}-{project}',
-        },
-        **hashes}
+    hashes, metadata = create_hashes_metadata(manifest_item, program, project)
 
     if duplicate_check:
         try:
@@ -156,6 +146,21 @@ def _write_indexd(index_client, project_id: str, manifest_item: dict, bucket_nam
                 raise e
             logger.info(f"indexd record already exists, continuing upload. {manifest_item['object_id']}")
     return True
+
+
+def create_hashes_metadata(manifest_item, program, project):
+    hashes = {'md5': manifest_item['md5']}
+    metadata = {
+        **{
+            'document_reference_id': manifest_item['object_id'],
+            'specimen_identifier': manifest_item.get('specimen_id', None),
+            'patient_identifier': manifest_item.get('patient_id', None),
+            'task_identifier': manifest_item.get('task_id', None),
+            'observation_identifier': manifest_item.get('observation_id', None),
+            'project_id': f'{program}-{project}',
+        },
+        **hashes}
+    return hashes, metadata
 
 
 def worker_count():

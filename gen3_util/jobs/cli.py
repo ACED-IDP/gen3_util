@@ -39,7 +39,7 @@ def import_meta(config: Config, project_id: str, object_id: str):
     \b
     OBJECT_ID: indexd record id of uploaded metadata
     """
-    auth = ensure_auth(config.gen3.refresh_file)
+    auth = ensure_auth(profile=config.gen3.profile)
     # delivered to sower job in env['ACCESS_TOKEN']
     jobs_client = Gen3Jobs(auth_provider=auth)
     # delivered to sower job in env['INPUT_DATA']
@@ -58,11 +58,9 @@ def import_meta(config: Config, project_id: str, object_id: str):
 @job_group.command('export')
 @click.option('--project_id', default=None, show_default=True,
               help="Gen3 program-project", envvar='PROJECT_ID')
-@click.option('--profile', show_default=True, help="gen3-client profile",
-              envvar='GEN3_PROFILE')
 @click.argument('path')
 @click.pass_obj
-def export_meta(config: Config, project_id: str, path: str, profile: str):
+def export_meta(config: Config, project_id: str, path: str):
     """Export project metadata to bucket file.
 
     \b
@@ -71,10 +69,7 @@ def export_meta(config: Config, project_id: str, path: str, profile: str):
 
     assert project_id, "--project_id required"
     assert project_id.count('-') == 1, "--project_id must be of the form program-project"
-    auth = ensure_auth(config.gen3.refresh_file)
-
-    if not profile:
-        profile = gen3_client_profile(endpoint=auth.endpoint)
+    auth = ensure_auth(profile=config.gen3.profile)
 
     # delivered to sower job in env['ACCESS_TOKEN']
     jobs_client = Gen3Jobs(auth_provider=auth)
@@ -88,7 +83,7 @@ def export_meta(config: Config, project_id: str, path: str, profile: str):
         with CLIOutput(config=config) as console_output:
             object_id = output['object_id']
 
-            cmd = f"gen3-client download-single --profile {profile} --guid {object_id} --download-path {path}".split()
+            cmd = f"gen3-client download-single --profile {config.gen3.profile} --guid {object_id} --download-path {path}".split()
             upload_results = subprocess.run(cmd)
             assert upload_results.returncode == 0, upload_results
             output['logs'].append(f"Downloaded {object_id} to {path}")
@@ -110,7 +105,7 @@ def get(config: Config, job_id):
     \b
     JOB_ID: uuid of job
     """
-    auth = ensure_auth(config.gen3.refresh_file)
+    auth = ensure_auth(profile=config.gen3.profile)
     jobs_client = Gen3Jobs(auth_provider=auth)
 
     _ = jobs_client.get_output(job_id)
