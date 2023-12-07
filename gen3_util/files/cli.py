@@ -173,7 +173,10 @@ def _manifest_rm(config: Config, project_id: str, object_id: str):
 
 
 @file_group.command(name="rm")
+@click.option('--object_id', default=None, required=True, show_default=True,
+              help="file UUID", envvar='OBJECT_ID')
 @click.pass_obj
-def files_rm(config: Config):
+def files_rm(config: Config, object_id: str):
     """Remove files from a project."""
-    rm(config)
+    with CLIOutput(config=config) as output:
+        output.update(rm(config, object_id))
