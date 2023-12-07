@@ -1,8 +1,9 @@
 from typing import List
 
 import pytest
-from gen3.auth import Gen3Auth
 from gen3.submission import Gen3Submission
+
+from gen3_util.config import ensure_auth
 
 
 @pytest.fixture
@@ -20,4 +21,5 @@ def custom_config_path() -> str:
 @pytest.fixture
 def submission_client() -> str:
     """Gen3Submission client"""
-    return Gen3Submission(auth_provider=Gen3Auth())
+    auth = ensure_auth(profile='development')
+    return Gen3Submission(auth_provider=auth)

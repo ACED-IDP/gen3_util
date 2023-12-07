@@ -6,7 +6,6 @@ from json import JSONDecodeError
 import click
 from gen3.jobs import Gen3Jobs
 
-from gen3_util import gen3_client_profile
 from gen3_util.cli import CLIOutput
 from gen3_util.cli import NaturalOrderGroup
 from gen3_util.config import Config, ensure_auth

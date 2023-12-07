@@ -41,7 +41,7 @@ def read_ini(path: str):
     return _
 
 
-def gen3_client_profile(endpoint: str, path: str = gen_client_ini_path().absolute(), expiration_threshold_days: int =10) -> str:
+def gen3_client_profile(endpoint: str, path: str = gen_client_ini_path().absolute(), expiration_threshold_days: int = 10) -> str:
     """Read gen3-client ini file, return profile name or none if endpoint not found."""
     gen3_util_ini = read_ini(path)
     matching_sections = []

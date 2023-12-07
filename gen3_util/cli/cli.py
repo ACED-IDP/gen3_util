@@ -84,7 +84,7 @@ def ping(config: Config):
             ok = False
         else:
             try:
-                auth = ensure_auth(profile=config.gen3.profile, validate=True) # , profile=profile)
+                auth = ensure_auth(profile=config.gen3.profile, validate=True)
                 msgs.append(f"Connected using profile:{config.gen3.profile}")
             except (AssertionError, ValueError) as e:
                 msgs.append(f"Could not get access: {e}")

@@ -22,7 +22,7 @@ from fhir.resources.patient import Patient
 from fhir.resources.specimen import Specimen
 from fhir.resources.resource import Resource
 
-from gen3_util.meta.skeleton import indexd_to_study
+from gen3_util.meta.skeleton import study_metadata
 
 try:
     import magic
@@ -316,11 +316,13 @@ def _discover_plugins(plugin_path: str) -> list[PathParser]:
               envvar='PROJECT_ID'
               )
 @click.option("--overwrite", is_flag=True, show_default=True, default=False, help="Ignore existing records.")
+@click.option('--source',
+              type=click.Choice(['manifest', 'indexd'], case_sensitive=False), show_default=True, default='manifest', help="Query manifest or indexd.")
 @click.pass_obj
-def import_indexd(config: Config, output_path, project_id, overwrite):
+def import_indexd(config: Config, output_path, project_id, overwrite, source):
     """Create minimal study meta from files uploaded to indexd, write to OUTPUT_PATH.
     """
 
     with CLIOutput(config=config) as output:
-        output.update(indexd_to_study(config=config, project_id=project_id, output_path=output_path,
-                                      overwrite=overwrite))
+        output.update(study_metadata(config=config, project_id=project_id, output_path=output_path,
+                                     overwrite=overwrite, source=source))

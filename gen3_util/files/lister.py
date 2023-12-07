@@ -9,7 +9,11 @@ def ls(config: Config, object_id: str = None, metadata: dict = {}):
     """List files."""
     file_client, index_client, user, auth = gen3_services(config=config)
     if object_id:
-        records = index_client.client.bulk_request(dids=[object_id])
+        if ',' in object_id:
+            object_ids = object_id.split(',')
+        else:
+            object_ids = [object_id]
+        records = index_client.client.bulk_request(dids=object_ids)
         return {'records': [_.to_json() for _ in records]}
 
     params = {'metadata': metadata}
