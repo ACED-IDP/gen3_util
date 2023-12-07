@@ -31,4 +31,7 @@ PyYAML==5.3.1
 # IO
 
 # FHIR Model
-fhir.resources
+fhir.resources==7.0.2
+
+
+PyJWT==2.8.0
