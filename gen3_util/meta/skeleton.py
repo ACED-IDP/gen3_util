@@ -55,7 +55,7 @@ def update_document_reference(document_reference, index_record):
     document_reference.content = [content]
 
 
-def study_metadata(config: Config, project_id: str, output_path: str, overwrite: bool, source: str) -> list[Resource]:
+def study_metadata(config: Config, project_id: str, output_path: str, overwrite: bool, source: str) -> int:
     """Read files uploaded to indexd or the local manifest and create a skeleton graph for document and ancestors from a set of identifiers.
 
     Args:
@@ -77,7 +77,7 @@ def study_metadata(config: Config, project_id: str, output_path: str, overwrite:
         print(f"Checking for existing records for project_id:{project_id}...", file=sys.stderr)
         nodes = meta_nodes(config, project_id, auth=auth)  # fetches document_ids by default
         existing_resource_ids = set([_['id'] for _ in nodes])
-        print(f"Retrieved {len(existing_resource_ids)} existing records.", file=sys.stderr)
+        # print(f"Retrieved {len(existing_resource_ids)} existing records.", file=sys.stderr)
 
     # get file client
     if source == 'indexd':
@@ -100,6 +100,7 @@ def study_metadata(config: Config, project_id: str, output_path: str, overwrite:
         for _ in records:
             resources = create_skeleton(metadata=_['metadata'], submission_client=submission_client)
             for resource in resources:
+
                 # check document references
                 if resource.id in existing_resource_ids:
                     existing_record_count += 1
@@ -108,19 +109,25 @@ def study_metadata(config: Config, project_id: str, output_path: str, overwrite:
 
                 if resource.resource_type == 'DocumentReference':
                     update_document_reference(resource, _)
-                ids = ''
-                if resource.identifier and len(resource.identifier) > 0:
-                    ids = [_.value for _ in resource.identifier]
-                subject = ''
-                if hasattr(resource, 'subject') and resource.subject:
-                    subject = resource.subject.reference
 
-                print(f"Writing {resource.resource_type} {resource.id} {ids} {subject}", file=sys.stderr)
+                # FOR debugging
+                # ids = ''
+                # if resource.identifier and len(resource.identifier) > 0:
+                #     ids = [_.value for _ in resource.identifier]
+                # subject = ''
+                # if hasattr(resource, 'subject') and resource.subject:
+                #     subject = resource.subject.reference
+                # # print(f"Writing {resource.resource_type} {resource.id} {ids} {subject}", file=sys.stderr)
+
                 emitter.emit(resource.resource_type).write(
                     resource.json(option=orjson.OPT_APPEND_NEWLINE)
                 )
                 new_record_count += 1
-        print(f"Of {len(records)} records in {source}, {existing_record_count} already existed, wrote {new_record_count} new records.", file=sys.stderr)
+
+        # print(f"Of {len(records)} records in {source}, {existing_record_count} already existed, wrote {new_record_count} new records.", file=sys.stderr)
+        print(f"Created {new_record_count} new records.", file=sys.stderr)
+
+    return new_record_count
 
 
 def _get_system(identifier: str, project_id: str):

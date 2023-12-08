@@ -1,22 +1,19 @@
 import json
 import pathlib
-
-import asyncio
 from json import JSONDecodeError
 
 import click
-from gen3.jobs import Gen3Jobs
 
 from gen3_util.cli import NaturalOrderGroup, CLIOutput
-from gen3_util.config import Config, ensure_auth
+from gen3_util.config import Config
+from gen3_util.meta.delta import get as delta_get
 from gen3_util.meta.downloader import cp as cp_download
+from gen3_util.meta.importer import import_indexd
 from gen3_util.meta.lister import ls
+from gen3_util.meta.publisher import publish_meta_data
 from gen3_util.meta.remover import rm
 from gen3_util.meta.uploader import cp as cp_upload
 from gen3_util.meta.validator import validate
-
-from gen3_util.meta.importer import import_indexd
-from gen3_util.meta.delta import get as delta_get
 
 
 @click.group(name='meta', cls=NaturalOrderGroup)
@@ -27,31 +24,19 @@ def meta_group(config):
 
 
 @meta_group.command(name="publish")
-@click.argument('from_')
+@click.argument('meta_data_path')
 @click.option('--ignore_state', default=False, is_flag=True, show_default=True,
               help="Upload file, even if already uploaded")
 @click.option('--project_id', default=None, show_default=True,
               help="Gen3 program-project", envvar='PROJECT_ID')
 @click.pass_obj
-def meta_publish(config: Config, from_: str,  project_id: str, ignore_state: bool):
+def meta_publish(config: Config, meta_data_path: str,  project_id: str, ignore_state: bool):
     """Publish meta data on the portal
 
     \b
-    from_: meta data directory"""
+    meta_data_path: meta_data directory"""
 
-    msgs = []
-
-    assert pathlib.Path(from_).is_dir(), f"{from_} is not a directory"
-    assert project_id is not None, "--project_id is required for uploads"
-    upload_result = cp_upload(config, from_, project_id, ignore_state)
-    msgs.append(upload_result['msg'])
-    object_id = upload_result['object_id']
-
-    auth = ensure_auth(profile=config.gen3.profile)
-    jobs_client = Gen3Jobs(auth_provider=auth)
-    args = {'object_id': object_id, 'project_id': project_id, 'method': 'put'}
-
-    _ = asyncio.run(jobs_client.async_run_job_and_wait('fhir_import_export', args))
+    _ = publish_meta_data(config, meta_data_path, ignore_state, project_id)
     try:
         output = json.loads(_['output'])
 
