@@ -4,6 +4,7 @@ import sys
 from json import JSONDecodeError
 
 import click
+from requests import HTTPError
 
 from gen3_util.cli import CLIOutput
 from gen3_util.cli import NaturalOrderGroup
@@ -138,8 +139,14 @@ def _manifest_upload(config: Config, project_id: str, duplicate_check: bool, upl
 
     with CLIOutput(config=config) as output:
         print("Updating file index...", file=sys.stderr)
-        manifest_entries = upload_indexd(config, project_id=project_id, duplicate_check=duplicate_check, manifest_path=manifest_path, restricted_project_id=restricted_project_id)
-        output.update({'manifest_entries': manifest_entries})
+        try:
+            manifest_entries = upload_indexd(config, project_id=project_id, duplicate_check=duplicate_check, manifest_path=manifest_path, restricted_project_id=restricted_project_id)
+            output.update({'manifest_entries': manifest_entries})
+        except (AssertionError, HTTPError) as e:
+            output.update({'manifest_entries': manifest_entries})
+            print(f"upload_indexd failed with {e}", file=sys.stderr)
+            raise e
+
         completed_process = upload_files(config=config, project_id=project_id, manifest_entries=manifest_entries, profile=config.gen3.profile, upload_path=upload_path)
         assert completed_process.returncode == 0, f"upload_files failed with {completed_process.returncode}"
         if meta_data:

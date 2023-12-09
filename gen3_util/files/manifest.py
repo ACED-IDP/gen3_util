@@ -142,9 +142,9 @@ def _write_indexd(index_client, project_id: str, manifest_item: dict, bucket_nam
             )
             assert response, "Expected response from indexd create_record"
         except (requests.exceptions.HTTPError, AssertionError) as e:
-            if not ('already exists' in str(e)):
-                raise e
-            logger.info(f"indexd record already exists, continuing upload. {manifest_item['object_id']}")
+            if 'already exists' in str(e):
+                logger.error(f"indexd record already exists, consider using --duplicate_check. {manifest_item['object_id']} {str(e)}")
+            raise e
     return True
 
 
