@@ -17,6 +17,6 @@ def bucket_group(config: Config):
 def ls_command(config: Config):
     """List buckets managed by commons."""
     with CLIOutput(config=config) as output:
-        auth = ensure_auth(config.gen3.refresh_file, validate=True)
+        auth = ensure_auth(profile=config.gen3.profile, validate=True)
         output.update({'endpoint': auth.endpoint})
         output.update(ls(config))
