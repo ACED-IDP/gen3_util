@@ -73,7 +73,7 @@ def update_indexd(attachment, bucket_name, document_reference, duplicate_check, 
             ])
             if not skip_delete:
                 # SYNC
-                logger.info(f"Deleting existing record {document_reference['id']}")
+                logger.debug(f"Deleting existing record {document_reference['id']}")
                 index_client.delete_record(guid=document_reference["id"])
                 existing_record = None
     if not existing_record:

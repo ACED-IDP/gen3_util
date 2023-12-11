@@ -143,7 +143,6 @@ def _manifest_upload(config: Config, project_id: str, duplicate_check: bool, upl
             manifest_entries = upload_indexd(config, project_id=project_id, duplicate_check=duplicate_check, manifest_path=manifest_path, restricted_project_id=restricted_project_id)
             output.update({'manifest_entries': manifest_entries})
         except (AssertionError, HTTPError) as e:
-            output.update({'manifest_entries': manifest_entries})
             print(f"upload_indexd failed with {e}", file=sys.stderr)
             raise e
 
@@ -157,7 +156,7 @@ def _manifest_upload(config: Config, project_id: str, duplicate_check: bool, upl
                 _ = publish_meta_data(config, str(meta_data_path), ignore_state=duplicate_check, project_id=project_id, wait=wait)
                 try:
                     _ = json.loads(_['output'])
-                    output.update({'publish_meta_data': _})
+                    output.update({'job': {'publish_meta_data': _}})
                 except JSONDecodeError:
                     print("Error publishing metadata:", _)
 

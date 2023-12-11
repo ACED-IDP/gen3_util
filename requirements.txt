@@ -35,3 +35,5 @@ fhir.resources==7.0.2
 
 
 PyJWT==2.8.0
+
+tqdm==4.46.1

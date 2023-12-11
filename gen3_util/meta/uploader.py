@@ -42,7 +42,7 @@ def _update_indexd(id_, bucket_name, duplicate_check, index_client, md5_sum, obj
             ])
             if not skip_delete:
                 # SYNC
-                logger.info(f"Deleting existing record {guid}")
+                logger.debug(f"Deleting existing record {guid}")
                 index_client.delete_record(guid=guid)
                 existing_record = None
     if not existing_record:
