@@ -1,5 +1,5 @@
 # Gen3 SDK
-gen3
+gen3==4.22.2
 
 
 # CLI processor
@@ -15,7 +15,8 @@ PyJWT
 # for mime types
 python-magic
 # progress bar
-tqdm
+tqdm>=4.61.2
+
 # http API
 requests
 # modern python dataclasses
@@ -23,8 +24,9 @@ pydantic
 # lock version
 pydantic_yaml
 
-# for 3.11 - see https://github.com/yaml/pyyaml/issues/724
-PyYAML==5.3.1
+# ?? for 3.11 - see https://github.com/yaml/pyyaml/issues/724
+PyYAML>=6.0.1
+
 
 # function caching
 # joblib
@@ -35,5 +37,3 @@ fhir.resources==7.0.2
 
 
 PyJWT==2.8.0
-
-tqdm==4.46.1
