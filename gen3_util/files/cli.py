@@ -157,6 +157,7 @@ def _manifest_upload(config: Config, project_id: str, duplicate_check: bool, upl
                 try:
                     _ = json.loads(_['output'])
                     output.update({'job': {'publish_meta_data': _}})
+                    print(f"Meta data update underway, check status with: gen3_util jobs get {_['uid']}", file=sys.stderr)
                 except JSONDecodeError:
                     print("Error publishing metadata:", _)
 

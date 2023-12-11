@@ -5,6 +5,7 @@ from json import JSONDecodeError
 
 import click
 from gen3.jobs import Gen3Jobs
+from requests import HTTPError
 
 from gen3_util.cli import CLIOutput
 from gen3_util.cli import NaturalOrderGroup
@@ -104,19 +105,34 @@ def get(config: Config, job_id):
     \b
     JOB_ID: uuid of job
     """
+    status = {'output': None}
+
     auth = ensure_auth(profile=config.gen3.profile)
     jobs_client = Gen3Jobs(auth_provider=auth)
-
-    _ = jobs_client.get_output(job_id)
-    # print("jobs_client.get_output() (raw):", _)
-    error = False
-    if 'output' not in _:
-        error = True
     try:
-        job_output = json.loads(_['output'])
-        with CLIOutput(config=config) as output:
-            output.update(job_output)
-    except JSONDecodeError:
-        error = True
-    if error:
-        print("jobs_client.get_output() (raw):", _)
+        status = jobs_client.get_status(job_id)
+    except HTTPError as e:
+        status['msg'] = str(e)
+
+    completed = True
+    if 'status' not in status:
+        status['msg'] = "Job not found"
+        completed = False
+    else:
+        if status['status'].lower() != 'completed':
+            status['msg'] = f"Job {job_id} is not complete, status: {status['status']}"
+            completed = False
+
+    if completed:
+        _ = jobs_client.get_output(job_id)
+
+        if 'output' not in _:
+            status['msg'] = f"Job output not found  (raw): {_}"
+        else:
+            try:
+                status['output'] = json.loads(_['output'])
+            except JSONDecodeError:
+                status['output'] = _['output']
+
+    with CLIOutput(config=config) as output:
+        output.update(status)
