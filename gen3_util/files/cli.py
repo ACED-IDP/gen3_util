@@ -190,7 +190,17 @@ def _manifest_rm(config: Config, project_id: str, object_id: str):
 
 
 @file_group.command(name="rm")
+@click.option('--object_id', default=None, required=False, show_default=True,
+              help="file UUID", envvar='OBJECT_ID')
 @click.pass_obj
-def files_rm(config: Config):
-    """Remove files from a project."""
-    rm(config)
+def files_rm(config: Config, object_id: str):
+    """Remove files from a project index and bucket."""
+    with CLIOutput(config=config) as output:
+        try:
+            _ = rm(config, object_id=object_id)
+            output.update(_)
+        except HTTPError as e:
+            msg = str(e)
+            if 'not found' in msg.lower():
+                msg = f"object_id {object_id} not found. {msg}"
+            output.update({'msg': msg})
