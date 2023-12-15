@@ -29,7 +29,10 @@ PyYAML>=6.0.1
 # IO
 
 # FHIR Model
-fhir.resources==7.0.2
+fhir.resources
 
-# json web token
-PyJWT==2.8.0
+# for tabular
+deepmerge
+flatten-json
+
+
