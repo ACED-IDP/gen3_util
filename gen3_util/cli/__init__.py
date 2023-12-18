@@ -108,6 +108,8 @@ class CLIOutput:
                 _.update(self.output.obj)
             elif isinstance(self.output.obj, list):
                 _ = self.output.obj
+            elif isinstance(self.output.obj, int):
+                _ = {'count': self.output.obj}
             else:
                 _.update(self.output.obj.dict())
         if exc_type is not None:
