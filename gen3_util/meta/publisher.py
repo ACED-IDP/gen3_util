@@ -8,7 +8,7 @@ from gen3_util.meta.uploader import cp as cp_upload
 from gen3_util.config import Config, ensure_auth
 
 
-def publish_meta_data(config: Config, meta_data_path: str, ignore_state: bool, project_id: str, wait: bool) -> str:
+def publish_meta_data(config: Config, meta_data_path: str, ignore_state: bool, project_id: str, wait: bool = True) -> str:
     """Publish meta_data to the portal.
 
     Returns: the output of jobs_client.async_run_job_and_wait() should be a json string, with a key 'output'
