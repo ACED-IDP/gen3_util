@@ -24,7 +24,7 @@ from gen3_util.users.cli import users_group
 def cli(ctx, config, output_format, profile, state_dir):
     """Gen3 Management Utilities"""
 
-    config__ = gen3_util.default_config
+    config__ = gen3_util.config.default()
     logging.basicConfig(format=config__.log.format, level=config__.log.level)
 
     if config:
@@ -67,7 +67,7 @@ def version(config):
 @cli.command(name="ping")
 @click.pass_obj
 def ping(config: Config):
-    """Test connectivity to Gen3 endpoint."""
+    """Verify gen3-client and test connectivity."""
     with CLIOutput(config=config) as output:
         msgs = []
         ok = True
@@ -77,7 +77,7 @@ def ping(config: Config):
             msgs.append("gen3-client not installed")
             ok = False
 
-        gen_client_ini_file = gen3_util.gen_client_ini_path()
+        gen_client_ini_file = gen3_util.config.gen_client_ini_path()
         auth = None
         if not gen_client_ini_file.exists():
             msgs.append("not configured")
@@ -87,7 +87,7 @@ def ping(config: Config):
                 auth = ensure_auth(profile=config.gen3.profile, validate=True)
                 msgs.append(f"Connected using profile:{config.gen3.profile}")
             except (AssertionError, ValueError) as e:
-                msgs.append(f"Could not get access: {e}")
+                msgs.append(str(e))
                 ok = False
 
         if ok:
