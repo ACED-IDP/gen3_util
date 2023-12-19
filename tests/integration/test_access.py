@@ -52,12 +52,12 @@ def test_access_touch_bad_project_id():
     assert result.exit_code != 0
 
 
-def test_access_workflow():
+def test_access_workflow(profile):
     """This access request in particular creates 409s if you run the test twice"""
     runner = CliRunner()
 
     user_name = str(uuid.uuid4())
-    result = runner.invoke(cli, f'--format json access touch {user_name}@foo.com aced-MCF10A'.split())
+    result = runner.invoke(cli, f'--format json --profile {profile} access touch {user_name}@foo.com aced-MCF10A'.split())
     print(result.output)
     assert result.exit_code == 0
     expected_strings = ['OK', 'request_id']

@@ -31,6 +31,6 @@ def test_project_bad_ping(caplog):
     print('>>>', result.stdout, '<<<')
     print(']]]', result.stderr, '[[[')
     assert result.exit_code == 1
-    expected_strings = ['Could not get access']
+    expected_strings = ['no profile', 'BAD-PROFILE']
     for expected_string in expected_strings:
         assert expected_string in result.stdout, "Did not find failure message."
