@@ -10,7 +10,7 @@ from pydantic import BaseModel
 
 
 def gen_client_ini_path() -> pathlib.Path:
-    """Return path to gen3-client ini file."""
+    """Return path to gen3-client ini file. See https://bit.ly/3NbKGi4"""
     return pathlib.Path(pathlib.Path.home() / ".gen3" / "gen3_client_config.ini")
 
 
@@ -64,8 +64,8 @@ def ensure_auth(refresh_file: [pathlib.Path, str] = None, validate: bool = False
 
     except (requests.exceptions.ConnectionError, AssertionError) as e:
         msg = ("Could not get access. "
-               "See https://uc-cdis.github.io/gen3-user-doc/appendices/api-gen3/#credentials-to-query-the-api. "
-               "Store the file in ~/.gen3/credentials.json or specify location with env GEN3_API_KEY "
+               "See https://bit.ly/3NbKGi4, or, "
+               "store the file in ~/.gen3/credentials.json or specify location with env GEN3_API_KEY "
                f"{e}")
 
         logging.getLogger(__name__).error(msg)
