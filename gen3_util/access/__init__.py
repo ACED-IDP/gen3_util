@@ -14,7 +14,20 @@ def _ensure_auth(auth, config):
 
 
 def get_requests(config: Config = None, auth: Gen3Auth = None, mine: bool = False, active: bool = False, username: str = None) -> dict:
-    """Fetch information about the user."""
+    """Fetch information about the user.
+    Parameters
+    ----------
+    config : Config
+        The config object.
+    auth : Gen3Auth
+        The auth object.
+    mine : bool
+        If True, return requests for the current user.
+    active : bool
+        If True, return only active (non-final requests) requests. see https://github.com/uc-cdis/requestor/blob/master/src/requestor/config-default.yaml#L63
+    username : str
+        If provided, return requests for this user.
+    """
     auth = _ensure_auth(auth, config)
     if mine:
         # returns a list of dicts
