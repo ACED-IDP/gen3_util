@@ -8,10 +8,6 @@ click
 orjson
 # pluralization, etc.
 inflection
-# FHIR model
-fhir.resources
-# json web token
-PyJWT
 # for mime types
 python-magic
 # progress bar
@@ -35,5 +31,5 @@ PyYAML>=6.0.1
 # FHIR Model
 fhir.resources==7.0.2
 
-
+# json web token
 PyJWT==2.8.0
