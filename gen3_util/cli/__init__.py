@@ -112,6 +112,7 @@ class CLIOutput:
                 _ = {'count': self.output.obj}
             else:
                 _.update(self.output.obj.dict())
+        rc = self.output.exit_code
         if exc_type is not None:
             if isinstance(self.output.obj, dict):
                 _['exception'] = f"{str(exc_val)}"

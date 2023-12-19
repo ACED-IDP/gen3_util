@@ -94,6 +94,7 @@ def ping(config: Config):
             _ = "Configuration OK: "
         else:
             _ = "Configuration ERROR: "
+            output.exit_code = 1
 
         _ = {'msg': _ + ', '.join(msgs)}
         if auth:
