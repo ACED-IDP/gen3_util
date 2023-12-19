@@ -12,7 +12,7 @@ from gen3_util.buckets import get_program_bucket
 from gen3_util.config import Config, gen3_services
 from zipfile import ZipFile
 
-from gen3_util.meta import ACED_NAMESPACE
+from gen3_util import ACED_NAMESPACE
 from gen3_util.meta.importer import md5sum
 
 from gen3_util.files.uploader import _upload_file_to_signed_url  # noqa

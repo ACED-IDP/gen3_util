@@ -15,14 +15,12 @@ import mimetypes
 from gen3_util.cli import CLIOutput
 from gen3_util.common import EmitterContextManager
 from gen3_util.config import Config
-from gen3_util.meta import ACED_NAMESPACE
+from gen3_util import ACED_NAMESPACE
 
 from fhir.resources.identifier import Identifier
 from fhir.resources.patient import Patient
 from fhir.resources.specimen import Specimen
 from fhir.resources.resource import Resource
-
-from gen3_util.meta.skeleton import study_metadata
 
 try:
     import magic
@@ -322,6 +320,8 @@ def _discover_plugins(plugin_path: str) -> list[PathParser]:
 def import_indexd(config: Config, output_path, project_id, overwrite, source):
     """Create minimal study meta from files uploaded to indexd, write to OUTPUT_PATH.
     """
+
+    from gen3_util.meta.skeleton import study_metadata
 
     with CLIOutput(config=config) as output:
         output.update(study_metadata(config=config, project_id=project_id, output_path=output_path,

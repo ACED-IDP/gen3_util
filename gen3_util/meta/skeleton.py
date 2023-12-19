@@ -16,10 +16,14 @@ from fhir.resources.task import Task, TaskOutput, TaskInput
 from gen3.submission import Gen3Submission
 from orjson import orjson
 
+from gen3_util import Config
+
+
 from gen3_util.common import EmitterContextManager
-from gen3_util.config import Config, ensure_auth
+from gen3_util.config import ensure_auth
 from gen3_util.files.lister import ls, meta_nodes, meta_resource
-from gen3_util.meta import ACED_NAMESPACE
+from gen3_util import ACED_NAMESPACE
+from gen3_util.files.manifest import ls as manifest_ls
 
 
 def update_document_reference(document_reference, index_record):
@@ -65,7 +69,6 @@ def study_metadata(config: Config, project_id: str, output_path: str, overwrite:
         overwrite: check for existing records and skip if found
         source: indexd or manifest
     """
-    from gen3_util.files.manifest import ls as manifest_ls  # TODO fix circular import
 
     assert project_id, "project_id required"
     assert project_id.count('-') == 1, "project_id must be of the form program-project"

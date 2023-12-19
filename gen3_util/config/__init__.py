@@ -16,6 +16,7 @@ import gen3_util
 from gen3_util import Config
 from gen3_util.common import read_yaml
 
+
 def gen_client_ini_path() -> pathlib.Path:
     """Return path to gen3-client ini file. See https://bit.ly/3NbKGi4"""
     return pathlib.Path(pathlib.Path.home() / ".gen3" / "gen3_client_config.ini")
@@ -28,7 +29,6 @@ def gen3_client_profile(endpoint: str, path: str = gen_client_ini_path().absolut
     for section in gen3_util_ini.sections():
         if gen3_util_ini[section]['api_endpoint'] == endpoint:
             matching_sections.append(section)
-            api_key = gen3_util_ini[section]['api_key']
     assert len(matching_sections) <= 1, f"Found multiple profiles for {endpoint}: {matching_sections}"
     return matching_sections[0]
 
@@ -116,7 +116,7 @@ def ensure_auth(refresh_file: [pathlib.Path, str] = None, validate: bool = False
             assert api_key, "refresh_access_token failed"
 
     except (requests.exceptions.ConnectionError, AssertionError) as e:
-        msg = ("Could not get access. "
+        msg = (f"Could not get access. profile={profile}"
                "See https://bit.ly/3NbKGi4, or, "
                "store the file in ~/.gen3/credentials.json or specify location with env GEN3_API_KEY "
                f"{e}")

@@ -1,7 +1,6 @@
 import importlib
 import logging
 import pathlib
-import uuid
 from typing import Iterator, Any
 
 # TODO fix me, make configurable
@@ -9,8 +8,6 @@ from fhir.resources import FHIRAbstractModel
 from pydantic import ValidationError, BaseModel, validator
 
 from gen3_util.common import is_json_extension, read_json
-
-ACED_NAMESPACE = uuid.uuid3(uuid.NAMESPACE_DNS, 'aced-ipd.org')
 
 FHIR_CLASSES = importlib.import_module('fhir.resources')
 

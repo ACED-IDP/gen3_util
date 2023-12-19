@@ -14,7 +14,6 @@ from orjson import orjson
 from pydantic import BaseModel
 
 from gen3_util.config import Config, gen3_services
-from gen3_util.meta.importer import md5sum
 
 logger = logging.getLogger(__name__)
 
@@ -68,7 +67,7 @@ def update_indexd(attachment, bucket_name, document_reference, duplicate_check, 
             pass
         if existing_record:
             skip_delete = all([
-                existing_record['hashes']['md5'] == md5sum,
+                existing_record['hashes']['md5'] == md5,
                 s3_url in existing_record['urls']
             ])
             if not skip_delete:
