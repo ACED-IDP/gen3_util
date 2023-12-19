@@ -127,7 +127,7 @@ def _manifest_ls(config: Config, project_id: str, object_id: str):
 @click.option('--upload-path', default='.', show_default=True, help="gen3-client upload path")
 @click.option('--duplicate_check', default=False, is_flag=True, show_default=True, help="Update files records")
 @click.option('--manifest_path', default=None, show_default=True, help="Provide your own manifest file.")
-@click.option('--meta_data', default=True, is_flag=True, show_default=True, help="Generate and submit metadata.")
+@click.option('--no_meta_data', 'meta_data', default=True, is_flag=True, show_default=True, help="Generate and submit metadata.")
 @click.option('--wait', default=False, is_flag=True, show_default=True, help="Wait for metadata completion.")
 @click.pass_obj
 def _manifest_upload(config: Config, project_id: str, duplicate_check: bool, upload_path: str, manifest_path: str, restricted_project_id: str, meta_data: bool, wait: bool):
@@ -203,4 +203,5 @@ def files_rm(config: Config, object_id: str):
             msg = str(e)
             if 'not found' in msg.lower():
                 msg = f"object_id {object_id} not found. {msg}"
+            output.exit_code = 1
             output.update({'msg': msg})
