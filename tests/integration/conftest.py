@@ -1,3 +1,5 @@
+import os
+
 import pytest
 
 
@@ -10,6 +12,8 @@ def dependency() -> str:
 @pytest.fixture
 def profile() -> str:
     """gen3-client profile to use for testing."""
+    if 'GEN3_UTIL_PROFILE' in os.environ:
+        return os.environ['GEN3_UTIL_PROFILE']
     return "aced-training"
 
 

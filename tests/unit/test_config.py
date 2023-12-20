@@ -1,5 +1,5 @@
-from gen3_util import default_config
-from gen3_util.config.config import custom, Config
+from gen3_util import Config
+from gen3_util.config import default, custom
 
 
 def _assert_config_ok(config: Config):
@@ -10,7 +10,7 @@ def _assert_config_ok(config: Config):
 
 def test_config():
     """Ensure we can read default config bundled with package."""
-    _assert_config_ok(default_config)
+    _assert_config_ok(default())
 
 
 def test_custom_config(custom_config_path):

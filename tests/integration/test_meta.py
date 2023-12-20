@@ -134,16 +134,18 @@ def manifest_put(file_name,  project_id):
     assert result.exit_code == 0
 
 
-def ensure_files_uploaded(project_id):
+def ensure_files_uploaded(project_id) -> list[str]:
     """Query files in indexd."""
     runner = CliRunner()
     result = runner.invoke(cli, ['--format', 'json', 'files', 'ls', '--project_id', project_id])
     assert result.exit_code == 0
-    file_names = [_["file_name"] for _ in json.loads(result.output)['records']]
+    result_output = json.loads(result.output)
+    file_names = [_["file_name"] for _ in result_output['records']]
     assert sorted(file_names) == ['tests/fixtures/dir_to_study/file-1.txt', 'tests/fixtures/dir_to_study/file-2.csv',
                                   'tests/fixtures/dir_to_study/sub-dir/file-3.pdf',
                                   'tests/fixtures/dir_to_study/sub-dir/file-4.tsv',
                                   'tests/fixtures/dir_to_study/sub-dir/file-5'], result.output
+    return [_["did"] for _ in result_output['records']]
 
 
 def import_from_indexd(project_id) -> str:
@@ -176,7 +178,14 @@ def create_project_resource_in_arborist(project_id):
 def upload_manifest(project_id, profile):
     """Upload a manifest to indexd and bucket."""
     runner = CliRunner()
-    result = runner.invoke(cli, f'--format json files manifest upload --project_id {project_id} --profile {profile}'.split())
+    result = runner.invoke(cli, f'--format json --profile {profile}  files manifest upload --project_id {project_id} --no_meta_data'.split())
+    assert result.exit_code == 0, result.output
+
+
+def rm_file(object_id, project_id, profile):
+    """Remove a file from indexd and bucket."""
+    runner = CliRunner()
+    result = runner.invoke(cli, f'--format json  --profile {profile} files rm --object_id {object_id}'.split())
     assert result.exit_code == 0, result.output
 
 
@@ -198,9 +207,12 @@ def test_incremental_workflow(program, profile):
 
     upload_manifest(project_id, profile)
 
-    ensure_files_uploaded(project_id)
+    file_ids = ensure_files_uploaded(project_id)
 
     # create meta data, upload
     project_meta_data_dir = import_from_indexd(project_id)
     _ = meta_cp_upload(project_meta_data_dir, project_id)
     print(_)
+
+    # remove a file
+    rm_file(file_ids[0], project_id, profile)

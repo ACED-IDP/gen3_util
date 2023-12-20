@@ -12,7 +12,7 @@ from gen3_util.buckets import get_program_bucket
 from gen3_util.config import Config, gen3_services
 from zipfile import ZipFile
 
-from gen3_util.meta import ACED_NAMESPACE
+from gen3_util import ACED_NAMESPACE
 from gen3_util.meta.importer import md5sum
 
 from gen3_util.files.uploader import _upload_file_to_signed_url  # noqa
@@ -42,7 +42,7 @@ def _update_indexd(id_, bucket_name, duplicate_check, index_client, md5_sum, obj
             ])
             if not skip_delete:
                 # SYNC
-                logger.info(f"Deleting existing record {guid}")
+                logger.debug(f"Deleting existing record {guid}")
                 index_client.delete_record(guid=guid)
                 existing_record = None
     if not existing_record:

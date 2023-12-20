@@ -1,8 +1,9 @@
-from typing import Union
-from gen3_util.config import config
 import pathlib
+import uuid
+from typing import Union
 
-default_config = config.default()
+from pydantic import BaseModel
+ACED_NAMESPACE = uuid.uuid3(uuid.NAMESPACE_DNS, 'aced-ipd.org')
 
 
 def monkey_patch_url_validate():
@@ -25,30 +26,45 @@ def monkey_patch_url_validate():
     fhir.resources.fhirtypes.Url.validate = better_url_validate
 
 
-def read_ini(path: str):
-    """Read ini file."""
-    import configparser
-    import pathlib
-
-    path = pathlib.Path(path)
-    assert path.is_file(), f"{path} is not a file"
-    _ = configparser.ConfigParser()
-    _.read(path)
-    return _
+class LogConfig(BaseModel):
+    format: str
+    """https://docs.python.org/3/library/logging.html#logging.Formatter"""
+    level: str
+    """https://docs.python.org/3/library/logging.html#logging-levels"""
 
 
-def gen_client_ini_path():
-    """Return path to gen3-client ini file."""
-    return pathlib.Path(pathlib.Path.home() / ".gen3" / "gen3_client_config.ini")
+class OutputConfig(BaseModel):
+    format: str = "text"
+    """write to stdout with this format"""
 
 
-def gen3_client_profile(endpoint: str, path: str = gen_client_ini_path().absolute()):
-    """Read gen3-client ini file, return profile name or none if endpoint not found."""
-    gen3_util_ini = read_ini(path)
-    for section in gen3_util_ini.sections():
-        if gen3_util_ini[section]['api_endpoint'] == endpoint:
-            return section
-    return None
+class _DataclassConfig:
+    """Pydantic dataclass configuration
+
+    See https://docs.pydantic.dev/latest/usage/model_config/#options"""
+    arbitrary_types_allowed = True
+
+
+class Gen3Config(BaseModel):
+
+    profile: str = None
+    """The name of the gen3-client profile.
+
+    See https://bit.ly/3NbKGi4"""
+
+
+class Config(BaseModel):
+    log: LogConfig = LogConfig(
+        format='%(asctime)s — %(name)s — %(levelname)s — %(funcName)s:%(lineno)d — %(message)s',
+        level='INFO'
+    )
+    """logging setup"""
+    output: OutputConfig = OutputConfig(format='yaml')
+    """output setup"""
+    gen3: Gen3Config = Gen3Config()
+    """gen3 setup"""
+    state_dir: pathlib.Path = pathlib.Path('~/.gen3/gen3-util-state').expanduser()
+    """retry state for file transfer"""
 
 
 # main

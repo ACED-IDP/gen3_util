@@ -1,17 +1,20 @@
+import json
 import os
 import sys
+from json import JSONDecodeError
 
 import click
+from requests import HTTPError
 
-from gen3_util import gen3_client_profile
 from gen3_util.cli import CLIOutput
 from gen3_util.cli import NaturalOrderGroup
-from gen3_util.config import Config, ensure_auth
+from gen3_util.config import Config
 from gen3_util.files.lister import ls
-from gen3_util.files.remover import rm
-
 from gen3_util.files.manifest import put as manifest_put, save as manifest_save, ls as manifest_ls, upload_indexd, \
     upload_files, rm as manifest_rm
+from gen3_util.files.remover import rm
+from gen3_util.meta.publisher import publish_meta_data
+from gen3_util.meta.skeleton import study_metadata
 
 
 @click.group(name='files', cls=NaturalOrderGroup)
@@ -121,28 +124,42 @@ def _manifest_ls(config: Config, project_id: str, object_id: str):
               help="Gen3 program-project authorization", envvar='PROJECT_ID')
 @click.option('--restricted_project_id', default=None, required=False, show_default=True,
               help="Gen3 program-project, additional authorization", envvar='RESTRICTED_PROJECT_ID')
-@click.option('--profile', show_default=True, help="gen3-client profile", envvar='GEN3_PROFILE')
 @click.option('--upload-path', default='.', show_default=True, help="gen3-client upload path")
 @click.option('--duplicate_check', default=False, is_flag=True, show_default=True, help="Update files records")
 @click.option('--manifest_path', default=None, show_default=True, help="Provide your own manifest file.")
+@click.option('--no_meta_data', 'meta_data', default=True, is_flag=True, show_default=True, help="Generate and submit metadata.")
+@click.option('--wait', default=False, is_flag=True, show_default=True, help="Wait for metadata completion.")
 @click.pass_obj
-def _manifest_upload(config: Config, project_id: str, profile: str, duplicate_check: bool, upload_path: str, manifest_path: str, restricted_project_id: str):
+def _manifest_upload(config: Config, project_id: str, duplicate_check: bool, upload_path: str, manifest_path: str, restricted_project_id: str, meta_data: bool, wait: bool):
     """Upload to index and project bucket.  Uses local manifest, or manifest_path.
 
     """
-
-    if not profile:
-        auth = ensure_auth(config.gen3.refresh_file)
-        profile = gen3_client_profile(endpoint=auth.endpoint)
 
     os.chdir(upload_path)
 
     with CLIOutput(config=config) as output:
         print("Updating file index...", file=sys.stderr)
-        manifest_entries = upload_indexd(config, project_id=project_id, duplicate_check=duplicate_check, manifest_path=manifest_path, restricted_project_id=restricted_project_id)
-        output.update(manifest_entries)
-        completed_process = upload_files(config=config, project_id=project_id, manifest_entries=manifest_entries, profile=profile, upload_path=upload_path)
+        try:
+            manifest_entries = upload_indexd(config, project_id=project_id, duplicate_check=duplicate_check, manifest_path=manifest_path, restricted_project_id=restricted_project_id)
+            output.update({'manifest_entries': manifest_entries})
+        except (AssertionError, HTTPError) as e:
+            print(f"upload_indexd failed with {e}", file=sys.stderr)
+            raise e
+
+        completed_process = upload_files(config=config, project_id=project_id, manifest_entries=manifest_entries, profile=config.gen3.profile, upload_path=upload_path)
         assert completed_process.returncode == 0, f"upload_files failed with {completed_process.returncode}"
+        if meta_data:
+            print("Updating metadata...", file=sys.stderr)
+            meta_data_path = config.state_dir / f"{project_id}-meta_data"
+            new_record_count = study_metadata(config=config, overwrite=duplicate_check, project_id=project_id, source='manifest', output_path=meta_data_path)
+            if new_record_count > 0:
+                _ = publish_meta_data(config, str(meta_data_path), ignore_state=duplicate_check, project_id=project_id, wait=wait)
+                try:
+                    _ = json.loads(_['output'])
+                    output.update({'job': {'publish_meta_data': _}})
+                    print(f"Meta data update underway, check status with: gen3_util jobs get {_['uid']}", file=sys.stderr)
+                except JSONDecodeError:
+                    print("Error publishing metadata:", _)
 
 
 @manifest_group.command(name="export")
@@ -173,7 +190,18 @@ def _manifest_rm(config: Config, project_id: str, object_id: str):
 
 
 @file_group.command(name="rm")
+@click.option('--object_id', default=None, required=False, show_default=True,
+              help="file UUID", envvar='OBJECT_ID')
 @click.pass_obj
-def files_rm(config: Config):
-    """Remove files from a project."""
-    rm(config)
+def files_rm(config: Config, object_id: str):
+    """Remove files from a project index and bucket."""
+    with CLIOutput(config=config) as output:
+        try:
+            _ = rm(config, object_id=object_id)
+            output.update(_)
+        except HTTPError as e:
+            msg = str(e)
+            if 'not found' in msg.lower():
+                msg = f"object_id {object_id} not found. {msg}"
+            output.exit_code = 1
+            output.update({'msg': msg})

@@ -4,19 +4,18 @@
 Utilities to manage Gen3 schemas, projects and submissions.
 
 ## Installation
+```
+
+$ pip install gen3_util
+
+$ gen3_util version
+version: 0.0.12
+
 
 ```
 
-# optionally
-$python3 -m venv venv ; source venv/bin/activate
 
-pip install gen3_util
-
-$ gen3_util
-msg: Version 0.0.4
-
-
-```
+### libmagic
 
 Note: requires [`magic`](https://github.com/ahupp/python-magic#installation) library. If it is not already installed you will see a warning like this:
 
@@ -39,36 +38,44 @@ Usage: gen3_util [OPTIONS] COMMAND [ARGS]...
 Options:
   --config TEXT              Path to config file. GEN3_UTIL_CONFIG
   --format [yaml|json|text]  Result format. GEN3_UTIL_FORMAT  [default: yaml]
-  --cred TEXT                See https://uc-cdis.github.io/gen3-user-
-                             doc/appendices/api-gen3/#credentials-to-query-
-                             the-api. GEN3_API_KEY
+  --profile TEXT             Connection name. GEN3_UTIL_PROFILE See
+                             https://bit.ly/3NbKGi4
+
   --state_dir TEXT           Directory for file transfer state
                              GEN3_UTIL_STATE_DIR  [default: ~/.gen3/gen3_util]
+
   --help                     Show this message and exit.
 
 Commands:
   projects  Manage Gen3 projects.
-  buckets   Manage Gen3 buckets.
+  buckets   Project buckets.
   meta      Manage meta data.
-  files     Manage file buckets.
+  files     Manage file transfers.
   access    Manage access requests.
   config    Configure this utility.
+  jobs      Manage Gen3 jobs.
+  users     Manage project membership.
+  version   Print version
+  ping      Test connectivity to Gen3 endpoint.
 
 
 ```
 
 ## Connectivity
 
-* Leverages Gen3Auth  [See](https://uc-cdis.github.io/gen3-user-doc/appendices/api-gen3/#credentials-to-query-the-api.)
-* Store the `credentials.json` file in ~/.gen3/credentials.json or specify location with either env[GEN3_API_KEY], or `--cred` parameter
+* Uses [gen3-client](https://gen3.org/resources/user/gen3-client/#2-configure-a-profile-with-credentials) for authentication
+
 
 ## Use cases
 
 > I need to verify connectivity.
 
 ```
-$ gen3_util projects ping
-msg: OK connected to endpoint https://aced-training.compbio.ohsu.edu
+$ gen3_util --profile <connection-name> ping
+msg: 'Configuration OK: Connected using profile:production'
+endpoint: https://aced-idp.org
+username: user@example.com
+
 ```
 
 > I need to see what projects exist
@@ -81,193 +88,130 @@ msg: OK
 projects:
 - /programs
 - /programs/aced
-- /programs/aced/project
-- /programs/aced/project/MCF10A
 - /programs/aced/projects
 - /programs/aced/projects/Alcoholism
 - /programs/aced/projects/Alzheimers
 - /programs/aced/projects/Breast_Cancer
 - /programs/aced/projects/Colon_Cancer
 - /programs/aced/projects/Diabetes
-- /programs/aced/projects/HOP
 - /programs/aced/projects/Lung_Cancer
-- /programs/aced/projects/MCF10A
-- /programs/aced/projects/NVIDIA
 - /programs/aced/projects/Prostate_Cancer
-- /programs/aced/projects/ohsu_download_testing
 ```
 
 > I need to see what buckets are associated with the commons
 
 ```
 $ gen3_util buckets ls
+endpoint: https://aced-idp.org
 buckets:
   GS_BUCKETS: {}
   S3_BUCKETS:
-    aced-default:
-      endpoint_url: https://minio-default.compbio.ohsu.edu
-      region: us-east-1
-    aced-manchester:
-      endpoint_url: https://minio-manchester.compbio.ohsu.edu
-      region: us-east-1
-    aced-ohsu:
-      endpoint_url: https://minio-ohsu.compbio.ohsu.edu
-      region: us-east-1
-    aced-stanford:
-      endpoint_url: https://minio-stanford.compbio.ohsu.edu
-      region: us-east-1
-    aced-ucl:
-      endpoint_url: https://minio-ucl.compbio.ohsu.edu
-      region: us-east-1
-endpoint: https://aced-training.compbio.ohsu.edu
-msg: OK
-
+    <bucket-name>:
+      endpoint_url: https://<example.com>/<bucket-name>
+      programs:
+      - <program-name>
+      region: <region-name>
 
 ```
+
+Note: the workflow to create new projects and adding users to those projects is a multi-step process.  The following commands will create the requests, but they will need to be signed by a user with approval privileges.  See requestor's ["Functionality and flow" documentation](https://github.com/uc-cdis/requestor/blob/master/docs/functionality_and_flow.md).
 
 > I need to create a project
 
 ```text
-$ gen3_util projects touch aced-MyExperiment
-projects:
-  aced-MyExperiment:
-    exists: true
-messages:
-- Created program:aced Program is updated!
+$ gen3_util projects new --project_id=aced-my_new_project
+requests:
+- status: DRAFT
+  policy_id: programs.aced.projects.my_new_project_writer
+- status: DRAFT
+  policy_id: programs.aced.projects.my_new_project_reader
 
 ```
 
-> I need to assign default policies to that project
-
-```text
-$ gen3_util projects add policies aced-MyExperiment
-msg: Approve these requests to assign default policies to aced-MyExperiment
-commands:
-- gen3_util access update 24f047d7-0e7c-43c6-bab6-61e2d385c71a SIGNED
-- gen3_util access update 293c6cd1-7ab7-420f-bafb-34319589eac4 SIGNED
-
-```
 
 > I need to add a user to that project
 
 ```text
-$ gen3_util projects add user aced-MyExperiment linus.pauling@osu.edu
-msg: Approve these requests to add linus.pauling@osu.edu to aced-MyExperiment
-commands:
-- gen3_util access update 293c6cd1-7ab7-420f-bafb-34319589eac4 SIGNED
+$ gen3_util users add  --project_id=aced-my_new_project --username linus.pauling@osu.edu --write
+requests:
+- status: DRAFT
+  username: linus.pauling@osu.edu
+  policy_id: programs.aced.projects.my_new_project_writer
+- status: DRAFT
+  username: linus.pauling@osu.edu
+  policy_id: programs.aced.projects.my_new_project_reader
+
 
 ```
 
-> Before proceeding, I need to sign those equests
+> Before proceeding, a user with approval privileges will need to sign the requests
 
 ```text
-gen3_util access update xxxxxx SIGNED
+gen3_util access sign
 ```
+
+Note: Adding files to a project requires a multi-step process. In addition to uploading a file, associated metadata must be created and uploaded to the commons.  This will be done automatically for simple use cases, but may be overridden for more complex use cases such as bulk upload or prepared FHIR data.
 
 
 
 > I want to create a simple project structure with a set of files
 
 ```text
-$ gen3_util meta  import dir tests/fixtures/dir_to_study/ tmp/foo --project_id aced-MyExperiment
-summary:
-  ResearchStudy:
-    count: 1
-  DocumentReference:
-    count: 5
-    size: 6013814
-msg: OK
+Usage: gen3_util files manifest put [OPTIONS] LOCAL_PATH [REMOTE_PATH]
 
-```
+  Add file meta information to the manifest.
 
-> I want need to do something a bit more complex, for example, I want to create a project structure with a set of files, but I need to specify the `Patient` and `Specimen` based on the path of the file.
-
-```text
-gen3_util meta  import dir tests/fixtures/dir_to_study_with_meta/ tmp/foometa --project_id aced-foometa --plugin_path ./tests/unit/plugins
-
-tests/fixtures/dir_to_study_with_meta/
-├── file-2.csv
-├── p1
-│   ├── s1
-│   │   └── file-3.pdf
-│   ├── s2
-│   │   └── file-4.tsv
-│   └── s3
-│       └── file-5
-└── p2
-    └── s4
-        └── file-1.txt
-
-Will produce the following meta data:
-
-summary:
-  ResearchStudy:
-    count: 1
-  Patient:
-    count: 2
-  Specimen:
-    count: 4
-  DocumentReference:
-    count: 5
-    size: 6013814
-
-```
-
-For more see [test_meta_plugin](./tests/unit/meta/test_plugins.py)
-
-
-
-> I need to upload those files to the instance
-
-```
-$ gen3_util files cp --ignore_state --project_id aced-MyExperiment tmp/foo/DocumentReference.ndjson  bucket://aced-development-ohsu-data-bucket
-100%|██████████████████████████████████████████████████████████████████████████████████████████████████████| 5.74M/5.74M [00:03<00:00, 1.71MB/s, elapsed=0:00:02.056022, file=6f8101]
-info:
-- Wrote state to ~/.gen3/gen3-util-state/state.ndjson
-msg: OK
-```
-
-
-> I need to upload the meta data about those files to the instance
-
-```
-$gen3_util meta cp tmp/foo bucket://aced-development-ohsu-data-bucket --project_id aced-MyExperiment
-msg: Uploaded /var/folders/2c/hffqqtr94nv64tjy0xrl38r89k1sty/T/tmpacozhhoo/_aced-MyExperiment_meta.zip
-```
-
-
-> I need to request or manage access to a project
-
-```
-$ gen3_util access
-Usage: gen3_util access [OPTIONS] COMMAND [ARGS]...
-
-  Manage access requests.
+  local_path: path to file on local file system
+  remote_path: name of the file in bucket, defaults to local_path
 
 Options:
-  --help  Show this message and exit.
+  --project_id TEXT      Gen3 program-project
+  --specimen_id TEXT     fhir specimen identifier
+  --patient_id TEXT      fhir patient identifier
+  --task_id TEXT         fhir task identifier
+  --observation_id TEXT  fhir observation identifier
+  --md5 TEXT             MD5 sum, if not provided, will be calculated before
+                         upload
 
-Commands:
-  touch   Create a request for read access.
-  update  Update the request's approval workflow.
-  ls      List current user's requests.
-  cat     Show details of a specific request.
+  --help                 Show this message and exit.
 
 ```
 
+<img width="673" alt="image" src="https://github.com/ACED-IDP/aced-idp.github.io/assets/47808/801cfb7a-bff3-4c4f-97be-acba79830787">
 
+The following identifiers create a simple graph of the data from the DocumentReference(file) to its parents.
+
+```text
+  --project_id TEXT      Gen3 program-project [required]
+  --specimen_id TEXT     fhir specimen identifier [optional]
+  --patient_id TEXT      fhir patient identifier [optional]
+  --task_id TEXT         fhir task identifier [optional]
+  --observation_id TEXT  fhir observation identifier [optional]
+
+```
+
+Adding one or more commands via `gen3_util files manifest put` will create a manifest file that can be used to upload files and metadata to the commons.
+
+
+> I need to upload those files to the instance, and automatically create meta data
+
+```
+$ gen3_util files manifest upload
+```
 
 
 
 ## Development Setup
 
 ```
-python3 -m venv venv
-source venv/bin/activate
-pip install -r requirements.txt
-pip install -r requirements-dev.txt
-pip install -e .
+$ git clone git@github.com:ACED-IDP/gen3_util.git
+$ cd gen3_util
+$ python3 -m venv venv ; source venv/bin/activate
+$ pip install -r requirements.txt
+$ pip install -e .
+
 ```
+
 
 ## Test
 

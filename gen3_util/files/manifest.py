@@ -7,7 +7,7 @@ import subprocess
 import uuid
 from datetime import datetime
 import multiprocessing
-from multiprocessing.pool import Pool
+# from multiprocessing.pool import Pool
 from urllib.parse import urlparse
 
 import orjson
@@ -18,8 +18,9 @@ import sys
 from gen3_util.buckets import get_program_bucket
 from gen3_util.config import Config, gen3_services
 from gen3_util.files.uploader import _normalize_file_url
-from gen3_util.meta import ACED_NAMESPACE
+from gen3_util import ACED_NAMESPACE
 from gen3_util.meta.importer import md5sum
+from tqdm import tqdm
 
 try:
     import magic
@@ -83,7 +84,7 @@ def save(config: Config, project_id: str, generator):
                                  ) for _ in generator])
 
 
-def ls(config: Config, project_id: str, object_id: str):
+def ls(config: Config, project_id: str, object_id: str = None):
     """Read from local sqlite."""
     connection = _get_connection(config)
     with connection:
@@ -102,17 +103,7 @@ def _write_indexd(index_client, project_id: str, manifest_item: dict, bucket_nam
 
     # SYNC
     existing_record = None
-    hashes = {'md5': manifest_item['md5']}
-    metadata = {
-        **{
-            'document_reference_id': manifest_item['object_id'],
-            'specimen_identifier': manifest_item.get('specimen_id', None),
-            'patient_identifier': manifest_item.get('patient_id', None),
-            'task_identifier': manifest_item.get('task_id', None),
-            'observation_identifier': manifest_item.get('observation_id', None),
-            'project_id': f'{program}-{project}',
-        },
-        **hashes}
+    hashes, metadata = create_hashes_metadata(manifest_item, program, project)
 
     if duplicate_check:
         try:
@@ -123,7 +114,7 @@ def _write_indexd(index_client, project_id: str, manifest_item: dict, bucket_nam
             md5_match = existing_record['hashes']['md5'] == manifest_item['md5']
             if md5_match:
                 # SYNC
-                logger.info(f"Deleting existing record {manifest_item['object_id']}")
+                logger.debug(f"Deleting existing record {manifest_item['object_id']}")
                 index_client.delete_record(guid=manifest_item['object_id'])
                 existing_record = None
             else:
@@ -152,10 +143,25 @@ def _write_indexd(index_client, project_id: str, manifest_item: dict, bucket_nam
             )
             assert response, "Expected response from indexd create_record"
         except (requests.exceptions.HTTPError, AssertionError) as e:
-            if not ('already exists' in str(e)):
-                raise e
-            logger.info(f"indexd record already exists, continuing upload. {manifest_item['object_id']}")
+            if 'already exists' in str(e):
+                logger.error(f"indexd record already exists, consider using --duplicate_check. {manifest_item['object_id']} {str(e)}")
+            raise e
     return True
+
+
+def create_hashes_metadata(manifest_item, program, project):
+    hashes = {'md5': manifest_item['md5']}
+    metadata = {
+        **{
+            'document_reference_id': manifest_item['object_id'],
+            'specimen_identifier': manifest_item.get('specimen_id', None),
+            'patient_identifier': manifest_item.get('patient_id', None),
+            'task_identifier': manifest_item.get('task_id', None),
+            'observation_identifier': manifest_item.get('observation_id', None),
+            'project_id': f'{program}-{project}',
+        },
+        **hashes}
+    return hashes, metadata
 
 
 def worker_count():
@@ -188,21 +194,34 @@ def upload_indexd(config: Config, project_id: str, object_id: str = None, duplic
     else:
         _generator = ls(config, project_id=project_id, object_id=object_id)
 
-    with Pool(processes=worker_count()) as pool:
-        for manifest_item in _generator:
-            _ = pool.apply(
-                func=_write_indexd,
-                args=(
-                    index_client,
-                    project_id,
-                    manifest_item,
-                    bucket_name,
-                    duplicate_check,
-                    restricted_project_id
-                )
-            )
-            assert _, "Expected a result from _write_indexd"
-            manifest_entries.append(manifest_item)
+    # with Pool(processes=worker_count()) as pool:
+    # start = datetime.now()
+    # logger.info(f"{start} Writing {len(_generator)} records to indexd...")
+    for manifest_item in tqdm(_generator):
+        # multiprocessing takes too much overhead to start up, so we're not using it
+        # _ = pool.apply(
+        #     func=_write_indexd,
+        #     args=(
+        #         index_client,
+        #         project_id,
+        #         manifest_item,
+        #         bucket_name,
+        #         duplicate_check,
+        #         restricted_project_id
+        #     )
+        # )
+        _ = _write_indexd(
+            index_client,
+            project_id,
+            manifest_item,
+            bucket_name,
+            duplicate_check,
+            restricted_project_id
+        )
+        assert _, "Expected a result from _write_indexd"
+        manifest_entries.append(manifest_item)
+    # end = datetime.now()
+    # logger.info(f"{end} Wrote {len(manifest_entries)} records to indexd in {(end - start).total_seconds()} seconds")
     return manifest_entries
 
 
@@ -224,7 +243,9 @@ def upload_files(config: Config, manifest_entries: list[dict], project_id: str, 
     with open(manifest_path, 'w') as manifest_file:
         json.dump(manifest_entries, manifest_file)
 
-    cmd = f"gen3-client upload-multiple --manifest {manifest_path} --profile {profile} --upload-path {upload_path} --bucket {bucket_name} --numparallel {worker_count()}".split()
+    cmd = f"gen3-client upload-multiple --manifest {manifest_path} --profile {profile} --upload-path {upload_path} --bucket {bucket_name} --numparallel {worker_count()}"
+    # print(f"Running: {cmd}", file=sys.stderr)
+    cmd = cmd.split()
     upload_results = subprocess.run(cmd)
     assert upload_results.returncode == 0, upload_results
     return upload_results

@@ -16,16 +16,21 @@ from fhir.resources.task import Task, TaskOutput, TaskInput
 from gen3.submission import Gen3Submission
 from orjson import orjson
 
+from gen3_util import Config
+
+
 from gen3_util.common import EmitterContextManager
-from gen3_util.config import Config, ensure_auth
+from gen3_util.config import ensure_auth
 from gen3_util.files.lister import ls, meta_nodes, meta_resource
-from gen3_util.meta import ACED_NAMESPACE
+from gen3_util import ACED_NAMESPACE
+from gen3_util.files.manifest import ls as manifest_ls
 
 
 def update_document_reference(document_reference, index_record):
     """Update document reference with index record."""
     assert document_reference.resource_type == 'DocumentReference'
-    assert index_record['did'] == document_reference.id
+    assert 'did' in index_record, f"index_record missing did: {index_record}"
+    assert index_record['did'] == document_reference.id, f"{index_record['did']} != {document_reference.id}"
 
     document_reference.docStatus = 'final'
     document_reference.status = 'current'
@@ -54,55 +59,78 @@ def update_document_reference(document_reference, index_record):
     document_reference.content = [content]
 
 
-def indexd_to_study(config: Config, project_id: str, output_path: str, overwrite: bool) -> list[Resource]:
-    """Read files uploaded to indexd and create a skeleton graph for document and ancestors from a set of identifiers.
+def study_metadata(config: Config, project_id: str, output_path: str, overwrite: bool, source: str) -> int:
+    """Read files uploaded to indexd or the local manifest and create a skeleton graph for document and ancestors from a set of identifiers.
 
     Args:
         config:
         project_id:
         output_path:
         overwrite: check for existing records and skip if found
+        source: indexd or manifest
     """
 
     assert project_id, "project_id required"
     assert project_id.count('-') == 1, "project_id must be of the form program-project"
 
-    auth = ensure_auth(config.gen3.refresh_file)
+    auth = ensure_auth(profile=config.gen3.profile)
 
     existing_resource_ids = set()
     if not overwrite:
-        print("Checking for existing records...", file=sys.stderr)
+        print(f"Checking for existing records for project_id:{project_id}...", file=sys.stderr)
         nodes = meta_nodes(config, project_id, auth=auth)  # fetches document_ids by default
         existing_resource_ids = set([_['id'] for _ in nodes])
-        print("Done", file=sys.stderr)
+        # print(f"Retrieved {len(existing_resource_ids)} existing records.", file=sys.stderr)
 
     # get file client
-    records = ls(config, metadata={'project_id': project_id})['records']
+    if source == 'indexd':
+        # get all records for project_id
+        records = ls(config, metadata={'project_id': project_id})['records']
+    elif source == 'manifest':
+        # get all records from current manifest
+        object_id = ','.join([_['object_id'] for _ in manifest_ls(config, project_id=project_id)])
+        records = ls(config, object_id=object_id)['records']
+    else:
+        raise ValueError(f"source must be 'indexd' or 'manifest' not {source}")
 
     submission_client = Gen3Submission(auth_provider=auth)
 
     with EmitterContextManager(output_path, file_mode="w") as emitter:
+        if len(records) == 0:
+            print(f"No records found for project_id:{project_id}", file=sys.stderr)
+        new_record_count = 0
+        existing_record_count = 0
         for _ in records:
             resources = create_skeleton(metadata=_['metadata'], submission_client=submission_client)
             for resource in resources:
+
                 # check document references
                 if resource.id in existing_resource_ids:
+                    existing_record_count += 1
                     continue
                 existing_resource_ids.add(resource.id)
 
                 if resource.resource_type == 'DocumentReference':
                     update_document_reference(resource, _)
-                ids = ''
-                if resource.identifier and len(resource.identifier) > 0:
-                    ids = [_.value for _ in resource.identifier]
-                subject = ''
-                if hasattr(resource, 'subject') and resource.subject:
-                    subject = resource.subject.reference
 
-                print(f"Writing {resource.resource_type} {resource.id} {ids} {subject}", file=sys.stderr)
+                # FOR debugging
+                # ids = ''
+                # if resource.identifier and len(resource.identifier) > 0:
+                #     ids = [_.value for _ in resource.identifier]
+                # subject = ''
+                # if hasattr(resource, 'subject') and resource.subject:
+                #     subject = resource.subject.reference
+                # # print(f"Writing {resource.resource_type} {resource.id} {ids} {subject}", file=sys.stderr)
+
                 emitter.emit(resource.resource_type).write(
                     resource.json(option=orjson.OPT_APPEND_NEWLINE)
                 )
+                new_record_count += 1
+
+        # print(f"Of {len(records)} records in {source}, {existing_record_count} already existed, wrote {new_record_count} new records.", file=sys.stderr)
+        print(f"Created {new_record_count} new records.", file=sys.stderr)
+
+    return new_record_count
 
 
 def _get_system(identifier: str, project_id: str):
@@ -128,7 +156,9 @@ def create_skeleton(metadata: dict, submission_client: Gen3Submission) -> list[R
     if not document_reference_id:
         document_reference_id = metadata.get('datanode_object_id', None)
 
-    assert document_reference_id, f"document_reference_id required {metadata}"
+    if not document_reference_id:
+        return []
+        # metadata can include submission files, etc. that are not attached to a document reference ie is_metadata = True
 
     assert project_id, "project_id required"
     assert project_id.count('-') == 1, "project_id must be of the form program-project"

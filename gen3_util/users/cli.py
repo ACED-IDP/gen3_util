@@ -9,7 +9,7 @@ from gen3_util.config import Config
 @click.group(name='users', cls=NaturalOrderGroup)
 @click.pass_obj
 def users_group(config: Config):
-    """Manage users membership in projects."""
+    """Manage project membership."""
     pass
 
 

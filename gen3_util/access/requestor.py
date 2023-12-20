@@ -35,22 +35,24 @@ def format_policy(policy: dict, project_id: str, user_name: str) -> dict:
         policy['username'] = user_name
     if project_id:
         program, project = project_id.split('-')
-        if policy.get('resource_path', None):
-            policy['resource_path'] = policy['resource_path'].replace('PROGRAM', program).replace('PROJECT', project)
+        if policy.get('resource_paths', None):
+            policy['resource_paths'] = [_.replace('PROGRAM', program).replace('PROJECT', project) for _ in policy['resource_paths']]
         elif policy.get('policy_id', None):
             policy['policy_id'] = policy['policy_id'].replace('PROGRAM', program).replace('PROJECT', project)
         else:
-            raise ValueError(f"No resource_path specified, can't apply project_id {policy}")
+            raise ValueError(f"No resource_paths or policy_id specified, can't apply project_id {policy}")
     else:
         if 'PROGRAM' in policy['resource_path'] or 'PROJECT' in policy['resource_path']:
             raise ValueError(f"specify project_id for {policy['resource_path']}")
     return policy
 
 
-def ls(config: Config, mine: bool) -> LogAccess:
+def ls(config: Config, mine: bool, active: bool = False, username: str = None) -> LogAccess:
     """List requests."""
-    auth = ensure_auth(config.gen3.refresh_file)
-    requests = get_requests(auth=auth, mine=mine)
+    auth = ensure_auth(profile=config.gen3.profile)
+    requests = get_requests(auth=auth, mine=mine, active=active, username=username)
+    if not isinstance(requests, list):
+        raise Exception(f"Unexpected response: {requests}")
     return LogAccess(**{
         'endpoint': auth.endpoint,
         'requests': [_ for _ in requests],
@@ -59,7 +61,7 @@ def ls(config: Config, mine: bool) -> LogAccess:
 
 def cat(config: Config, request_id: str) -> dict:
     """Show a specific request requests."""
-    auth = ensure_auth(config.gen3.refresh_file)
+    auth = ensure_auth(profile=config.gen3.profile)
     request = get_request(auth=auth, request_id=request_id)
     return LogAccess(**{
         'endpoint': auth.endpoint,
@@ -77,7 +79,7 @@ def touch(config: Config, resource_path: str, user_name: str, roles: str) -> Log
         roles = list(map(str, roles.split(',')))
         request.update({"role_ids": roles})
 
-    auth = ensure_auth(config.gen3.refresh_file)
+    auth = ensure_auth(profile=config.gen3.profile)
 
     request = create_request(auth=auth, request=request)
     return LogAccess(**{
@@ -89,7 +91,7 @@ def touch(config: Config, resource_path: str, user_name: str, roles: str) -> Log
 def cp(config: Config, request: dict, revoke: bool = False) -> LogAccess:
     """List requests."""
 
-    auth = ensure_auth(config.gen3.refresh_file)
+    auth = ensure_auth(profile=config.gen3.profile)
 
     request = create_request(auth=auth, request=request, revoke=revoke)
     return LogAccess(**{
@@ -108,7 +110,7 @@ def update(config: Config, request_id: str, status: str) -> LogAccess:
     status = status.upper()
     assert status in ALLOWED_REQUEST_STATUSES, f"{status} not in {ALLOWED_REQUEST_STATUSES}"
 
-    auth = ensure_auth(config.gen3.refresh_file)
+    auth = ensure_auth(profile=config.gen3.profile)
     request = update_request(auth=auth, request_id=request_id, status=status)
     return LogAccess(**{
         'endpoint': auth.endpoint,

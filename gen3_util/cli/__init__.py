@@ -29,12 +29,11 @@ def _common_options(self):
 
     # use 'cred', the same name as used in gen3-client data utility
     self.params.insert(2,
-                       click.core.Option(('--cred', 'cred'),
-                                         envvar="GEN3_API_KEY",
+                       click.core.Option(('--profile', 'profile'),
+                                         envvar=f"{ENV_VARIABLE_PREFIX}_PROFILE",
                                          default=None,
                                          show_default=True,
-                                         help='See https://uc-cdis.github.io/gen3-user-doc/appendices'
-                                              '/api-gen3/#credentials-to-query-the-api. GEN3_API_KEY'))
+                                         help=f'Connection name. {ENV_VARIABLE_PREFIX}_PROFILE See https://bit.ly/3NbKGi4'))
 
     self.params.insert(3,
                        click.core.Option(('--state_dir', ),
@@ -109,8 +108,11 @@ class CLIOutput:
                 _.update(self.output.obj)
             elif isinstance(self.output.obj, list):
                 _ = self.output.obj
+            elif isinstance(self.output.obj, int):
+                _ = {'count': self.output.obj}
             else:
                 _.update(self.output.obj.dict())
+        rc = self.output.exit_code
         if exc_type is not None:
             if isinstance(self.output.obj, dict):
                 _['exception'] = f"{str(exc_val)}"

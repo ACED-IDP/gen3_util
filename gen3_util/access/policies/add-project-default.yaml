@@ -2,8 +2,9 @@ policies:
 # submitter policy
 - role_ids:
   - writer
-  resource_path: /programs/PROGRAM/projects/PROJECT
-# reader policy
+  resource_paths:
+  - /programs/PROGRAM/projects/PROJECT
 - role_ids:
   - reader
-  resource_path: /programs/PROGRAM/projects/PROJECT
+  resource_paths:
+  - /programs/PROGRAM/projects/PROJECT

@@ -94,36 +94,23 @@ def access_update(config: Config, request_id: str, status: str):
 
 
 @access_group.command(name="sign")
-@click.option('--project_id', required=False, help='Sign all requests for Project ID', envvar='PROJECT_ID')
 @click.option('--username', required=False, help='Sign all requests for user within a project')
 @click.pass_obj
-def sign(config: Config, project_id: str, username: str):
+def sign(config: Config, username: str):
     """Sign all policies for a project.
     \b
     """
-    validate_project_id(project_id)
-    program, project = project_id.split('-')
 
     with CLIOutput(config=config) as output:
-        access = ls(config, False)
-        project_requests = [_ for _ in access.requests if program in _['policy_id'] and project in _['policy_id']]
-        unsigned_requests = [_ for _ in project_requests if _['status'] != 'SIGNED']
-        if username:
-            unsigned_requests = [_ for _ in unsigned_requests if _['username'] == username]
+        access = ls(config, mine=False, username=username, active=True)
+        unsigned_requests = [_ for _ in access.requests if _['status'] != 'SIGNED']
 
-        if len(project_requests) == 0:
+        if len(unsigned_requests) == 0:
             output.update(LogAccess(**{
-                'msg': f"No requests found for {project_id}"
-            }))
-        elif len(unsigned_requests) == 0:
-            _ = f"All requests for {project_id} are already signed"
-            if username:
-                _ = f"All requests for {project_id} {username} are already signed"
-            output.update(LogAccess(**{
-                'msg': _
+                'msg': "No unsigned requests found"
             }))
         else:
-            msg = f"Signed requests for {project_id}"
+            msg = "Signed requests"
             signed_requests = []
             for request in unsigned_requests:
                 signed_requests.append(update(config, request_id=request['request_id'], status='SIGNED').request)
@@ -134,12 +121,14 @@ def sign(config: Config, project_id: str, username: str):
 
 
 @access_group.command(name="ls")
+@click.option('--username', required=False, default=None, help='Sign all requests for user within a project')
 @click.option('--mine',  is_flag=True, show_default=True, default=False, help="List current user's requests. Otherwise, list all the requests the current user has access to see.")
+@click.option('--active', is_flag=True, show_default=True, default=False, help='Only unsigned requests')
 @click.pass_obj
-def access_ls(config: Config, mine: bool):
+def access_ls(config: Config, mine: bool, active: bool, username: str):
     """List current user's requests."""
     with CLIOutput(config=config) as output:
-        output.update(ls(config, mine))
+        output.update(ls(config, mine, active, username))
 
 
 @access_group.command(name="cat")

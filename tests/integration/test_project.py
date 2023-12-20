@@ -27,10 +27,10 @@ def test_project_ping(caplog):
 def test_project_bad_ping(caplog):
     """Ensure we can descriptive error."""
     runner = CliRunner(mix_stderr=False)
-    result = runner.invoke(cli, ['--cred', 'BAD_PATH', 'ping'], )
+    result = runner.invoke(cli, ['--profile', 'BAD-PROFILE', 'ping'], )
     print('>>>', result.stdout, '<<<')
     print(']]]', result.stderr, '[[[')
     assert result.exit_code == 1
-    expected_strings = ['Could not get access.']
+    expected_strings = ['no profile', 'BAD-PROFILE']
     for expected_string in expected_strings:
         assert expected_string in result.stdout, "Did not find failure message."
