@@ -80,7 +80,7 @@ def study_metadata(config: Config, project_id: str, output_path: str, overwrite:
         print(f"Checking for existing records for project_id:{project_id}...", file=sys.stderr)
         nodes = meta_nodes(config, project_id, auth=auth)  # fetches document_ids by default
         existing_resource_ids = set([_['id'] for _ in nodes])
-        # print(f"Retrieved {len(existing_resource_ids)} existing records.", file=sys.stderr)
+        print(f"Retrieved {len(existing_resource_ids)} existing records.", file=sys.stderr)
 
     # get file client
     if source == 'indexd':
