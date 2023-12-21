@@ -8,8 +8,7 @@ click
 orjson
 # pluralization, etc.
 inflection
-# for mime types
-python-magic
+
 # progress bar
 tqdm>=4.61.2
 

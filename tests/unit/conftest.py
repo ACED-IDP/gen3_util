@@ -23,3 +23,9 @@ def submission_client() -> str:
     """Gen3Submission client"""
     auth = ensure_auth(profile='development')
     return Gen3Submission(auth_provider=auth)
+
+
+@pytest.fixture
+def test_files_directory() -> str:
+    """Directory containing test files"""
+    return 'tests/fixtures/add_files_to_study'
