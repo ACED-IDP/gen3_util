@@ -3,10 +3,11 @@ import yaml
 
 from gen3_util.access import create_request
 from gen3_util.access.requestor import ls, cat, update, format_policy, LogAccess
+from gen3_util.access.submitter import ensure_program_project
 from gen3_util.cli import CLIOutput
 from gen3_util.cli import NaturalOrderGroup
 from gen3_util.common import validate_project_id, validate_email, to_resource_path, print_formatted
-from gen3_util.config import Config
+from gen3_util.config import Config, ensure_auth
 
 
 @click.group(name='access', cls=NaturalOrderGroup)
@@ -102,7 +103,8 @@ def sign(config: Config, username: str):
     """
 
     with CLIOutput(config=config) as output:
-        access = ls(config, mine=False, username=username, active=True)
+        auth = ensure_auth(profile=config.gen3.profile)
+        access = ls(config, mine=False, username=username, active=True, auth=auth)
         unsigned_requests = [_ for _ in access.requests if _['status'] != 'SIGNED']
 
         if len(unsigned_requests) == 0:
@@ -110,12 +112,29 @@ def sign(config: Config, username: str):
                 'msg': "No unsigned requests found"
             }))
         else:
-            msg = "Signed requests"
+            msg = f"Signing {len(unsigned_requests)} requests."
+
             signed_requests = []
             for request in unsigned_requests:
-                signed_requests.append(update(config, request_id=request['request_id'], status='SIGNED').request)
+                signed_requests.append(update(config, request_id=request['request_id'], status='SIGNED', auth=auth).request)
+
+            msg = f"Signed {len(unsigned_requests)} requests."
+            distinct_policy_ids = sorted(
+                set(
+                    [
+                        _['policy_id'].replace('_reader', '').replace('_writer', '')
+                        for _ in unsigned_requests if _['policy_id'].startswith('programs.')
+                    ]
+                )
+            )
+            submitter_msgs = []
+            for policy_id in distinct_policy_ids:
+                _ = policy_id.split('.')
+                project_id = f"{_[1]}-{_[3]}"
+                submitter_msgs.append(ensure_program_project(config, project_id, auth=auth))
+
             output.update(LogAccess(**{
-                'msg': msg,
+                'msg': msg + ' ' + ' '.join(submitter_msgs),
                 'requests': signed_requests,
             }))
 
@@ -123,7 +142,7 @@ def sign(config: Config, username: str):
 @access_group.command(name="ls")
 @click.option('--username', required=False, default=None, help='Sign all requests for user within a project')
 @click.option('--mine',  is_flag=True, show_default=True, default=False, help="List current user's requests. Otherwise, list all the requests the current user has access to see.")
-@click.option('--active', is_flag=True, show_default=True, default=False, help='Only unsigned requests')
+@click.option('--all', 'active', is_flag=True, show_default=True, default=True, help='Only unsigned requests')
 @click.pass_obj
 def access_ls(config: Config, mine: bool, active: bool, username: str):
     """List current user's requests."""
