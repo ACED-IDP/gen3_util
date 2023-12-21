@@ -33,3 +33,10 @@ def assert_valid_bucket(config, bucket_name):
     buckets = get_buckets(config=config)
     bucket_names = [_ for _ in buckets['GS_BUCKETS']] + [_ for _ in buckets['S3_BUCKETS']]
     assert bucket_name in bucket_names, f"{bucket_name} not in configured buckets {bucket_names}"
+
+
+def get_mime_type(file_name):
+    """Get mime type from file name."""
+
+    import mimetypes
+    return mimetypes.guess_type(file_name)[0] or 'application/octet-stream'

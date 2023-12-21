@@ -1,6 +1,5 @@
 import json
 import logging
-import mimetypes
 import pathlib
 import sqlite3
 import subprocess
@@ -13,20 +12,14 @@ from urllib.parse import urlparse
 import orjson
 import requests
 from pydantic.json import pydantic_encoder
-import sys
 
 from gen3_util.buckets import get_program_bucket
 from gen3_util.config import Config, gen3_services
+from gen3_util.files import get_mime_type
 from gen3_util.files.uploader import _normalize_file_url
 from gen3_util import ACED_NAMESPACE
 from gen3_util.meta.importer import md5sum
 from tqdm import tqdm
-
-try:
-    import magic
-except ImportError as e:
-    print(f"Requires libmagic installed on your system to determine file mime-types\nError: '{e}'\nFor installation instructions see https://github.com/ahupp/python-magic#installation")
-    sys.exit(1)
 
 logger = logging.getLogger(__name__)
 
@@ -49,11 +42,7 @@ def put(config: Config, file_name: str, project_id: str, md5: str):
     assert project_id.count('-') == 1, f"{project_id} should have a single '-' delimiter."
 
     stat = file.stat()
-    _magic = magic.Magic(mime=True, uncompress=True)  # https://github.com/ahupp/python-magic#installation
-
-    mime, encoding = mimetypes.guess_type(file)
-    if not mime:
-        mime = _magic.from_file(file)
+    mime = get_mime_type(file)
 
     object_id = str(uuid.uuid5(ACED_NAMESPACE, project_id + f"::{file}"))
 
