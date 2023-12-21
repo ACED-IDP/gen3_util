@@ -20,6 +20,7 @@ def test_access_ls(caplog):
 
 def test_access_touch_read_only():
     """Ensure we can add a user with default read-only access."""
+    # TODO - deprecate, see `gen3_util users add`
     runner = CliRunner()
     result = runner.invoke(cli, 'access touch bar@foo.com aced-Alcoholism'.split())
     assert result.exit_code == 0
@@ -30,6 +31,7 @@ def test_access_touch_read_only():
 
 def test_access_touch_roles():
     """Ensure we can add a user with specific roles."""
+    # TODO - deprecate, see `gen3_util users add user@example.com -w`
     runner = CliRunner()
     result = runner.invoke(cli, 'access touch bar@foo.com aced-Alcoholism --roles writer,reader '.split())
     assert result.exit_code == 0
@@ -40,6 +42,7 @@ def test_access_touch_roles():
 
 def test_access_touch_bad_email():
     """Ensure we catch invalid email."""
+    # TODO - deprecate, see `gen3_util users add user@example.com -w`
     runner = CliRunner()
     result = runner.invoke(cli, 'access touch barfoo.com aced-Alcoholism --roles storage_writer,file_uploader'.split())
     assert result.exit_code != 0
@@ -47,6 +50,7 @@ def test_access_touch_bad_email():
 
 def test_access_touch_bad_project_id():
     """Ensure we catch project id."""
+    # TODO - deprecate, see `gen3_util users add user@example.com -w`
     runner = CliRunner()
     result = runner.invoke(cli, 'access touch bar@foo.com aced-Alcoholism-XXX --roles storage_writer,file_uploader'.split())
     assert result.exit_code != 0
@@ -54,6 +58,7 @@ def test_access_touch_bad_project_id():
 
 def test_access_workflow(profile):
     """This access request in particular creates 409s if you run the test twice"""
+    # TODO - deprecate, see `gen3_util users add user@example.com -w`
     runner = CliRunner()
 
     user_name = str(uuid.uuid4())
