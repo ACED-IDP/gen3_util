@@ -15,18 +15,6 @@ version: 0.0.12
 ```
 
 
-### libmagic
-
-Note: requires [`magic`](https://github.com/ahupp/python-magic#installation) library. If it is not already installed you will see a warning like this:
-
-```text
-Requires libmagic installed on your system to determine mime-types
-Error: 'failed to find libmagic.  Check your installation'
-For installation instructions see https://github.com/ahupp/python-magic#installation
-```
-
-Note: some environments will get a `_ctypes` error.  Please install 3.9.16
-
 ## Use
 
 ```

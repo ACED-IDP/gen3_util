@@ -10,7 +10,6 @@ import pathlib
 import click
 
 import orjson
-import mimetypes
 
 from gen3_util.cli import CLIOutput
 from gen3_util.common import EmitterContextManager
@@ -22,11 +21,7 @@ from fhir.resources.patient import Patient
 from fhir.resources.specimen import Specimen
 from fhir.resources.resource import Resource
 
-try:
-    import magic
-except ImportError as e:
-    print(f"Requires libmagic installed on your system to determine file mime-types\nError: '{e}'\nFor installation instructions see https://github.com/ahupp/python-magic#installation")
-    sys.exit(1)
+from gen3_util.files import get_mime_type
 
 PLUGINS = []
 PLUGINS_ADDED_TO_PATH = False
@@ -126,7 +121,6 @@ def dir_to_study(project_id, input_path, remove_path_prefix, output_path, patter
             print(f"output_path {_} does not exist, creating...")
             _.mkdir(parents=True, exist_ok=True)
 
-    _magic = magic.Magic(mime=True, uncompress=True)  # https://github.com/ahupp/python-magic#installation
     program, project = project_id.split('-')
     research_study = create_research_study(project, f"A study with files from {input_path}/{pattern}")
 
@@ -161,9 +155,7 @@ def dir_to_study(project_id, input_path, remove_path_prefix, output_path, patter
 
             stat = file.stat()
             modified = datetime.fromtimestamp(stat.st_mtime, tz=timezone.utc)
-            mime, encoding = mimetypes.guess_type(file)
-            if not mime:
-                mime = _magic.from_file(file)
+            mime = get_mime_type(file)
 
             subject_reference = f"ResearchStudy/{research_study['id']}"  # Who/what is the subject of the document
 
