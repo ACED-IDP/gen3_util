@@ -62,7 +62,7 @@ def test_meta(caplog):
     assert result.exit_code == 0
     print(result.output)
     expected_strings = """
-  publish   Publish meta data on the portal meta_data_path
+  publish   Publish meta data on the portal
   cp        Copy meta to/from the project bucket.
   ls        Query buckets for submitted metadata.
   rm        Remove meta from a project.
