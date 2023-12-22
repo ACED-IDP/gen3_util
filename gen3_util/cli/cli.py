@@ -3,7 +3,7 @@ import pathlib
 import subprocess
 
 import click
-import pkg_resources  # part of setuptools
+from importlib.metadata import version as pkg_version
 
 import gen3_util
 from gen3_util.access.cli import access_group
@@ -60,7 +60,7 @@ cli.add_command(users_group)
 @click.pass_obj
 def version(config):
     """Print version"""
-    _ = pkg_resources.require("gen3_util")[0].version
+    _ = pkg_version('gen3-util')
     print_formatted(config, {'version': _})
 
 
