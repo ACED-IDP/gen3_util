@@ -7,7 +7,7 @@ from pydantic import BaseModel
 from gen3_util.access import get_requests, get_request, create_request, update_request
 from gen3_util.config import Config, ensure_auth
 
-import importlib.resources as pkg_resources
+from importlib.resources import files, as_file
 from . import policies
 
 
@@ -133,8 +133,10 @@ def add_user(config: Config, project_id: str, user_name: str, write: bool) -> Lo
         file_names.append('add-user-write.yaml')
 
     for file_name in file_names:
-        with pkg_resources.open_text(policies, file_name) as f:
-            policies_.extend([_ for _ in yaml.safe_load(f)['policies']])
+        source = files(policies).joinpath(file_name)
+        with as_file(source) as file_path:
+            with open(file_path) as f:
+                policies_.extend([_ for _ in yaml.safe_load(f)['policies']])
 
     requests = []
     request_ids = []
@@ -161,8 +163,10 @@ def rm_user(config: Config, project_id: str, user_name: str) -> LogAccess:
     file_names = ['add-user-read.yaml', 'add-user-write.yaml']
 
     for file_name in file_names:
-        with pkg_resources.open_text(policies, file_name) as f:
-            policies_.extend([_ for _ in yaml.safe_load(f)['policies']])
+        source = files(policies).joinpath(file_name)
+        with as_file(source) as file_path:
+            with open(file_path) as f:
+                policies_.extend([_ for _ in yaml.safe_load(f)['policies']])
 
     requests = []
     request_ids = []
@@ -186,8 +190,10 @@ def add_policies(config: Config, project_id: str, auth: Gen3Auth = None) -> LogA
     file_names = ['add-project-default.yaml']
 
     for file_name in file_names:
-        with pkg_resources.open_text(policies, file_name) as f:
-            policies_.extend([_ for _ in yaml.safe_load(f)['policies']])
+        source = files(policies).joinpath(file_name)
+        with as_file(source) as file_path:
+            with open(file_path) as f:
+                policies_.extend([_ for _ in yaml.safe_load(f)['policies']])
 
     requests = []
     request_ids = []
