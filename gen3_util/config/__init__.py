@@ -22,6 +22,7 @@ def gen_client_ini_path() -> pathlib.Path:
     return pathlib.Path(pathlib.Path.home() / ".gen3" / "gen3_client_config.ini")
 
 
+# TODO - unused, deprecate?
 def gen3_client_profile(endpoint: str, path: str = gen_client_ini_path().absolute(), expiration_threshold_days: int = 10) -> str:
     """Read gen3-client ini file, return profile name or none if endpoint not found."""
     gen3_util_ini = read_ini(path)
