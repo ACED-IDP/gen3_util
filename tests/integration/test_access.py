@@ -1,5 +1,4 @@
 import json
-import uuid
 
 from click.testing import CliRunner
 from gen3_util.cli.cli import cli
@@ -8,97 +7,21 @@ from gen3_util.cli.cli import cli
 def test_access_ls(caplog):
     """Ensure we can ls access."""
     runner = CliRunner()
-    result = runner.invoke(cli, ['access', 'ls'])
-    result_output = result.output
-    print('result_output', result_output)
-    assert result.exit_code == 0
-    # This looks like a mixup with 'gen3_util projects ping'
-    # expected_strings = ['OK']
-    # for expected_string in expected_strings:
-    # assert expected_string in result.output, f"Did not find {expected_string} in {expected_strings}"
+
+    cmds = [['access', 'ls'], ['access', 'ls', '--username', 'bob@example.com'], ['access', 'ls', '--mine'], ['access', 'ls', '--active']]
+    for cmd in cmds:
+        result = runner.invoke(cli, cmd)
+        result_output = result.output
+        assert result.exit_code == 0, f"cmd {cmd} failed with {result_output}"
 
 
-def test_access_touch_read_only():
-    """Ensure we can add a user with default read-only access."""
-    runner = CliRunner()
-    result = runner.invoke(cli, 'access touch bar@foo.com aced-Alcoholism'.split())
-    assert result.exit_code == 0
-    expected_strings = ['OK', 'request_id']
-    for expected_string in expected_strings:
-        assert expected_string in result.output, f"Did not find {expected_string} in {expected_strings}"
-
-
-def test_access_touch_roles():
-    """Ensure we can add a user with specific roles."""
-    runner = CliRunner()
-    result = runner.invoke(cli, 'access touch bar@foo.com aced-Alcoholism --roles writer,reader '.split())
-    assert result.exit_code == 0
-    expected_strings = ['OK', 'request_id']
-    for expected_string in expected_strings:
-        assert expected_string in result.output, f"Did not find {expected_string} in {expected_strings}"
-
-
-def test_access_touch_bad_email():
-    """Ensure we catch invalid email."""
-    runner = CliRunner()
-    result = runner.invoke(cli, 'access touch barfoo.com aced-Alcoholism --roles storage_writer,file_uploader'.split())
-    assert result.exit_code != 0
-
-
-def test_access_touch_bad_project_id():
-    """Ensure we catch project id."""
-    runner = CliRunner()
-    result = runner.invoke(cli, 'access touch bar@foo.com aced-Alcoholism-XXX --roles storage_writer,file_uploader'.split())
-    assert result.exit_code != 0
-
-
-def test_access_workflow(profile):
-    """This access request in particular creates 409s if you run the test twice"""
+def test_access_cat(caplog):
+    """Ensure we can ls access."""
     runner = CliRunner()
 
-    user_name = str(uuid.uuid4())
-    result = runner.invoke(cli, f'--format json --profile {profile} access touch {user_name}@foo.com aced-MCF10A'.split())
-    print(result.output)
-    assert result.exit_code == 0
-    expected_strings = ['OK', 'request_id']
-    for expected_string in expected_strings:
-        assert expected_string in result.output, f"Did not find {expected_string} in {expected_strings}"
-
-    request = json.loads(result.output)
-    print("THE VALUE OF REQUEST ", request)
-    assert request['request_id'], "Missing request id"
-    request_id = request['request_id']
-    assert request['status'] == 'DRAFT', f"unexpected status {request['status']}"
-
-    result = runner.invoke(cli, f'--format json access update {request_id} SUBMITTED'.split())
-    assert result.exit_code == 0
-    expected_strings = ['request_id']
-    for expected_string in expected_strings:
-        assert expected_string in result.output, f"Did not find {expected_string} in {expected_strings}"
-
-    request = json.loads(result.output)["request"]
-
-    assert request['status'] == 'SUBMITTED', f"unexpected status {request['status']}"
-
-    result = runner.invoke(cli, f'--format json access update {request_id} APPROVED'.split())
-
-    result_output = result.output
-    print('result_output', result_output)
-    assert result.exit_code == 0
-
-    expected_strings = ['request_id']
-    for expected_string in expected_strings:
-        assert expected_string in result.output, f"Did not find {expected_string} in {expected_strings}"
-    request = json.loads(result.output)["request"]
-
-    assert request['status'] == 'APPROVED', f"unexpected status {request['status']}"
-
-    result = runner.invoke(cli, f'--format json access update {request_id} SIGNED'.split())
-    result_output = result.output
-    print('result_output', result_output)
-    assert result.exit_code == 0
-    expected_strings = ['request_id']
-    for expected_string in expected_strings:
-        assert expected_string in "".join(result.output), f"Did not find {expected_string} in {expected_strings}"
-    request = json.loads(result.output)["request"]
-    assert request['status'] == 'SIGNED', f"unexpected status {request['status']}"
+    result = runner.invoke(cli, ['--format', 'json', 'access', 'ls'])
+    assert result.exit_code == 0, f"cmd failed with {result.output}"
+    result_output = json.loads(result.output)
+    request_id = result_output['requests'][0]['request_id']
+    result = runner.invoke(cli, ['--format', 'json', 'access', 'cat', request_id])
+    assert result.exit_code == 0, f"cmd failed with {result.output}"
