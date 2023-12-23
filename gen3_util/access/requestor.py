@@ -179,8 +179,8 @@ def add_policies(config: Config, project_id: str) -> LogAccess:
         requests.append(cp(request=policy, config=config).request)
         request_ids.append(requests[-1]['request_id'])
 
-    commands = [f"gen3_util access update {request_id} SIGNED" for request_id in request_ids]
-    msg = f"Approve these requests to assign default policies to {project_id}"
+    commands = ["gen3_util access sign"]
+    msg = f"Approve these requests to create assign default policies to {project_id}"
     return LogAccess(**{
         'requests': requests,
         'msg': msg,
