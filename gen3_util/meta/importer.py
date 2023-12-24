@@ -49,7 +49,7 @@ def md5sum(file_name):
               type=click.Choice(['manifest', 'indexd'], case_sensitive=False), show_default=True, default='manifest', help="Query manifest or indexd.")
 @click.pass_obj
 def import_indexd(config: Config, output_path, project_id, overwrite, source):
-    """Create minimal study meta from files uploaded to indexd, write to OUTPUT_PATH.
+    """Create minimal study meta, write to OUTPUT_PATH.
     """
 
     from gen3_util.meta.skeleton import study_metadata

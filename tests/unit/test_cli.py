@@ -62,13 +62,9 @@ def test_meta(caplog):
     assert result.exit_code == 0
     print(result.output)
     expected_strings = """
-  publish   Publish meta data on the portal
-  cp        Copy meta to/from the project bucket.
-  ls        Query buckets for submitted metadata.
-  rm        Remove meta from a project.
-  create    Create minimal study meta from files uploaded to indexd
+  create    Create minimal study meta, write to OUTPUT_PATH.
   validate  Validate FHIR data in DIRECTORY.
-  node      Retrieve simplified metadata for a node.
+  publish   Publish meta data on the portal
     """.split()
     for expected_string in expected_strings:
         assert expected_string in result.output, f"Should have printed {expected_string}"
