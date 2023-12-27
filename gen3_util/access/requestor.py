@@ -1,6 +1,7 @@
 from typing import List
 
 import yaml
+from gen3.auth import Gen3Auth
 from pydantic import BaseModel
 
 from gen3_util.access import get_requests, get_request, create_request, update_request
@@ -47,9 +48,10 @@ def format_policy(policy: dict, project_id: str, user_name: str) -> dict:
     return policy
 
 
-def ls(config: Config, mine: bool, active: bool = False, username: str = None) -> LogAccess:
+def ls(config: Config, mine: bool, active: bool = False, username: str = None, auth: Gen3Auth = None) -> LogAccess:
     """List requests."""
-    auth = ensure_auth(profile=config.gen3.profile)
+    if not auth:
+        auth = ensure_auth(profile=config.gen3.profile)
     requests = get_requests(auth=auth, mine=mine, active=active, username=username)
     if not isinstance(requests, list):
         raise Exception(f"Unexpected response: {requests}")
@@ -69,10 +71,11 @@ def cat(config: Config, request_id: str) -> dict:
     })
 
 
-def cp(config: Config, request: dict, revoke: bool = False) -> LogAccess:
+def cp(config: Config, request: dict, revoke: bool = False, auth: Gen3Auth = None) -> LogAccess:
     """List requests."""
 
-    auth = ensure_auth(profile=config.gen3.profile)
+    if not auth:
+        auth = ensure_auth(profile=config.gen3.profile)
 
     request = create_request(auth=auth, request=request, revoke=revoke)
     return LogAccess(**{
@@ -84,14 +87,16 @@ def cp(config: Config, request: dict, revoke: bool = False) -> LogAccess:
 ALLOWED_REQUEST_STATUSES = """DRAFT SUBMITTED APPROVED SIGNED REJECTED""".split()
 
 
-def update(config: Config, request_id: str, status: str) -> LogAccess:
+def update(config: Config, request_id: str, status: str, auth: Gen3Auth = None) -> LogAccess:
     """Update request."""
     assert request_id, "required"
     assert status, "required"
     status = status.upper()
     assert status in ALLOWED_REQUEST_STATUSES, f"{status} not in {ALLOWED_REQUEST_STATUSES}"
 
-    auth = ensure_auth(profile=config.gen3.profile)
+    if not auth:
+        auth = ensure_auth(profile=config.gen3.profile)
+
     request = update_request(auth=auth, request_id=request_id, status=status)
     return LogAccess(**{
         'endpoint': auth.endpoint,
@@ -159,8 +164,7 @@ def rm_user(config: Config, project_id: str, user_name: str) -> LogAccess:
     })
 
 
-# TODO Remove?
-def add_policies(config: Config, project_id: str) -> LogAccess:
+def add_policies(config: Config, project_id: str, auth: Gen3Auth = None) -> LogAccess:
     """Add policies to project. """
     # implement read from resource_path
     policies_ = []
@@ -176,11 +180,11 @@ def add_policies(config: Config, project_id: str) -> LogAccess:
     request_ids = []
     for policy in policies_:
         policy = format_policy(policy, project_id, user_name=None)
-        requests.append(cp(request=policy, config=config).request)
+        requests.append(cp(request=policy, config=config, auth=auth).request)
         request_ids.append(requests[-1]['request_id'])
 
     commands = ["gen3_util access sign"]
-    msg = f"Approve these requests to create default policies for {project_id}"
+    msg = f"An authorized user must approve these requests to assign default policies to {project_id}"
     return LogAccess(**{
         'requests': requests,
         'msg': msg,
