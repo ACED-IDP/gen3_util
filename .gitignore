@@ -168,3 +168,4 @@ attic/
 clinical_reports/
 output
 studies/
+.python-version

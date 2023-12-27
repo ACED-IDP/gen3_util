@@ -69,25 +69,6 @@ def cat(config: Config, request_id: str) -> dict:
     })
 
 
-def touch(config: Config, resource_path: str, user_name: str, roles: str) -> LogAccess:
-    """Create requests."""
-
-    assert resource_path, "required"
-    assert user_name, "required"
-    request = {"username": user_name, "resource_path": resource_path}
-    if roles is not None:
-        roles = list(map(str, roles.split(',')))
-        request.update({"role_ids": roles})
-
-    auth = ensure_auth(profile=config.gen3.profile)
-
-    request = create_request(auth=auth, request=request)
-    return LogAccess(**{
-        'endpoint': auth.endpoint,
-        'request': request,
-    })
-
-
 def cp(config: Config, request: dict, revoke: bool = False) -> LogAccess:
     """List requests."""
 
@@ -198,8 +179,8 @@ def add_policies(config: Config, project_id: str) -> LogAccess:
         requests.append(cp(request=policy, config=config).request)
         request_ids.append(requests[-1]['request_id'])
 
-    commands = [f"gen3_util access update {request_id} SIGNED" for request_id in request_ids]
-    msg = f"Approve these requests to assign default policies to {project_id}"
+    commands = ["gen3_util access sign"]
+    msg = f"Approve these requests to create default policies for {project_id}"
     return LogAccess(**{
         'requests': requests,
         'msg': msg,
