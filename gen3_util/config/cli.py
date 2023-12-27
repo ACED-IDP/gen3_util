@@ -4,7 +4,6 @@ import click
 
 from gen3_util import Config
 from gen3_util.cli import NaturalOrderGroup, CLIOutput
-from gen3_util.config import ensure_auth
 
 
 @click.group(name='config', cls=NaturalOrderGroup)
@@ -34,11 +33,3 @@ def _gen3_client_version() -> str:
         return results.stdout.decode('utf-8').strip().split()[-1]
     except FileNotFoundError:
         return "ERROR gen3-client not installed"
-
-
-def _access_token_info(config: Config) -> dict:
-    """Get the access token info."""
-    auth = ensure_auth(profile=config.gen3.profile)
-    _ = {'endpoint': auth.endpoint, 'access_token': auth.get_access_token()}
-
-    return _

@@ -11,7 +11,6 @@ from gen3_util.meta.downloader import cp as cp_download
 from gen3_util.meta.importer import import_indexd
 from gen3_util.meta.lister import ls
 from gen3_util.meta.publisher import publish_meta_data
-from gen3_util.meta.remover import rm
 from gen3_util.meta.uploader import cp as cp_upload
 from gen3_util.meta.validator import validate
 
@@ -21,6 +20,18 @@ from gen3_util.meta.validator import validate
 def meta_group(config):
     """Manage meta data."""
     pass
+
+
+meta_group.add_command(import_indexd)
+
+
+@meta_group.command(name="validate")
+@click.argument('directory')
+@click.pass_obj
+def meta_validate(config: Config, directory):
+    """Validate FHIR data in DIRECTORY."""
+    with CLIOutput(config) as output:
+        output.update(validate(config, directory))
 
 
 @meta_group.command(name="publish")
@@ -47,7 +58,7 @@ def meta_publish(config: Config, meta_data_path: str,  project_id: str, ignore_s
         print("jobs_client.async_run_job_and_wait() (raw):", _)
 
 
-@meta_group.command(name="cp")
+@meta_group.command(name="cp", hidden=True)
 @click.argument('from_')
 @click.argument('to_')
 @click.option('--ignore_state', default=False, is_flag=True, show_default=True,
@@ -70,7 +81,7 @@ def meta_cp(config: Config, from_: str, to_: str, project_id: str, ignore_state:
             output.update(cp_download(config, from_, to_))
 
 
-@meta_group.command(name="ls")
+@meta_group.command(name="ls", hidden=True)
 @click.pass_obj
 def meta_ls(config: Config):
     """Query buckets for submitted metadata."""
@@ -78,26 +89,15 @@ def meta_ls(config: Config):
         output.update(ls(config))
 
 
-@meta_group.command(name="rm")
-@click.pass_obj
-def meta_rm(config: Config):
-    """Remove meta from a project."""
-    rm(config)
+# TODO
+# @meta_group.command(name="rm")
+# @click.pass_obj
+# def meta_rm(config: Config):
+#     """Remove meta from a project."""
+#     rm(config)
 
 
-meta_group.add_command(import_indexd)
-
-
-@meta_group.command(name="validate")
-@click.argument('directory')
-@click.pass_obj
-def meta_validate(config: Config, directory):
-    """Validate FHIR data in DIRECTORY."""
-    with CLIOutput(config) as output:
-        output.update(validate(config, directory))
-
-
-@meta_group.command(name="node")
+@meta_group.command(name="node", hidden=True)
 @click.option('--project_id', default=None, show_default=True,
               help="Gen3 program-project", envvar='PROJECT_ID')
 @click.option('--node_id', default=None, show_default=True,

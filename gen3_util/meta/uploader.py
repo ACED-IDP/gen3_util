@@ -74,7 +74,7 @@ def _validate_parameters(from_: str) -> pathlib.Path:
 
 
 def cp(config: Config, from_: str, project_id: str, ignore_state: bool):
-    """Copy meta to bucket"""
+    """Copy meta to bucket, used by etl_pod job"""
     from_ = _validate_parameters(from_)
 
     file_client, index_client, user, auth = gen3_services(config=config)

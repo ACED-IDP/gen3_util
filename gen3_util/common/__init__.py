@@ -55,6 +55,7 @@ def read_json(path: str) -> Iterator[dict]:
         yield _
 
 
+# TODO - unused, deprecate?
 def read_tsv(path: str, delimiter="\t") -> Iterator[Dict]:
     """Read tsv file line by line."""
     with open(path) as tsv_file:
