@@ -3,6 +3,7 @@ import pathlib
 import subprocess
 import uuid
 
+import pytest
 from click.testing import CliRunner
 
 from gen3_util.cli.cli import cli
@@ -165,14 +166,11 @@ def create_project_resource_in_arborist(project_id):
     result = runner.invoke(cli, f'--format json projects new --project_id {project_id}'.split())
     assert result.exit_code == 0, result.output
 
-    request = json.loads(result.output)
-    # get the `commands` convenience command lines to sign the requests
-    commands = request['commands']
-    for command in commands:
-        command = command.replace('gen3_util', '')
-        result = runner.invoke(cli, f'--format json {command}'.split())
-        print(result.output)
-        assert result.exit_code == 0
+    result = runner.invoke(cli, '--format json access sign'.split())
+    _, project = project_id.split('-')
+    print(result.output)
+    assert result.exit_code == 0
+    assert project in result.output, result.output
 
 
 def upload_manifest(project_id, profile):
@@ -216,3 +214,7 @@ def test_incremental_workflow(program, profile):
 
     # remove a file
     rm_file(file_ids[0], project_id, profile)
+
+    # should fail
+    with pytest.raises(AssertionError):
+        create_project_resource_in_arborist(project_id)
