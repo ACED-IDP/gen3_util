@@ -3,6 +3,7 @@ import logging
 import pathlib
 import sqlite3
 import subprocess
+import sys
 import uuid
 from datetime import datetime
 import multiprocessing
