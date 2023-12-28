@@ -1,11 +1,14 @@
+import asyncio
 import json
 import pathlib
+import subprocess
 from json import JSONDecodeError
 
 import click
+from gen3.jobs import Gen3Jobs
 
 from gen3_util.cli import NaturalOrderGroup, CLIOutput
-from gen3_util.config import Config
+from gen3_util.config import Config, ensure_auth
 from gen3_util.meta.delta import get as delta_get
 from gen3_util.meta.downloader import cp as cp_download
 from gen3_util.meta.importer import import_indexd
@@ -32,6 +35,47 @@ def meta_validate(config: Config, directory):
     """Validate FHIR data in DIRECTORY."""
     with CLIOutput(config) as output:
         output.update(validate(config, directory))
+
+
+@meta_group.command(name="pull")
+@click.argument('meta_data_path')
+@click.option('--project_id', default=None, show_default=True,
+              help="Gen3 program-project", envvar='PROJECT_ID')
+@click.pass_obj
+def meta_pull(config: Config, meta_data_path: str,  project_id: str):
+    """Pull all meta data from portal
+
+    \b
+    meta_data_path: meta_data directory"""
+
+    assert project_id, "--project_id required"
+    assert project_id.count('-') == 1, "--project_id must be of the form program-project"
+    auth = ensure_auth(profile=config.gen3.profile)
+
+    # delivered to sower job in env['ACCESS_TOKEN']
+    jobs_client = Gen3Jobs(auth_provider=auth)
+    # delivered to sower job in env['INPUT_DATA']
+    args = {'project_id': project_id, 'method': 'get'}
+
+    _ = asyncio.run(jobs_client.async_run_job_and_wait('fhir_import_export', args))
+    try:
+        output = json.loads(_['output'])
+
+        with CLIOutput(config=config) as console_output:
+            object_id = output['object_id']
+
+            cmd = f"gen3-client download-single --profile {config.gen3.profile} --guid {object_id} --download-path {meta_data_path}".split()
+            upload_results = subprocess.run(cmd)
+            assert upload_results.returncode == 0, upload_results
+            output['logs'].append(f"Downloaded {object_id} to {meta_data_path}")
+
+            if 'user' in output:
+                del output['user']
+
+            console_output.update(output)
+
+    except JSONDecodeError:
+        print("jobs_client.async_run_job_and_wait() (raw):", _)
 
 
 @meta_group.command(name="publish")
