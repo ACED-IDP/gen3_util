@@ -28,15 +28,6 @@ def meta_group(config):
 meta_group.add_command(import_indexd)
 
 
-@meta_group.command(name="validate")
-@click.argument('directory')
-@click.pass_obj
-def meta_validate(config: Config, directory):
-    """Validate FHIR data in DIRECTORY."""
-    with CLIOutput(config) as output:
-        output.update(validate(config, directory))
-
-
 @meta_group.command(name="pull")
 @click.argument('meta_data_path')
 @click.option('--project_id', default=None, show_default=True,
@@ -78,6 +69,47 @@ def meta_pull(config: Config, meta_data_path: str,  project_id: str):
         print("jobs_client.async_run_job_and_wait() (raw):", _)
 
 
+@meta_group.command(name="to_tabular")
+@click.argument('meta_data_path')
+@click.argument('tabular_data_path')
+@click.option('--excel', default=False, show_default=True, is_flag=True,
+              help="Excel format")
+@click.pass_obj
+def meta_to_tabular(config: Config, meta_data_path: str, tabular_data_path: str, excel: bool):
+    """Convert FHIR to tabular format
+
+    \b
+    meta_data_path: meta_data FHIR directory
+    tabular_data_path: tabular data directory"""
+
+    with CLIOutput(config=config) as console_output:
+        console_output.update({'msg': "Not implemented"})
+
+
+@meta_group.command(name="from_tabular")
+@click.argument('meta_data_path')
+@click.argument('tabular_data_path')
+@click.pass_obj
+def meta_from_tabular(config: Config, meta_data_path: str, tabular_data_path: str):
+    """Convert tabular to FHIR format
+
+    \b
+    meta_data_path: meta_data FHIR directory
+    tabular_data_path: tabular data directory"""
+
+    with CLIOutput(config=config) as console_output:
+        console_output.update({'msg': "Not implemented"})
+
+
+@meta_group.command(name="validate")
+@click.argument('directory')
+@click.pass_obj
+def meta_validate(config: Config, directory):
+    """Validate FHIR data"""
+    with CLIOutput(config) as output:
+        output.update(validate(config, directory))
+
+
 @meta_group.command(name="push")
 @click.argument('meta_data_path')
 @click.option('--ignore_state', default=False, is_flag=True, show_default=True,
@@ -102,6 +134,7 @@ def meta_push(config: Config, meta_data_path: str,  project_id: str, ignore_stat
         print("jobs_client.async_run_job_and_wait() (raw):", _)
 
 
+# Hidden commands ............................................................
 @meta_group.command(name="cp", hidden=True)
 @click.argument('from_')
 @click.argument('to_')
@@ -114,7 +147,7 @@ def meta_cp(config: Config, from_: str, to_: str, project_id: str, ignore_state:
     """Copy meta to/from the project bucket.
 
     \b
-    from_: meta data directory
+    from_: metadata directory
     to_: destination  bucket"""
     with CLIOutput(config=config) as output:
         if pathlib.Path(from_).is_dir():
@@ -131,14 +164,6 @@ def meta_ls(config: Config):
     """Query buckets for submitted metadata."""
     with CLIOutput(config=config) as output:
         output.update(ls(config))
-
-
-# TODO
-# @meta_group.command(name="rm")
-# @click.pass_obj
-# def meta_rm(config: Config):
-#     """Remove meta from a project."""
-#     rm(config)
 
 
 @meta_group.command(name="node", hidden=True)
