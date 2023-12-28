@@ -80,10 +80,12 @@ def test_file(caplog):
     assert result.exit_code == 0
     print(result.output)
     expected_strings = """
-      ls        List files in a project.
-      manifest  Manage file transfers using a manifest.
-      rm        Remove files from a project.
-    """.split()
+  ls      List uploaded files in a project bucket.
+  add     Add file to the working index.
+  status  List files in working index.
+  push    Upload working index to project bucket.
+  rm      Remove files from the working index or project bucket.
+    """.split('\n')
     for expected_string in expected_strings:
         assert expected_string in result.output, f"Should have printed {expected_string}"
 
