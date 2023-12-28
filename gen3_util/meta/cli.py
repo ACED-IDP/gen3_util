@@ -43,7 +43,7 @@ def meta_validate(config: Config, directory):
               help="Gen3 program-project", envvar='PROJECT_ID')
 @click.pass_obj
 def meta_pull(config: Config, meta_data_path: str,  project_id: str):
-    """Retrieve all meta data from portal
+    """Retrieve all FHIR meta data from portal
 
     \b
     meta_data_path: meta_data directory"""
@@ -86,7 +86,7 @@ def meta_pull(config: Config, meta_data_path: str,  project_id: str):
               help="Gen3 program-project", envvar='PROJECT_ID')
 @click.pass_obj
 def meta_push(config: Config, meta_data_path: str,  project_id: str, ignore_state: bool):
-    """Publish meta data on the portal
+    """Publish FHIR meta data on the portal
 
     \b
     meta_data_path: meta_data directory"""

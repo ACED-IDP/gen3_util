@@ -64,9 +64,9 @@ def test_meta(caplog):
     expected_strings = """
   create    Create minimal study meta, write to OUTPUT_PATH.
   validate  Validate FHIR data in DIRECTORY.
-  pull      Retrieve all meta data from portal
-  push      Publish meta data on the portal
-    """.split()
+  pull      Retrieve all FHIR meta data from portal
+  push      Publish FHIR meta data on the portal
+    """.split('\n')
     for expected_string in expected_strings:
         assert expected_string in result.output, f"Should have printed {expected_string}"
 
