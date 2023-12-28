@@ -126,8 +126,8 @@ def add_user(config: Config, project_id: str, user_name: str, write: bool) -> Lo
         requests.append(cp(request=policy, config=config).request)
         request_ids.append(requests[-1]['request_id'])
 
-    commands = [f"gen3_util access update {request_id} SIGNED" for request_id in request_ids]
-    msg = f"Approve these requests to add {user_name} to {project_id}"
+    commands = ["gen3_util access sign"]
+    msg = f"An authorized user must approve these requests to  add {user_name} to {project_id}"
 
     return LogAccess(**{
         'requests': requests,

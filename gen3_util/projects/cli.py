@@ -25,17 +25,17 @@ def new_project(config: Config, project_id: str):
     """
     with CLIOutput(config=config) as output:
         auth = ensure_auth(profile=config.gen3.profile)
-    msgs = validate_project_id(project_id)
-    if not msgs:
-        program, project = project_id.split('-')
-        projects = ls(config, auth=auth)
-        existing_project = [_ for _ in projects.projects if _.endswith(project)]
-        if len(existing_project) > 0:
-            msgs.append(f"Project already exists: {existing_project[0]}")
-        else:
-            output.update(add_policies(config, project_id, auth=auth))
-    if msgs:
-        output.update({'msg': ', '.join(msgs)})
+        msgs = validate_project_id(project_id)
+        if not msgs:
+            program, project = project_id.split('-')
+            projects = ls(config, auth=auth)
+            existing_project = [_ for _ in projects.projects if _.endswith(project)]
+            if len(existing_project) > 0:
+                msgs.append(f"Project already exists: {existing_project[0]}")
+            else:
+                output.update(add_policies(config, project_id, auth=auth))
+        if msgs:
+            output.update({'msg': ', '.join(msgs)})
 
 
 @project_group.command(name="ls")
