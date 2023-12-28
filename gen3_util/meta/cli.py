@@ -43,7 +43,7 @@ def meta_validate(config: Config, directory):
               help="Gen3 program-project", envvar='PROJECT_ID')
 @click.pass_obj
 def meta_pull(config: Config, meta_data_path: str,  project_id: str):
-    """Pull all meta data from portal
+    """Retrieve all meta data from portal
 
     \b
     meta_data_path: meta_data directory"""
@@ -78,14 +78,14 @@ def meta_pull(config: Config, meta_data_path: str,  project_id: str):
         print("jobs_client.async_run_job_and_wait() (raw):", _)
 
 
-@meta_group.command(name="publish")
+@meta_group.command(name="push")
 @click.argument('meta_data_path')
 @click.option('--ignore_state', default=False, is_flag=True, show_default=True,
               help="Upload file, even if already uploaded")
 @click.option('--project_id', default=None, show_default=True,
               help="Gen3 program-project", envvar='PROJECT_ID')
 @click.pass_obj
-def meta_publish(config: Config, meta_data_path: str,  project_id: str, ignore_state: bool):
+def meta_push(config: Config, meta_data_path: str,  project_id: str, ignore_state: bool):
     """Publish meta data on the portal
 
     \b
