@@ -146,6 +146,7 @@ def ensure_files_uploaded(project_id) -> list[str]:
                                   'tests/fixtures/dir_to_study/sub-dir/file-3.pdf',
                                   'tests/fixtures/dir_to_study/sub-dir/file-4.tsv',
                                   'tests/fixtures/dir_to_study/sub-dir/file-5'], result.output
+    assert 'msg' in result_output, "Should have a msg"
     return [_["did"] for _ in result_output['records']]
 
 
