@@ -23,6 +23,10 @@ def test_default_columns(default_columns, observation, specimen, patient):
         assert column_names[0] == 'resourceType', f"Should return resourceType as first column for {resource_type}"
         assert column_names[1] == 'id', f"Should return id as second column for {resource_type}"
 
+        # check that iterator parameter works as well
+        column_names2 = default_columns([resource])
+        assert column_names == column_names2, f"Should return same columns for {resource_type}"
+
 
 def test_default_columns_observation(default_columns, observation):
     """Check specific columns for Observation"""

@@ -151,7 +151,7 @@ def mock_default_columns(resource: [Iterator[dict] or dict], sample: bool = True
     Returns:
         list[str]: Default columns for all resources.
     """
-    if not isinstance(resource, Iterator):
+    if not isinstance(resource, list):
         resource = [resource]
 
     columns = set()
@@ -160,7 +160,7 @@ def mock_default_columns(resource: [Iterator[dict] or dict], sample: bool = True
         sampled = []
     for i, line in enumerate(resource):
         if 'resourceType' not in line:
-            raise KeyError("resource missing `resourceType`")
+            raise KeyError(f"resource missing `resourceType` {type(line)}")
         if not sample:
             columns.update(flatten(line).keys())
         else:
