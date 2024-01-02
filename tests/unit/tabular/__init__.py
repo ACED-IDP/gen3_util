@@ -2,7 +2,8 @@ import importlib
 import pathlib
 from copy import deepcopy
 from dataclasses import dataclass
-from typing import Optional
+from random import random
+from typing import Optional, Iterator
 
 from fhir.resources.fhirresourcemodel import FHIRResourceModel
 from flatten_json import flatten, unflatten_list
@@ -54,7 +55,7 @@ class Config(BaseModel):
 
 
 @dataclass
-class ParseResult():
+class ParseResult:
 
     """Results of FHIR validation of dict."""
     object: dict
@@ -139,3 +140,63 @@ def mock_validate(resource_dict: dict) -> ParseResult:
         return ParseResult(object=resource_dict, resource=_, resource_id=_.id)
     except (ValidationError, AssertionError) as e:
         return ParseResult(object=resource_dict, exception=e, resource_id=resource_dict.get('id', None))
+
+
+def mock_default_columns(resource: [Iterator[dict] or dict], sample: bool = True, sample_size: int = 100) -> list[str]:
+    """Default columns for all resources. (mock for testing)
+    Takes either a iterator for a list of resources or a single resource.
+
+    By default, uses sampling method to determine default columns.
+    See https://gregable.com/2007/10/reservoir-sampling.html
+    Returns:
+        list[str]: Default columns for all resources.
+    """
+    if not isinstance(resource, Iterator):
+        resource = [resource]
+
+    columns = set()
+    sampled = None
+    if sample:
+        sampled = []
+    for i, line in enumerate(resource):
+        if 'resourceType' not in line:
+            raise KeyError("resource missing `resourceType`")
+        if not sample:
+            columns.update(flatten(line).keys())
+        else:
+            if i < sample_size:
+                sampled.append(line)
+            elif i >= sample_size and random.random() < sample_size / float(i + 1):
+                replace = random.randint(0, len(sampled) - 1)
+                sampled[replace] = line
+
+    if sampled:
+        for line in sampled:
+            columns.update(flatten(line).keys())
+
+    # filter and order columns
+
+    def filter_keys(keys: list[str]) -> list[str]:
+        """Remove keys that start with _ or meta."""
+        keys = [_ for _ in keys if not _.startswith('_')]
+        keys = [_ for _ in keys if not _.startswith('meta')]
+        return keys
+
+    def order_keys(keys: list[str]) -> list[str]:
+        """Order keys by resourceType, id, then scalar, then nested, then references."""
+        ordered_columns = ['resourceType', 'id']
+        keys.remove('resourceType')
+        keys.remove('id')
+        # scalar
+        scalar = [_ for _ in keys if '_' not in _]
+        ordered_columns.extend(sorted(scalar))
+        keys = [_ for _ in keys if '_' in _]
+        # references
+        references = [_ for _ in keys if _.endswith('_reference')]
+        nested = [_ for _ in keys if not _.endswith('_reference')]
+        ordered_columns.extend(sorted(nested))
+        ordered_columns.extend(sorted(references))
+        return ordered_columns
+
+    columns = order_keys(filter_keys(columns))
+    return columns
