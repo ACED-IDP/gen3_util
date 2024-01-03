@@ -32,8 +32,10 @@ meta_group.add_command(import_indexd)
 @click.argument('meta_data_path')
 @click.option('--project_id', default=None, show_default=True,
               help="Gen3 program-project", envvar='PROJECT_ID')
+@click.option('--force', '-f', default=False, show_default=True, is_flag=True,
+              help="Overwrite existing files")
 @click.pass_obj
-def meta_pull(config: Config, meta_data_path: str,  project_id: str):
+def meta_pull(config: Config, meta_data_path: str,  project_id: str, force: bool):
     """Retrieve all FHIR meta data from portal
 
     \b
@@ -61,7 +63,12 @@ def meta_pull(config: Config, meta_data_path: str,  project_id: str):
         with CLIOutput(config=config) as console_output:
             object_id = output['object_id']
 
-            cmd = f"gen3-client download-single --profile {config.gen3.profile} --guid {object_id} --download-path {meta_data_path}".split()
+            cmd = f"gen3-client download-single --profile {config.gen3.profile} --guid {object_id} " \
+                  f"--download-path {meta_data_path}".split()
+
+            if force:
+                cmd.append('--no-prompt')
+
             upload_results = subprocess.run(cmd)
 
             if upload_results.returncode != 0:
