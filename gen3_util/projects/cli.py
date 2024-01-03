@@ -43,7 +43,10 @@ def new_project(config: Config, project_id: str):
 def project_ls(config: Config):
     """List all projects user has access to."""
     with CLIOutput(config=config) as output:
-        output.update(ls(config))
+        try:
+            output.update(ls(config))
+        except Exception as e:
+            click.secho(f"Error: {e}", fg='red', err=True)
 
 
 @project_group.command(name="rm")
