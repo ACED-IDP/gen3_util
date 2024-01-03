@@ -1,5 +1,6 @@
 import asyncio
 import json
+import os
 import pathlib
 import subprocess
 from json import JSONDecodeError
@@ -8,6 +9,7 @@ import click
 from gen3.jobs import Gen3Jobs
 
 from gen3_util.cli import NaturalOrderGroup, CLIOutput
+from gen3_util.common import unzip_collapse
 from gen3_util.config import Config, ensure_auth
 from gen3_util.meta.delta import get as delta_get
 from gen3_util.meta.downloader import cp as cp_download
@@ -63,19 +65,31 @@ def meta_pull(config: Config, meta_data_path: str,  project_id: str, force: bool
         with CLIOutput(config=config) as console_output:
             object_id = output['object_id']
 
+            zip_file_name = None
+            for line in output['logs']:
+                if not line.startswith('Uploaded'):
+                    continue
+                zip_file_name = pathlib.Path(line.split()[1]).name
+
             cmd = f"gen3-client download-single --profile {config.gen3.profile} --guid {object_id} " \
                   f"--download-path {meta_data_path}".split()
 
             if force:
                 cmd.append('--no-prompt')
 
-            upload_results = subprocess.run(cmd)
+            download_results = subprocess.run(cmd)
 
-            if upload_results.returncode != 0:
-                click.secho(f"gen3-client download-single failed {upload_results}", fg='red')
+            if download_results.returncode != 0:
+                click.secho(f"gen3-client download-single failed {download_results}", fg='red')
                 exit(1)
 
-            output['logs'].append(f"Downloaded {object_id} to {meta_data_path}")
+            output['logs'].append(f"Downloaded {object_id} to {meta_data_path}/{zip_file_name}")
+
+            unzip_collapse(zip_file=f"{meta_data_path}/{zip_file_name}", extract_to=meta_data_path)
+            output['logs'].append(f"Unzipped {meta_data_path}/{zip_file_name} to {meta_data_path}")
+
+            os.remove(f"{meta_data_path}/{zip_file_name}")
+            output['logs'].append(f"Removed {meta_data_path}/{zip_file_name}")
 
             if 'user' in output:
                 del output['user']

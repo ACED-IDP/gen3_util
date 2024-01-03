@@ -1,6 +1,9 @@
 import csv
 import logging
+import os
 import pathlib
+import shutil
+import zipfile
 from typing import Mapping, Iterator, Dict, TextIO
 from urllib.parse import urlparse
 
@@ -178,3 +181,15 @@ def to_resource_path(project_id):
         return project_id
     _ = project_id.split('-')
     return f"/programs/{_[0]}/projects/{_[1]}"
+
+
+def unzip_collapse(zip_file, extract_to):
+    """Unzip a file, collapse the directory structure."""
+    with zipfile.ZipFile(zip_file, 'r') as zip_ref:
+        for file_info in zip_ref.infolist():
+            if file_info.is_dir():
+                continue
+            filename = os.path.basename(file_info.filename)
+            extracted_path = os.path.join(extract_to, filename)
+            with zip_ref.open(file_info.filename) as source, open(extracted_path, 'wb') as target:
+                shutil.copyfileobj(source, target)
