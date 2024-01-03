@@ -4,6 +4,7 @@ import pathlib
 import sys
 from datetime import datetime, timezone, timedelta
 
+import click
 import jwt
 import importlib.resources as pkg_resources
 import requests
@@ -84,7 +85,8 @@ def _get_gen3_client_key(path: pathlib.Path, profile: str = None) -> str:
     for section in gen3_util_ini.sections():
         if section == profile:
             return gen3_util_ini[section]['api_key']
-    raise ValueError(f"no profile '{profile}' found in {path}, specify one of {gen3_util_ini.sections()}, optionally set environmental variable: GEN3_UTIL_PROFILE")
+    click.secho(f"no profile '{profile}' found in {path}, specify one of {gen3_util_ini.sections()}, optionally set environmental variable: GEN3_UTIL_PROFILE", fg='red', err=True)
+    exit(1)
 
 
 def ensure_auth(refresh_file: [pathlib.Path, str] = None, validate: bool = False, profile: str = None) -> Gen3Auth:
