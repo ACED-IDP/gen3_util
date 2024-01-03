@@ -140,7 +140,10 @@ def _manifest_upload(config: Config, project_id: str, duplicate_check: bool, upl
             raise e
 
         completed_process = upload_files(config=config, project_id=project_id, manifest_entries=manifest_entries, profile=config.gen3.profile, upload_path=upload_path)
-        assert completed_process.returncode == 0, f"upload_files failed with {completed_process.returncode}"
+        if completed_process.returncode != 0:
+            click.secho(f"upload_files failed with {completed_process.returncode}", fg='red')
+            exit(1)
+
         if meta_data:
             print("Updating metadata...", file=sys.stderr)
             meta_data_path = config.state_dir / f"{project_id}-meta_data"

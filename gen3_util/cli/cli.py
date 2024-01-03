@@ -8,7 +8,7 @@ from importlib.metadata import version as pkg_version
 import gen3_util
 from gen3_util.access.cli import access_group
 from gen3_util.cli import StdNaturalOrderGroup, CLIOutput
-from gen3_util.config import Config, ensure_auth
+from gen3_util.config import Config, ensure_auth, gen3_client_profiles
 from gen3_util.config.cli import config_group
 from gen3_util.files.cli import file_group
 from gen3_util.meta.cli import meta_group
@@ -33,7 +33,12 @@ def cli(ctx, config, output_format, profile, state_dir):
     if output_format:
         config__.output.format = output_format
 
+    config__.gen3.profiles = gen3_client_profiles()
+
     if profile:
+        if profile not in config__.gen3.profiles:
+            click.secho(f"Profile {profile} not found. Current profiles are: {config__.gen3.profiles}", fg='red')
+            exit(1)
         config__.gen3.profile = profile
 
     if state_dir:

@@ -34,6 +34,12 @@ def gen3_client_profile(endpoint: str, path: str = gen_client_ini_path().absolut
     return matching_sections[0]
 
 
+def gen3_client_profiles(path: str = gen_client_ini_path().absolute()) -> list[str]:
+    """Read gen3-client ini file, return list of profiles."""
+    gen3_util_ini = read_ini(path)
+    return gen3_util_ini.sections()
+
+
 def read_ini(path: str):
     """Read ini file."""
     import configparser

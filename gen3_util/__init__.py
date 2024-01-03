@@ -48,9 +48,13 @@ class _DataclassConfig:
 class Gen3Config(BaseModel):
 
     profile: str = None
-    """The name of the gen3-client profile.
+    """The name of the gen3-client profile in use. See https://bit.ly/3NbKGi4"""
 
-    See https://bit.ly/3NbKGi4"""
+    profiles: list[str] = None
+    """The name of all the gen3-client profiles."""
+
+    version: str = None
+    """The version of gen3-client in use."""
 
 
 class Config(BaseModel):

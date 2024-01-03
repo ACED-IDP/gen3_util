@@ -39,8 +39,14 @@ def meta_pull(config: Config, meta_data_path: str,  project_id: str):
     \b
     meta_data_path: meta_data directory"""
 
-    assert project_id, "--project_id required"
-    assert project_id.count('-') == 1, "--project_id must be of the form program-project"
+    if not project_id:
+        click.secho("--project_id is required", fg='red')
+        exit(1)
+
+    if not project_id.count('-') == 1:
+        click.secho("--project_id must be of the form program-project", fg='red')
+        exit(1)
+
     auth = ensure_auth(profile=config.gen3.profile)
 
     # delivered to sower job in env['ACCESS_TOKEN']
@@ -57,7 +63,11 @@ def meta_pull(config: Config, meta_data_path: str,  project_id: str):
 
             cmd = f"gen3-client download-single --profile {config.gen3.profile} --guid {object_id} --download-path {meta_data_path}".split()
             upload_results = subprocess.run(cmd)
-            assert upload_results.returncode == 0, upload_results
+
+            if upload_results.returncode != 0:
+                click.secho(f"gen3-client download-single failed {upload_results}", fg='red')
+                exit(1)
+
             output['logs'].append(f"Downloaded {object_id} to {meta_data_path}")
 
             if 'user' in output:
@@ -151,7 +161,9 @@ def meta_cp(config: Config, from_: str, to_: str, project_id: str, ignore_state:
     to_: destination  bucket"""
     with CLIOutput(config=config) as output:
         if pathlib.Path(from_).is_dir():
-            assert project_id is not None, "--project_id is required for uploads"
+            if not project_id:
+                click.secho("--project_id is required for uploads", fg='red')
+                exit(1)
             output.update(cp_upload(config, from_, project_id, ignore_state))
         else:
             pathlib.Path(to_).parent.mkdir(parents=True, exist_ok=True)
