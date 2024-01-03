@@ -159,8 +159,8 @@ def _manifest_upload(config: Config, project_id: str, duplicate_check: bool, upl
 
 
 @file_group.command(name="rm")
-@click.option('--remote', default=True, required=False, show_default=True, is_flag=True,
-              help="Remove file from project bucket.")
+@click.option('--local', default=False, required=False, show_default=True, is_flag=True,
+              help="Remove file only from local project.")
 @click.option('--project_id', default=None, required=False, show_default=True,
               help="Gen3 program-project", envvar='PROJECT_ID')
 @click.option('--object_id', default=None, required=False, show_default=True,
@@ -168,11 +168,11 @@ def _manifest_upload(config: Config, project_id: str, duplicate_check: bool, upl
 @click.option('--local_path', default=None, required=False, show_default=True,
               help="file local path")
 @click.pass_obj
-def files_rm(config: Config, object_id: str, remote: bool, project_id: str, local_path: str):
+def files_rm(config: Config, object_id: str, local: bool, project_id: str, local_path: str):
     """Remove files from the working index or project bucket."""
     with CLIOutput(config=config) as output:
         try:
-            if remote:
+            if not local:
                 _ = rm(config, object_id=object_id)
                 output.update(_)
             else:
