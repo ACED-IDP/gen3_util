@@ -16,6 +16,7 @@ from gen3_util.meta.downloader import cp as cp_download
 from gen3_util.meta.importer import import_indexd
 from gen3_util.meta.lister import ls
 from gen3_util.meta.publisher import publish_meta_data
+from gen3_util.meta.tabular import transform_dir_to_tabular, transform_dir_from_tabular
 from gen3_util.meta.uploader import cp as cp_upload
 from gen3_util.meta.validator import validate
 
@@ -103,18 +104,24 @@ def meta_pull(config: Config, meta_data_path: str,  project_id: str, force: bool
 @meta_group.command(name="to_tabular")
 @click.argument('meta_data_path')
 @click.argument('tabular_data_path')
-@click.option('--excel', default=False, show_default=True, is_flag=True,
-              help="Excel format")
+@click.option('--file_type', type=click.Choice(['tsv', 'xlsx']), default='tsv', help='Output file format: tsv or excel')
 @click.pass_obj
-def meta_to_tabular(config: Config, meta_data_path: str, tabular_data_path: str, excel: bool):
-    """Convert FHIR to tabular format
+def meta_to_tabular(config: Config, meta_data_path: str, tabular_data_path: str, file_type: str):
+    """Convert FHIR to tabular format (experimental)
 
     \b
     meta_data_path: meta_data FHIR directory
     tabular_data_path: tabular data directory"""
 
     with CLIOutput(config=config) as console_output:
-        console_output.update({'msg': "Not implemented"})
+        try:
+            msgs = []
+            for _ in transform_dir_to_tabular(meta_data_path, tabular_data_path, file_type):
+                msgs.append(_)
+            console_output.update({'output_files': msgs})
+        except Exception as e:
+            console_output.update({'msg': f"Error: {e}"})
+            console_output.exit_code = 1
 
 
 @meta_group.command(name="from_tabular")
@@ -122,14 +129,22 @@ def meta_to_tabular(config: Config, meta_data_path: str, tabular_data_path: str,
 @click.argument('tabular_data_path')
 @click.pass_obj
 def meta_from_tabular(config: Config, meta_data_path: str, tabular_data_path: str):
-    """Convert tabular to FHIR format
+    """Convert tabular to FHIR format (experimental)
 
     \b
     meta_data_path: meta_data FHIR directory
     tabular_data_path: tabular data directory"""
 
     with CLIOutput(config=config) as console_output:
-        console_output.update({'msg': "Not implemented"})
+        try:
+            msgs = []
+            for _ in transform_dir_from_tabular(meta_data_path, tabular_data_path):
+                msgs.append(_)
+            console_output.update({'output_files': msgs})
+        except Exception as e:
+            console_output.update({'msg': f"Error: {e}"})
+            raise e
+            console_output.exit_code = 1
 
 
 @meta_group.command(name="validate")

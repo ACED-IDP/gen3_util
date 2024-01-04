@@ -1,10 +1,12 @@
 import importlib
+import json
 import pathlib
 from copy import deepcopy
 from dataclasses import dataclass
 from random import random
-from typing import Optional, Iterator
+from typing import Optional, Iterator, Generator
 
+import pandas as pd
 from fhir.resources.fhirresourcemodel import FHIRResourceModel
 from flatten_json import flatten, unflatten_list
 from deepmerge import Merger
@@ -44,9 +46,11 @@ class Config(BaseModel):
     projects: Optional[dict[str, dict[str, list[str]]]] = None
     """Default config for project. key is `program-project`, value is config for projects."""
 
-    def get_config(self, project_id: str) -> dict[str, list[str]]:
+    def get_config(self, project_id: str = None) -> dict[str, list[str]]:
         """Get config for project."""
-        if self.projects and project_id in self.projects:
+        if not project_id:
+            return self.default
+        elif self.projects and project_id in self.projects:
             return self.projects[project_id]
         elif self.programs and project_id.split('-')[0] in self.programs:
             return self.programs[project_id.split('-')[0]]
@@ -72,7 +76,7 @@ class ParseResult:
     """Resource id of resource"""
 
 
-def to_tabular(resource: dict, config: Config, project_id: str) -> dict:
+def to_tabular(resource: dict, config: Config, project_id: str = None) -> dict:
     """Convert a resource to a tabular representation.
 
     Args:
@@ -93,7 +97,7 @@ def to_tabular(resource: dict, config: Config, project_id: str) -> dict:
 
     flattened = flatten(resource)
 
-    return {k: flattened[k] for k in keep}
+    return {k: flattened[k] for k in keep if k in flattened}
 
 
 def from_tabular(tabular: dict, config: Config, project_id: str, resource: dict) -> dict:
@@ -109,7 +113,7 @@ def from_tabular(tabular: dict, config: Config, project_id: str, resource: dict)
         dict: A merged resource in JSON format.
     """
 
-    assert 'resourceType' in resource, 'resource must have resourceType'
+    assert 'resourceType' in resource, f'resource must have resourceType {resource}'
 
     project_config = config.get_config(project_id)
     assert resource['resourceType'] in project_config, f"resourceType {resource['resourceType']} not in config for project {project_id}"
@@ -200,3 +204,118 @@ def default_columns(resource: [Iterator[dict] or dict], sample: bool = True, sam
 
     columns = order_keys(filter_keys(columns))
     return columns
+
+
+def transform_dir_to_tabular(meta_data_path: str, tabular_data_path: str, file_type: str) -> Generator[str, None, None]:
+    """Convert FHIR to tabular format, yields log messages"""
+
+    meta_data_path = pathlib.Path(meta_data_path)
+    assert meta_data_path.exists(), f"{meta_data_path} does not exist"
+    assert meta_data_path.is_dir(), f"{meta_data_path} is not a directory"
+
+    tabular_data_path = pathlib.Path(tabular_data_path)
+    if not tabular_data_path.exists():
+        tabular_data_path.mkdir(parents=True)
+    assert tabular_data_path.is_dir(), f"{tabular_data_path} is not a directory"
+
+    for file_name in meta_data_path.glob("*.ndjson"):
+
+        with file_name.open() as fp:
+            for line in fp:
+                line = json.loads(line)
+                resource_type = line['resourceType']
+                break
+
+        with file_name.open() as fp:
+            config = Config(default={resource_type: default_columns([json.loads(line) for line in fp])})
+
+        with file_name.open() as fp:
+            create_file_from_dict_iterator(
+                data_iterator=[to_tabular(json.loads(line), config) for line in fp],
+                file_path=tabular_data_path / f"{resource_type}.{file_type}",
+                file_type=file_type
+            )
+            yield f"{tabular_data_path / f'{resource_type}.{file_type}'}"
+
+
+def transform_dir_from_tabular(meta_data_path, tabular_data_path) -> Generator[str, None, None]:
+    """Convert tabular to FHIR format"""
+    tabular_data_path = pathlib.Path(tabular_data_path)
+    assert tabular_data_path.exists(), f"{tabular_data_path} does not exist"
+    assert tabular_data_path.is_dir(), f"{tabular_data_path} is not a directory"
+
+    meta_data_path = pathlib.Path(meta_data_path)
+    if not meta_data_path.exists():
+        meta_data_path.mkdir(parents=True)
+    assert meta_data_path.is_dir(), f"{meta_data_path} is not a directory"
+
+    # Glob for TSV files
+    for tsv_file in tabular_data_path.glob('*.tsv'):
+        # Perform operations on TSV files
+        df = read_file_into_dataframe(tsv_file, file_type='tsv')
+        yield write_df_to_ndjson(df, meta_data_path)
+
+    # Glob for Excel files
+    for excel_file in tabular_data_path.glob('*.xlsx'):
+        # Perform operations on Excel files
+        df = read_file_into_dataframe(excel_file, file_type='excel')
+        yield write_df_to_ndjson(df, meta_data_path)
+
+
+def write_df_to_ndjson(df, meta_data_path) -> str:
+    columns = df.columns.tolist()
+    resource_type = df.iloc[0].to_dict()['resourceType']
+    config = Config(default={resource_type: columns})
+    ndjson_file = meta_data_path / f"{resource_type}.ndjson"
+    with ndjson_file.open('w') as fp:
+        for _ in df.to_dict(orient='records'):
+            _ = from_tabular(_, config, None, {'resourceType': resource_type})
+            json.dump(_, separators=(',', ':'), fp=fp)
+            fp.write('\n')
+    return f"{ndjson_file}"
+
+
+def read_file_into_dataframe(file_path, file_type='tsv'):
+    """
+    Read a TSV or Excel file into a DataFrame.
+
+    Parameters:
+    - file_path (str): Path to the input file.
+    - file_type (str, optional): Input file type - 'tsv' for TSV (default) or 'excel' for Excel.
+
+    Returns:
+    - pandas.DataFrame: DataFrame containing the file data.
+
+    Raises:
+    - ValueError: If an unsupported file type is provided.
+    """
+    if file_type == 'tsv':
+        df = pd.read_csv(file_path, sep='\t')
+    elif file_type == 'excel':
+        df = pd.read_excel(file_path)
+    else:
+        raise ValueError("Unsupported file type. Choose 'tsv' or 'excel'.")
+
+    return df
+
+
+def create_file_from_dict_iterator(data_iterator, file_path, file_type='tsv'):
+    """
+    Create a TSV or Excel file from an iterator of dictionaries.
+
+    Parameters:
+    - data_iterator (iterator): Iterator of dictionaries containing data.
+    - file_path (str): Path to save the output file.
+    - file_type (str, optional): Output file type - 'tsv' for TSV (default) or 'excel' for Excel.
+
+    Raises:
+    - ValueError: If an unsupported file type is provided.
+    """
+    if file_type == 'tsv':
+        df = pd.DataFrame(data_iterator).fillna('')
+        df.to_csv(file_path, sep='\t', index=False)
+    elif file_type == 'excel':
+        df = pd.DataFrame(data_iterator).fillna('')
+        df.to_excel(file_path, index=False)
+    else:
+        raise ValueError("Unsupported file type. Choose 'tsv' or 'excel'.")
