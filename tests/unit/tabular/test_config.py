@@ -1,5 +1,5 @@
 
-from . import Config
+from gen3_util.meta.tabular import Config
 
 
 def test_config_missing_resource():

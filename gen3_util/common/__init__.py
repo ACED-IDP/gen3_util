@@ -13,7 +13,7 @@ from pydantic.json import pydantic_encoder
 
 import io
 import gzip
-from gen3_util.config import Config
+from gen3_util import Config
 
 
 def print_formatted(config: Config, output: Mapping) -> None:

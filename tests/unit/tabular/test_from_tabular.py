@@ -1,9 +1,8 @@
-from typing import Callable
 
-from . import Config
+from gen3_util.meta.tabular import Config, to_tabular, from_tabular
 
 
-def test_from_tabular_default_resource(specimen: dict, to_tabular: Callable, from_tabular: Callable):
+def test_from_tabular_default_resource(specimen: dict):
     """Should find and use default config."""
 
     # create tabular representation
@@ -27,7 +26,7 @@ def test_from_tabular_default_resource(specimen: dict, to_tabular: Callable, fro
     assert merged == specimen
 
 
-def test_from_tabular_deep_field_list(specimen: dict, to_tabular: Callable, specimen_fields: list[str], from_tabular: Callable):
+def test_from_tabular_deep_field_list(specimen: dict, specimen_fields: list[str]):
     """Should preserve deep fields."""
 
     config = Config(default={'Specimen': specimen_fields})

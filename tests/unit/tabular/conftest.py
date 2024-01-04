@@ -1,8 +1,5 @@
-from typing import Callable
 
 import pytest
-
-from . import mock_to_tabular, mock_from_tabular, mock_validate, mock_default_columns
 
 
 @pytest.fixture()
@@ -375,26 +372,6 @@ def observation() -> dict:
         "effectiveDateTime": "2019-01-19T14:40:53-05:00", "issued": "2019-01-19T14:40:53.188-05:00",
         "valueQuantity": {"value": 61, "unit": "/min", "system": "http://unitsofmeasure.org", "code": "/min"}
     }
-
-
-@pytest.fixture()
-def to_tabular() -> Callable:
-    return mock_to_tabular
-
-
-@pytest.fixture()
-def from_tabular() -> Callable:
-    return mock_from_tabular
-
-
-@pytest.fixture()
-def validate() -> Callable:
-    return mock_validate
-
-
-@pytest.fixture()
-def default_columns() -> Callable:
-    return mock_default_columns
 
 
 @pytest.fixture()

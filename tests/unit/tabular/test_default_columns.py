@@ -1,7 +1,9 @@
 import pytest
 
+from gen3_util.meta.tabular import default_columns
 
-def test_default_columns(default_columns, observation, specimen, patient):
+
+def test_default_columns(observation, specimen, patient):
     """Ensure we can retrieve default columns for a resource type."""
     for resource in [observation, specimen, patient]:
 
@@ -28,7 +30,7 @@ def test_default_columns(default_columns, observation, specimen, patient):
         assert column_names == column_names2, f"Should return same columns for {resource_type}"
 
 
-def test_default_columns_observation(default_columns, observation):
+def test_default_columns_observation(observation):
     """Check specific columns for Observation"""
     column_names = default_columns(observation)
     expected_observation_column_names = [
@@ -48,7 +50,7 @@ def test_default_columns_observation(default_columns, observation):
         f"Should return expected columns for Observation, got {column_names}"
 
 
-def test_default_columns_specimen(default_columns, specimen):
+def test_default_columns_specimen(specimen):
     """Check specific columns for Specimen"""
     column_names = default_columns(specimen)
     expected_specimen_column_names = [
@@ -72,7 +74,7 @@ def test_default_columns_specimen(default_columns, specimen):
         f"Should return expected columns for Specimen, got {column_names}"
 
 
-def test_default_columns_patient(default_columns, patient):
+def test_default_columns_patient(patient):
     """Check specific columns for Specimen"""
     column_names = default_columns(patient)
     expected_patient_column_names = [
@@ -116,7 +118,7 @@ def test_default_columns_patient(default_columns, patient):
         f"Should return expected columns for Patient, got {column_names}"
 
 
-def test_not_fhir(default_columns):
+def test_not_fhir():
     """Expected error if missing resourceType."""
     # error if no resourceType
     with pytest.raises(KeyError):
