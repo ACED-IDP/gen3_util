@@ -1,5 +1,7 @@
 import pathlib
 
+from gen3_util.meta.validator import validate
+
 
 def test_dir_to_tabular(meta_path: pathlib.Path, tmp_path: pathlib.Path):
     """Should convert to and from tabular."""
@@ -14,3 +16,5 @@ def test_dir_to_tabular(meta_path: pathlib.Path, tmp_path: pathlib.Path):
         print(_)
     assert (tmp_path / "Patient.ndjson").exists()
     assert (tmp_path / "Patient.ndjson").is_file()
+
+    validate(directory_path=tmp_path, config=None)

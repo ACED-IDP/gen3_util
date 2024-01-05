@@ -268,9 +268,10 @@ def write_df_to_ndjson(df, meta_data_path) -> str:
     config = Config(default={resource_type: columns})
     ndjson_file = meta_data_path / f"{resource_type}.ndjson"
     with ndjson_file.open('w') as fp:
-        for _ in df.to_dict(orient='records'):
-            _ = from_tabular(_, config, None, {'resourceType': resource_type})
-            json.dump(_, separators=(',', ':'), fp=fp)
+        for _, row in df.iterrows():
+            non_null_columns = row.dropna().to_dict()
+            non_null_columns = from_tabular(non_null_columns, config, None, {'resourceType': resource_type})
+            json.dump(non_null_columns, separators=(',', ':'), fp=fp)
             fp.write('\n')
     return f"{ndjson_file}"
 
