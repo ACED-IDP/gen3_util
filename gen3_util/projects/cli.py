@@ -39,11 +39,14 @@ def new_project(config: Config, project_id: str):
 
 
 @project_group.command(name="ls")
+@click.option('--full', default=False, show_default=True, is_flag=True,
+              help="List all project details")
 @click.pass_obj
-def project_ls(config: Config):
+def project_ls(config: Config, full: bool):
     """List all projects user has access to."""
+    auth = ensure_auth(profile=config.gen3.profile)
     with CLIOutput(config=config) as output:
-        output.update(ls(config))
+        output.update(ls(config, auth=auth, full=full))
 
 
 @project_group.command(name="rm")

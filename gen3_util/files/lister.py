@@ -29,7 +29,11 @@ def ls(config: Config, object_id: str = None, metadata: dict = {}):
             record['metadata']['project_id'] = project_id
         return record
 
-    return {'records': [_ensure_project_id(_.to_json()) for _ in records]}
+    records = [_ensure_project_id(_.to_json()) for _ in records]
+    return {
+        'records': records,
+        'msg': f"Project {project_id} has {len(records)} files."
+    }
 
 
 def meta_nodes(config: Config, project_id: str, auth, gen3_type: str = 'document_reference'):

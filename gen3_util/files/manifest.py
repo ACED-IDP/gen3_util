@@ -241,11 +241,13 @@ def upload_files(config: Config, manifest_entries: list[dict], project_id: str, 
     return upload_results
 
 
-def rm(config: Config, project_id: str, object_id: str):
-    """Remove manifest entry from local sqlite."""
+def rm(config: Config, project_id: str, object_id: str, file_name: str = None):
+    """Remove manifest entry(s) from local sqlite."""
     connection = _get_connection(config)
     with connection:
         if object_id:
             connection.execute('DELETE from manifest where object_id = ?', (object_id,))
+        elif file_name:
+            connection.execute('DELETE from manifest where file_name = ?', (file_name,))
         else:
             connection.execute('DELETE from manifest where project_id = ?', (project_id,))

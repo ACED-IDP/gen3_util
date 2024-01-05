@@ -42,7 +42,7 @@ def ls():
 
 def meta_cp_upload(tmp_dir_name, project_id) -> dict:
     """Upload meta data file to data_bucket."""
-    cmd_str = f'--format json meta publish {tmp_dir_name} --project_id {project_id} --ignore_state'
+    cmd_str = f'--format json meta push {tmp_dir_name} --project_id {project_id} --ignore_state'
     print(cmd_str)
     params = cmd_str.split()
     runner = CliRunner()
@@ -127,9 +127,9 @@ def files_cp_upload(tmp_dir_name, data_bucket, project_id):
 
 
 def manifest_put(file_name,  project_id):
-    """Upload a file with meta data to data_bucket."""
+    """Upload a file with metadata to data_bucket."""
     runner = CliRunner()
-    result = runner.invoke(cli, ['files', 'manifest',  'put', '--project_id', project_id, str(file_name)])
+    result = runner.invoke(cli, ['files', 'add', '--project_id', project_id, str(file_name)])
 
     print(result.output)
     assert result.exit_code == 0
@@ -146,6 +146,7 @@ def ensure_files_uploaded(project_id) -> list[str]:
                                   'tests/fixtures/dir_to_study/sub-dir/file-3.pdf',
                                   'tests/fixtures/dir_to_study/sub-dir/file-4.tsv',
                                   'tests/fixtures/dir_to_study/sub-dir/file-5'], result.output
+    assert 'msg' in result_output, "Should have a msg"
     return [_["did"] for _ in result_output['records']]
 
 
@@ -176,7 +177,7 @@ def create_project_resource_in_arborist(project_id):
 def upload_manifest(project_id, profile):
     """Upload a manifest to indexd and bucket."""
     runner = CliRunner()
-    result = runner.invoke(cli, f'--format json --profile {profile}  files manifest upload --project_id {project_id} --no_meta_data'.split())
+    result = runner.invoke(cli, f'--format json --profile {profile}  files push --project_id {project_id} --no_meta_data'.split())
     assert result.exit_code == 0, result.output
 
 

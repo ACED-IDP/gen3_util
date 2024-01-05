@@ -62,10 +62,13 @@ def test_meta(caplog):
     assert result.exit_code == 0
     print(result.output)
     expected_strings = """
-  create    Create minimal study meta, write to OUTPUT_PATH.
-  validate  Validate FHIR data in DIRECTORY.
-  publish   Publish meta data on the portal
-    """.split()
+  create        Create minimal study metadata from uploaded files
+  pull          Retrieve all FHIR meta data from portal
+  to_tabular    Convert FHIR to tabular format
+  from_tabular  Convert tabular to FHIR format
+  validate      Validate FHIR data
+  push          Publish FHIR meta data on the portal
+    """.split('\n')
     for expected_string in expected_strings:
         assert expected_string in result.output, f"Should have printed {expected_string}"
 
@@ -77,10 +80,12 @@ def test_file(caplog):
     assert result.exit_code == 0
     print(result.output)
     expected_strings = """
-      ls        List files in a project.
-      manifest  Manage file transfers using a manifest.
-      rm        Remove files from a project.
-    """.split()
+  ls      List uploaded files in a project bucket.
+  add     Add file to the working index.
+  status  List files in working index.
+  push    Upload working index to project bucket.
+  rm      Remove files from the working index or project bucket.
+    """.split('\n')
     for expected_string in expected_strings:
         assert expected_string in result.output, f"Should have printed {expected_string}"
 

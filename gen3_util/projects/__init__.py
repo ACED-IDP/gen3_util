@@ -9,8 +9,8 @@ from gen3_util.config import ensure_auth, Config
 
 class ProjectSummary(BaseModel):
     """Summary of a project."""
-    in_sheepdog: bool = False
-    """Project exists flag"""
+    exists: bool = False
+    """Project exists in sheepdog flag"""
     permissions: list[dict[str, Any]] = []
 
 
@@ -18,7 +18,7 @@ class ProjectSummaries(BaseModel):
     """Summary of projects, including messages."""
     endpoint: str
     """The commons url"""
-    projects: dict[str, ProjectSummary]
+    projects: dict[str, ProjectSummary] | list[str] = {}
     """List of projects"""
     messages: List[str] = []
     """List of messages"""
@@ -62,14 +62,16 @@ def get_projects(auth, submission) -> dict:
     for _ in user['authz'].keys():
         if not all([_.startswith('/programs'), 'projects/' in _]):
             continue
+
         permissions = user['authz'][_]
+
         _ = _.replace('/programs/', '')
         _ = _.split('/')
         _program = _[0]
         _project = _[-1]
         arborist_projects[_program][_project]['permissions'] = permissions
-        arborist_projects[_program][_project]['in_sheepdog'] = False
+        arborist_projects[_program][_project]['exists'] = False
         if _program in sheepdog_projects and _project in sheepdog_projects[_program]['projects']:
-            arborist_projects[_program][_project]['in_sheepdog'] = True
+            arborist_projects[_program][_project]['exists'] = True
 
     return arborist_projects

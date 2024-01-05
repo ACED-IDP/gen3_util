@@ -18,10 +18,11 @@ def config_group(config):
 def config_ls(config: Config):
     """Show defaults."""
     with CLIOutput(config) as output:
+        # decorate config with some extra info
+        config.gen3.version = _gen3_client_version()
         # cast state dir to string, so it prints out nicely
         _ = config.dict()
         _['state_dir'] = str(config.state_dir)
-        _['gen3_client_version'] = _gen3_client_version()
         output.update(_)
         # print(_access_token_info(config))
 

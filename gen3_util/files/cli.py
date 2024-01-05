@@ -28,7 +28,7 @@ def file_group(config):
 @click.pass_obj
 @click.option('--object_id', default=None, required=False, show_default=True,
               help="id of the object in the indexd database")
-@click.option('--project_id', default=None, required=False, show_default=True,
+@click.option('--project_id', default=None, required=True, show_default=True,
               help="Gen3 program-project", envvar='PROJECT_ID')
 @click.option('--specimen_id', default=None, required=False, show_default=True,
               help="fhir specimen identifier", envvar='SPECIMEN_ID')
@@ -41,7 +41,7 @@ def file_group(config):
 @click.option('--md5', default=None, required=False, show_default=True,
               help="file's md5")
 def files_ls(config: Config, object_id: str, project_id: str, specimen_id: str, patient_id: str, observation_id: str, task_id: str, md5: str):
-    """List files in a project."""
+    """List uploaded files in a project bucket."""
     with CLIOutput(config=config) as output:
         _ = {}
         if project_id:
@@ -59,14 +59,7 @@ def files_ls(config: Config, object_id: str, project_id: str, specimen_id: str, 
         output.update(ls(config, object_id=object_id, metadata=_))
 
 
-@file_group.group(name='manifest', cls=NaturalOrderGroup)
-@click.pass_obj
-def manifest_group(config):
-    """Manage file transfers using a manifest."""
-    pass
-
-
-@manifest_group.command(name="put")
+@file_group.command(name="add")
 @click.argument('local_path', )
 @click.argument('remote_path', required=False, default=None)
 @click.option('--project_id', default=None, required=False, show_default=True,
@@ -86,7 +79,7 @@ def manifest_group(config):
 @click.pass_obj
 def _manifest_put(config: Config, local_path: str, remote_path: str, project_id: str, md5: str,
                   specimen_id: str, patient_id: str, observation_id: str, task_id: str):
-    """Add file meta information to the manifest.
+    """Add file to the working index.
 
     \b
     local_path: path to file on local file system
@@ -104,14 +97,14 @@ def _manifest_put(config: Config, local_path: str, remote_path: str, project_id:
         manifest_save(config, project_id, [_])
 
 
-@manifest_group.command(name="ls")
+@file_group.command(name="status")
 @click.option('--project_id', default=None, required=False, show_default=True,
               help="Gen3 program-project", envvar='PROJECT_ID')
 @click.option('--object_id', default=None, required=False, show_default=True,
               help="file id")
 @click.pass_obj
 def _manifest_ls(config: Config, project_id: str, object_id: str):
-    """Read current manifest.
+    """List files in working index.
     """
 
     with CLIOutput(config=config) as output:
@@ -119,7 +112,7 @@ def _manifest_ls(config: Config, project_id: str, object_id: str):
         output.update(_)
 
 
-@manifest_group.command(name="upload")
+@file_group.command(name="push")
 @click.option('--project_id', default=None, required=False, show_default=True,
               help="Gen3 program-project authorization", envvar='PROJECT_ID')
 @click.option('--restricted_project_id', default=None, required=False, show_default=True,
@@ -131,7 +124,7 @@ def _manifest_ls(config: Config, project_id: str, object_id: str):
 @click.option('--wait', default=False, is_flag=True, show_default=True, help="Wait for metadata completion.")
 @click.pass_obj
 def _manifest_upload(config: Config, project_id: str, duplicate_check: bool, upload_path: str, manifest_path: str, restricted_project_id: str, meta_data: bool, wait: bool):
-    """Upload to index and project bucket.  Uses local manifest, or manifest_path.
+    """Upload working index to project bucket.
 
     """
 
@@ -147,7 +140,10 @@ def _manifest_upload(config: Config, project_id: str, duplicate_check: bool, upl
             raise e
 
         completed_process = upload_files(config=config, project_id=project_id, manifest_entries=manifest_entries, profile=config.gen3.profile, upload_path=upload_path)
-        assert completed_process.returncode == 0, f"upload_files failed with {completed_process.returncode}"
+        if completed_process.returncode != 0:
+            click.secho(f"upload_files failed with {completed_process.returncode}", fg='red')
+            exit(1)
+
         if meta_data:
             print("Updating metadata...", file=sys.stderr)
             meta_data_path = config.state_dir / f"{project_id}-meta_data"
@@ -162,7 +158,36 @@ def _manifest_upload(config: Config, project_id: str, duplicate_check: bool, upl
                     print("Error publishing metadata:", _)
 
 
-@manifest_group.command(name="export")
+@file_group.command(name="rm")
+@click.option('--local', default=False, required=False, show_default=True, is_flag=True,
+              help="Remove file only from local project.")
+@click.option('--project_id', default=None, required=False, show_default=True,
+              help="Gen3 program-project", envvar='PROJECT_ID')
+@click.option('--object_id', default=None, required=False, show_default=True,
+              help="file UUID", envvar='OBJECT_ID')
+@click.option('--local_path', default=None, required=False, show_default=True,
+              help="file local path")
+@click.pass_obj
+def files_rm(config: Config, object_id: str, local: bool, project_id: str, local_path: str):
+    """Remove files from the working index or project bucket."""
+    with CLIOutput(config=config) as output:
+        try:
+            if not local:
+                _ = rm(config, object_id=object_id)
+                output.update(_)
+            else:
+                _ = manifest_rm(config, project_id=project_id, object_id=object_id, file_name=local_path)
+                output.update(_)
+        except HTTPError as e:
+            msg = str(e)
+            if 'not found' in msg.lower():
+                msg = f"object_id {object_id} not found. {msg}"
+            output.exit_code = 1
+            output.update({'msg': msg})
+
+
+# Hidden commands ............................................................
+@file_group.command(name="export", hidden=True)
 @click.option('--project_id', default=None, required=False, show_default=True,
               help="Gen3 program-project", envvar='PROJECT_ID')
 @click.option('--object_id', default=None, required=False, show_default=True, help="file UUID", envvar='OBJECT_ID')
@@ -172,36 +197,3 @@ def manifest_export(config: Config, project_id: str, object_id: str):
     """
     with CLIOutput(config=config) as output:
         output.update(manifest_ls(config, project_id=project_id, object_id=object_id))
-
-
-@manifest_group.command(name="rm")
-@click.option('--project_id', default=None, required=False, show_default=True,
-              help="Gen3 program-project", envvar='PROJECT_ID')
-@click.option('--object_id', default=None, required=False, show_default=True,
-              help="file UUID", envvar='OBJECT_ID')
-@click.pass_obj
-def _manifest_rm(config: Config, project_id: str, object_id: str):
-    """Remove file(s) from local manifest.
-    """
-
-    with CLIOutput(config=config) as output:
-        _ = manifest_rm(config, project_id=project_id, object_id=object_id)
-        output.update(_)
-
-
-@file_group.command(name="rm")
-@click.option('--object_id', default=None, required=False, show_default=True,
-              help="file UUID", envvar='OBJECT_ID')
-@click.pass_obj
-def files_rm(config: Config, object_id: str):
-    """Remove files from a project index and bucket."""
-    with CLIOutput(config=config) as output:
-        try:
-            _ = rm(config, object_id=object_id)
-            output.update(_)
-        except HTTPError as e:
-            msg = str(e)
-            if 'not found' in msg.lower():
-                msg = f"object_id {object_id} not found. {msg}"
-            output.exit_code = 1
-            output.update({'msg': msg})

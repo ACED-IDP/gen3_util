@@ -1,8 +1,6 @@
-from typing import Callable
+import pathlib
 
 import pytest
-
-from . import mock_to_tabular, mock_from_tabular, mock_validate
 
 
 @pytest.fixture()
@@ -378,21 +376,6 @@ def observation() -> dict:
 
 
 @pytest.fixture()
-def to_tabular() -> Callable:
-    return mock_to_tabular
-
-
-@pytest.fixture()
-def from_tabular() -> Callable:
-    return mock_from_tabular
-
-
-@pytest.fixture()
-def validate() -> Callable:
-    return mock_validate
-
-
-@pytest.fixture()
 def specimen_fields() -> list[str]:
     return [
         'text_div',
@@ -408,3 +391,9 @@ def specimen_fields() -> list[str]:
         'processing_0_description', 'processing_0_method_coding_0_system', 'processing_0_method_coding_0_code',
         'processing_0_additive_0_reference', 'processing_0_additive_0_display', 'processing_0_timeDateTime'
     ]
+
+
+@pytest.fixture()
+def meta_path() -> pathlib.Path:
+    """Path to the meta directory."""
+    return pathlib.Path("tests/fixtures/valid-files")
