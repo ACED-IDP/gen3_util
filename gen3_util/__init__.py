@@ -1,7 +1,9 @@
+import json
 import pathlib
 import uuid
 from typing import Union
 
+import pydantic
 from pydantic import BaseModel
 ACED_NAMESPACE = uuid.uuid3(uuid.NAMESPACE_DNS, 'aced-ipd.org')
 
@@ -56,6 +58,9 @@ class Gen3Config(BaseModel):
     version: str = None
     """The version of gen3-client in use."""
 
+    project_id: str = None
+    """The program-project."""
+
 
 class Config(BaseModel):
     log: LogConfig = LogConfig(
@@ -70,6 +75,19 @@ class Config(BaseModel):
     state_dir: pathlib.Path = pathlib.Path('~/.gen3/gen3-util-state').expanduser()
     """retry state for file transfer"""
 
+    def model_dump(self):
+        """Dump the config model.
+
+         temporary until we switch to pydantic2
+        """
+
+        return json.loads(self.json())
+
 
 # main
 monkey_patch_url_validate()
+
+# default initializers for path
+pydantic.json.ENCODERS_BY_TYPE[pathlib.PosixPath] = str
+pydantic.json.ENCODERS_BY_TYPE[pathlib.WindowsPath] = str
+pydantic.json.ENCODERS_BY_TYPE[pathlib.Path] = str

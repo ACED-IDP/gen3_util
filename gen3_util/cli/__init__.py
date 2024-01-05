@@ -38,7 +38,7 @@ def _common_options(self):
     self.params.insert(3,
                        click.core.Option(('--state_dir', ),
                                          envvar=f"{ENV_VARIABLE_PREFIX}_STATE_DIR",
-                                         default='~/.gen3/gen3_util',
+                                         default=None,
                                          show_default=True,
                                          help=f'Directory for file transfer state {ENV_VARIABLE_PREFIX}_STATE_DIR'))
 

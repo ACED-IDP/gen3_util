@@ -15,6 +15,10 @@ import io
 import gzip
 from gen3_util import Config
 
+PROJECT_DIR = '.g3t'
+LEGACY_PROJECT_DIR = '~/.gen3/gen3-util'
+PROJECT_DIRECTORIES = ['DATA/', 'META/', PROJECT_DIR]
+
 
 def print_formatted(config: Config, output: Mapping) -> None:
     """Print the output, using configured output format"""

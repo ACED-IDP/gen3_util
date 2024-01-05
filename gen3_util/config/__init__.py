@@ -3,6 +3,7 @@ import os
 import pathlib
 import sys
 from datetime import datetime, timezone, timedelta
+from typing import Generator
 
 import click
 import jwt
@@ -15,7 +16,7 @@ from gen3.index import Gen3Index
 
 import gen3_util
 from gen3_util import Config
-from gen3_util.common import read_yaml
+from gen3_util.common import read_yaml, PROJECT_DIRECTORIES, PROJECT_DIR
 
 
 def gen_client_ini_path() -> pathlib.Path:
@@ -145,8 +146,47 @@ def gen3_services(config: Config) -> tuple[Gen3File, Gen3Index, dict, Gen3Auth]:
     return file_client, index_client, user, auth
 
 
+def search_upwards_for_file(filename):
+    """Search in the current directory and all directories above it
+    for a file of a particular name.
+
+    Arguments:
+    ---------
+    filename :: string, the filename to look for.
+
+    Returns
+    -------
+    pathlib.Path, the location of the first file found or
+    None, if none was found
+    """
+    d = pathlib.Path.cwd()
+    root = pathlib.Path(d.root)
+
+    while d != root:
+        attempt = d / filename
+        if attempt.exists():
+            return attempt
+        d = d.parent
+
+    return None
+
+
 def default():
-    """Load config from installed package."""
+    """Load config from directory or installed package."""
+
+    # in current dir?
+    _ = pathlib.Path(PROJECT_DIR) / 'config.yaml'
+    if _.exists():
+        return Config(**read_yaml(_))
+
+    # look in parents
+    parent_dir = search_upwards_for_file(PROJECT_DIR)
+    if parent_dir:
+        _ = parent_dir / 'config.yaml'
+        if _.exists():
+            return Config(**read_yaml(_))
+
+    # use default
     if sys.version_info[:3] <= (3, 9):
         return Config(**yaml.safe_load(pkg_resources.open_text(gen3_util, 'config.yaml').read()))
     else:
@@ -160,3 +200,27 @@ def custom(path: [str, pathlib.Path]):
         path = pathlib.Path(path)
 
     return Config(**read_yaml(path))
+
+
+def init(config: Config, project_id: str) -> Generator[str, None, None]:
+    """Create an empty repository, adjust and write config file"""
+
+    assert project_id, "project_id is missing"
+    assert project_id.count('-') == 1, f"{project_id} should have a single '-' delimiter."
+
+    for _ in PROJECT_DIRECTORIES:
+        assert not pathlib.Path(_).exists(), f"Already initialized. Directory ({_} already exists)"
+        pathlib.Path(_).mkdir(exist_ok=True)
+
+    yield f"Created project directories {PROJECT_DIRECTORIES}"
+
+    config.gen3.project_id = project_id
+    config.state_dir = pathlib.Path('.g3t') / 'gen3_util'
+
+    if not config.gen3.profile:
+        yield "WARNING No profile specified."
+
+    config_file = pathlib.Path(PROJECT_DIR) / 'config.yaml'
+    with open(config_file, 'w') as f:
+        yaml.dump(config.model_dump(), f)
+    yield f"Created project configuration file={config_file} project_id={config.gen3.project_id} profile={config.gen3.profile}"
