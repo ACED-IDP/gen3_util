@@ -141,6 +141,7 @@ def ensure_files_uploaded(project_id) -> list[str]:
     result = runner.invoke(cli, ['--format', 'json', 'files', 'ls', '--project_id', project_id])
     assert result.exit_code == 0
     result_output = json.loads(result.output)
+    assert 'records' in result_output, f"Should have records {result_output}"
     file_names = [_["file_name"] for _ in result_output['records']]
     assert sorted(file_names) == ['tests/fixtures/dir_to_study/file-1.txt', 'tests/fixtures/dir_to_study/file-2.csv',
                                   'tests/fixtures/dir_to_study/sub-dir/file-3.pdf',
@@ -200,9 +201,12 @@ def test_incremental_workflow(program, profile):
 
     create_project_resource_in_arborist(project_id)
 
+    c = 0
     for file_name in pathlib.Path('tests/fixtures/dir_to_study/').glob('**/*'):
         if file_name.is_file():
             manifest_put("file:///" + str(file_name), project_id)
+            c += 1
+    assert c > 0, "No files found"
 
     upload_manifest(project_id, profile)
 
