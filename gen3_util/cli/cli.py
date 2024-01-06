@@ -1,4 +1,5 @@
 import logging
+import os
 import pathlib
 import subprocess
 from importlib.metadata import version as pkg_version
@@ -84,14 +85,7 @@ def init_cli(config, project_id: str):
         try:
             logs = []
 
-            if not project_id:
-                raise AssertionError("project_id is required")
-
-            if not project_id.count('-') == 1:
-                raise AssertionError("project_id must be of the form program-project")
-
-            if not config.gen3.profile:
-                raise AssertionError("No profile specified.")
+            _check_parameters(config, project_id)
 
             auth = ensure_auth(profile=config.gen3.profile)
             program, project = project_id.split('-')
@@ -108,6 +102,56 @@ def init_cli(config, project_id: str):
             logs.extend(policy_msgs)
 
             output.update({'msg': 'Initialized empty repository', 'logs': logs})
+        except AssertionError as e:
+            output.update({'msg': str(e)})
+            output.exit_code = 1
+
+
+def _check_parameters(config, project_id):
+    """Common parameter checks."""
+    if not project_id:
+        raise AssertionError("project_id is required")
+    if not project_id.count('-') == 1:
+        raise AssertionError("project_id must be of the form program-project")
+    if not config.gen3.profile:
+        raise AssertionError("No profile specified.")
+
+
+@cli.command(name='clone')
+@click.option('--project_id', default=None, required=False, show_default=True,
+              help="Gen3 program-project", envvar='PROJECT_ID')
+@click.pass_obj
+def clone_cli(config: Config, project_id: str):
+    """Clone meta and files from remote."""
+    with CLIOutput(config=config) as output:
+
+        try:
+
+            _check_parameters(config, project_id)
+
+            path = pathlib.Path.cwd()
+            path = pathlib.Path(path) / project_id
+            assert not path.exists(), f"Directory {path} already exists."
+
+            path.mkdir(exist_ok=True)
+            os.chdir(path)
+
+            logs = []
+            for _ in init(config, project_id):
+                logs.append(_)
+
+            meta_data_path = pathlib.Path(path) / 'META'
+            assert meta_data_path.exists(), f"Directory {meta_data_path} does not exist."
+
+            auth = ensure_auth(profile=config.gen3.profile)
+            pull_results = gen3_util.meta.cli.meta_pull(
+                auth=auth,
+                config=config,
+                meta_data_path=meta_data_path,
+                project_id=config.gen3.project_id,
+                force=True
+            )
+            output.update(pull_results)
         except AssertionError as e:
             output.update({'msg': str(e)})
             output.exit_code = 1

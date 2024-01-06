@@ -38,7 +38,7 @@ meta_group.add_command(import_indexd)
 @click.option('--force', '-f', default=False, show_default=True, is_flag=True,
               help="Overwrite existing files")
 @click.pass_obj
-def meta_pull(config: Config, meta_data_path: str,  project_id: str, force: bool):
+def _meta_pull(config: Config, meta_data_path: str,  project_id: str, force: bool):
     """Retrieve all FHIR meta data from portal
 
     \b
@@ -54,51 +54,58 @@ def meta_pull(config: Config, meta_data_path: str,  project_id: str, force: bool
 
     auth = ensure_auth(profile=config.gen3.profile)
 
+    try:
+
+        _ = meta_pull(auth, config, force, meta_data_path, project_id)
+
+    except JSONDecodeError:
+        print("jobs_client.async_run_job_and_wait() (raw):", _)
+
+
+def meta_pull(auth, config, force, meta_data_path, project_id) -> dict:
+    """Retrieve all FHIR meta data from portal"""
     # delivered to sower job in env['ACCESS_TOKEN']
     jobs_client = Gen3Jobs(auth_provider=auth)
     # delivered to sower job in env['INPUT_DATA']
     args = {'project_id': project_id, 'method': 'get'}
-
     _ = asyncio.run(jobs_client.async_run_job_and_wait('fhir_import_export', args))
+    output = json.loads(_['output'])
     try:
-        output = json.loads(_['output'])
+        object_id = output['object_id']
+        assert object_id, "object_id not found in output"
+        zip_file_name = None
+        for line in output['logs']:
+            if not line.startswith('Uploaded'):
+                continue
+            zip_file_name = pathlib.Path(line.split()[1]).name
 
-        with CLIOutput(config=config) as console_output:
-            object_id = output['object_id']
+        cmd = f"gen3-client download-single --profile {config.gen3.profile} --guid {object_id} " \
+              f"--download-path {meta_data_path}".split()
 
-            zip_file_name = None
-            for line in output['logs']:
-                if not line.startswith('Uploaded'):
-                    continue
-                zip_file_name = pathlib.Path(line.split()[1]).name
+        if force:
+            cmd.append('--no-prompt')
 
-            cmd = f"gen3-client download-single --profile {config.gen3.profile} --guid {object_id} " \
-                  f"--download-path {meta_data_path}".split()
+        download_results = subprocess.run(cmd)
 
-            if force:
-                cmd.append('--no-prompt')
+        if download_results.returncode != 0:
+            click.secho(f"gen3-client download-single failed {download_results}", fg='red')
+            exit(1)
 
-            download_results = subprocess.run(cmd)
+        output['logs'].append(f"Downloaded {object_id} to {meta_data_path}/{zip_file_name}")
 
-            if download_results.returncode != 0:
-                click.secho(f"gen3-client download-single failed {download_results}", fg='red')
-                exit(1)
+        unzip_collapse(zip_file=f"{meta_data_path}/{zip_file_name}", extract_to=meta_data_path)
+        output['logs'].append(f"Unzipped {meta_data_path}/{zip_file_name} to {meta_data_path}")
 
-            output['logs'].append(f"Downloaded {object_id} to {meta_data_path}/{zip_file_name}")
+        os.remove(f"{meta_data_path}/{zip_file_name}")
+        output['logs'].append(f"Removed {meta_data_path}/{zip_file_name}")
 
-            unzip_collapse(zip_file=f"{meta_data_path}/{zip_file_name}", extract_to=meta_data_path)
-            output['logs'].append(f"Unzipped {meta_data_path}/{zip_file_name} to {meta_data_path}")
+        if 'user' in output:
+            del output['user']
 
-            os.remove(f"{meta_data_path}/{zip_file_name}")
-            output['logs'].append(f"Removed {meta_data_path}/{zip_file_name}")
+    except Exception as e:
+        output['logs'].append(f"Error: {str(e)}")
 
-            if 'user' in output:
-                del output['user']
-
-            console_output.update(output)
-
-    except JSONDecodeError:
-        print("jobs_client.async_run_job_and_wait() (raw):", _)
+    return output
 
 
 @meta_group.command(name="to_tabular")

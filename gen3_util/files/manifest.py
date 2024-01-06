@@ -27,6 +27,7 @@ logger = logging.getLogger(__name__)
 
 def _get_connection(config: Config):
     """Return sqlite connection, ensure table exists."""
+    config.state_dir.mkdir(parents=True, exist_ok=True)
     _connection = sqlite3.connect(config.state_dir / 'manifest.sqlite')
     with _connection:
         _connection.execute('CREATE TABLE if not exists manifest (object_id PRIMARY KEY, project_id Text, entity Text)')

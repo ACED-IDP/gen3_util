@@ -1,4 +1,5 @@
 import json
+import os
 import pathlib
 import subprocess
 import uuid
@@ -7,6 +8,21 @@ import pytest
 from click.testing import CliRunner
 
 from gen3_util.cli.cli import cli
+
+CURRENT_DIR = pathlib.Path.cwd()
+
+
+def setup_module(module):
+    """Setup for module."""
+    print("setup_module      module:%s" % module.__name__)
+    global CURRENT_DIR
+    CURRENT_DIR = pathlib.Path.cwd()
+
+
+def teardown_module(module):
+    """Teardown for module."""
+    print(f"teardown_module   module:{module.__name__} cwd:{CURRENT_DIR}")
+    os.chdir(CURRENT_DIR)
 
 
 def import_from_directory(tmp_dir_name, project_id):
@@ -189,7 +205,18 @@ def rm_file(object_id, project_id, profile):
     assert result.exit_code == 0, result.output
 
 
-def test_incremental_workflow(program, profile):
+def clone_project(project_id, profile, tmp_path):
+    os.chdir(tmp_path)
+    runner = CliRunner()
+    result = runner.invoke(cli, f'--format json  --profile {profile} clone --project_id {project_id}'.split())
+    assert result.exit_code == 0, result.output
+    assert pathlib.Path(tmp_path, project_id).exists()
+    assert pathlib.Path(tmp_path, project_id, 'META').exists()
+    assert pathlib.Path(tmp_path, project_id, 'META', 'ResearchStudy.ndjson').exists()
+    assert pathlib.Path(tmp_path, project_id, 'META', 'DocumentReference.ndjson').exists()
+
+
+def test_incremental_workflow(program, profile, tmp_path):
     """Test the workflow to create a project in incremental steps."""
 
     guid = str(uuid.uuid4())
@@ -223,3 +250,6 @@ def test_incremental_workflow(program, profile):
     # should fail
     with pytest.raises(AssertionError):
         create_project_resource_in_arborist(project_id)
+
+    # test clone
+    clone_project(project_id, profile, tmp_path)
