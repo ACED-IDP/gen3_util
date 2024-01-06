@@ -7,8 +7,25 @@ from click.testing import CliRunner
 from gen3_util.cli.cli import cli
 from gen3_util.common import PROJECT_DIRECTORIES, PROJECT_DIR
 
+CURRENT_DIR = pathlib.Path.cwd()
+
+
+def setup_module(module):
+    """Setup for module."""
+    print("setup_module      module:%s" % module.__name__)
+    global CURRENT_DIR
+    CURRENT_DIR = pathlib.Path.cwd()
+
+
+def teardown_module(module):
+    """Teardown for module."""
+    print(f"teardown_module   module:{module.__name__} cwd:{CURRENT_DIR}")
+    os.chdir(CURRENT_DIR)
+
 
 def test_init(tmp_path, program, profile):
+    """Test init."""
+
     os.chdir(tmp_path)
     runner = CliRunner()
 
