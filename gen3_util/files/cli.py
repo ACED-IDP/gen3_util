@@ -38,9 +38,11 @@ def file_group(config):
               help="fhir observation identifier", envvar='OBSERVATION_ID')
 @click.option('--task_id', default=None, required=False, show_default=True,
               help="fhir task identifier", envvar='TASK_ID')
+@click.option('--is_metadata', default=False, is_flag=True, required=False, show_default=True,
+              help="Meta data extract",)
 @click.option('--md5', default=None, required=False, show_default=True,
               help="file's md5")
-def files_ls(config: Config, object_id: str, project_id: str, specimen_id: str, patient_id: str, observation_id: str, task_id: str, md5: str):
+def files_ls(config: Config, object_id: str, project_id: str, specimen_id: str, patient_id: str, observation_id: str, task_id: str, md5: str, is_metadata: bool):
     """List uploaded files in a project bucket."""
     with CLIOutput(config=config) as output:
         _ = {}
@@ -56,6 +58,8 @@ def files_ls(config: Config, object_id: str, project_id: str, specimen_id: str, 
             _['observation_id'] = observation_id
         if md5:
             _['md5'] = md5
+        if is_metadata:
+            _['is_metadata'] = is_metadata
         output.update(ls(config, object_id=object_id, metadata=_))
 
 

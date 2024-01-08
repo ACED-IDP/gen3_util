@@ -1,13 +1,21 @@
 from functools import lru_cache
 
+from gen3.index import Gen3Index
 from gen3.submission import Gen3Submission
 
 from gen3_util.config import Config, gen3_services
 
 
-def ls(config: Config, object_id: str = None, metadata: dict = {}):
+def ls(config: Config, object_id: str = None, metadata: dict = {}, auth=None):
     """List files."""
-    file_client, index_client, user, auth = gen3_services(config=config)
+    if not auth:
+        file_client, index_client, user, auth = gen3_services(config=config)
+    else:
+        index_client = Gen3Index(auth_provider=auth)
+
+    if metadata.get('is_metadata', False):
+        metadata['is_metadata'] = 'true'
+
     if object_id:
         if ',' in object_id:
             object_ids = object_id.split(',')
@@ -16,11 +24,13 @@ def ls(config: Config, object_id: str = None, metadata: dict = {}):
         records = index_client.client.bulk_request(dids=object_ids)
         return {'records': [_.to_json() for _ in records]}
 
-    params = {'metadata': metadata}
+    params = {}
     project_id = metadata.get('project_id', None)
-    if 'project_id' in metadata and len(metadata.keys()) == 1:
+    if 'project_id' in metadata:
         program, project = project_id.split('-')
         params = {'authz': f"/programs/{program}/projects/{project}"}
+        metadata.pop('project_id')
+    params['metadata'] = metadata
 
     records = index_client.client.list_with_params(params=params)
 
