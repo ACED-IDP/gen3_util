@@ -1,5 +1,7 @@
+
 import logging
-import os
+import sys
+
 import pathlib
 import subprocess
 from importlib.metadata import version as pkg_version
@@ -8,19 +10,18 @@ import click
 
 import gen3_util
 from gen3_util.access.cli import access_group
-from gen3_util.access.requestor import add_policies
 from gen3_util.buckets.cli import bucket_group
 from gen3_util.cli import StdNaturalOrderGroup, CLIOutput
+from gen3_util.cli.cloner import clone
+from gen3_util.cli.initializer import initialize_project
 from gen3_util.common import print_formatted, LEGACY_PROJECT_DIR
-from gen3_util.config import Config, ensure_auth, gen3_client_profiles, init
+from gen3_util.config import Config, ensure_auth, gen3_client_profiles
 from gen3_util.config.cli import config_group
 from gen3_util.files.cli import file_group
 from gen3_util.jobs.cli import job_group
 from gen3_util.meta.cli import meta_group
 from gen3_util.projects.cli import project_group
 from gen3_util.users.cli import users_group
-
-from gen3_util.projects.lister import ls as project_ls
 
 
 @click.group(cls=StdNaturalOrderGroup)
@@ -29,7 +30,7 @@ def cli(ctx, config, output_format, profile, state_dir):
     """Gen3 Management Utilities"""
 
     config__ = gen3_util.config.default()
-    logging.basicConfig(format=config__.log.format, level=config__.log.level)
+    logging.basicConfig(format=config__.log.format, level=config__.log.level, stream=sys.stderr)
 
     if config:
         config__ = gen3_util.config.custom(config)
@@ -83,23 +84,9 @@ def init_cli(config, project_id: str):
     """Create project, both locally and on remote."""
     with (CLIOutput(config=config) as output):
         try:
-            logs = []
-
             _check_parameters(config, project_id)
 
-            auth = ensure_auth(profile=config.gen3.profile)
-            program, project = project_id.split('-')
-            projects = project_ls(config, auth=auth)
-            existing_project = [_ for _ in projects.projects if _.endswith(project)]
-            if len(existing_project) > 0:
-                raise AssertionError(f"Project already exists: {existing_project[0]}")
-
-            _ = add_policies(config, project_id, auth=auth)
-            policy_msgs = [_.msg, f"See {_.commands}"]
-
-            for _ in init(config, project_id):
-                logs.append(_)
-            logs.extend(policy_msgs)
+            logs = initialize_project(config, project_id)
 
             output.update({'msg': 'Initialized empty repository', 'logs': logs})
         except AssertionError as e:
@@ -120,38 +107,22 @@ def _check_parameters(config, project_id):
 @cli.command(name='clone')
 @click.option('--project_id', default=None, required=False, show_default=True,
               help="Gen3 program-project", envvar='PROJECT_ID')
+@click.option(
+    '--data_type', default='all',
+    type=click.Choice(['meta', 'files', 'all'], case_sensitive=False),
+    required=False, show_default=True,
+    help="Clone meta and/or files from remote."
+)
 @click.pass_obj
-def clone_cli(config: Config, project_id: str):
+def clone_cli(config: Config, project_id: str, data_type: str):
     """Clone meta and files from remote."""
     with CLIOutput(config=config) as output:
 
         try:
-
             _check_parameters(config, project_id)
+            logs = clone(config, project_id, data_type)
+            output.update({'msg': f'Cloned repository {project_id}', 'logs': logs})
 
-            path = pathlib.Path.cwd()
-            path = pathlib.Path(path) / project_id
-            assert not path.exists(), f"Directory {path} already exists."
-
-            path.mkdir(exist_ok=True)
-            os.chdir(path)
-
-            logs = []
-            for _ in init(config, project_id):
-                logs.append(_)
-
-            meta_data_path = pathlib.Path(path) / 'META'
-            assert meta_data_path.exists(), f"Directory {meta_data_path} does not exist."
-
-            auth = ensure_auth(profile=config.gen3.profile)
-            pull_results = gen3_util.meta.cli.meta_pull(
-                auth=auth,
-                config=config,
-                meta_data_path=meta_data_path,
-                project_id=config.gen3.project_id,
-                force=True
-            )
-            output.update(pull_results)
         except AssertionError as e:
             output.update({'msg': str(e)})
             output.exit_code = 1
