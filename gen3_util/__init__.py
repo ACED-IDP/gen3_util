@@ -64,7 +64,7 @@ class Gen3Config(BaseModel):
 
 class Config(BaseModel):
     log: LogConfig = LogConfig(
-        format='%(asctime)s — %(name)s — %(levelname)s — %(funcName)s:%(lineno)d — %(message)s',
+        format='[%(asctime)s] — [%(levelname)s] — %(name)s — %(message)s',
         level='INFO'
     )
     """logging setup"""
