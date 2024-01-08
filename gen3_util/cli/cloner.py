@@ -51,12 +51,13 @@ def clone(config: Config, project_id: str, data_type: str = 'all') -> list[str]:
         # Replace default stdout (terminal) with our stream
         sys.stdout = temp_out
         # call the function that will print to stdout
-        file_client.download_single(download_meta['did'], path=extract_to)
+        is_ok = file_client.download_single(download_meta['did'], path=extract_to)
         # The original `sys.stdout` is kept in a special
         # dunder named `sys.__stdout__`. So you can restore
         # the original output stream to the terminal.
         sys.stdout = sys.__stdout__
         temp_out.close()
+        assert is_ok, f"Failed to download metadata {download_meta['did']}"
 
         zip_file = extract_to / download_meta['file_name']
         unzip_collapse(zip_file=zip_file, extract_to=extract_to)
