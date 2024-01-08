@@ -216,6 +216,7 @@ def init(config: Config, project_id: str) -> Generator[str, None, None]:
 
     config.gen3.project_id = project_id
     config.state_dir = pathlib.Path('.g3t') / 'gen3_util'
+    config.state_dir.mkdir(parents=True, exist_ok=True)
 
     if not config.gen3.profile:
         yield "WARNING No profile specified."
