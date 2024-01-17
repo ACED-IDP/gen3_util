@@ -397,3 +397,9 @@ def specimen_fields() -> list[str]:
 def meta_path() -> pathlib.Path:
     """Path to the meta directory."""
     return pathlib.Path("tests/fixtures/valid-files")
+
+
+@pytest.fixture()
+def tabular_path() -> pathlib.Path:
+    """Path to the meta directory."""
+    return pathlib.Path("tests/fixtures/tabular")

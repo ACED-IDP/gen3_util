@@ -52,9 +52,6 @@ class Gen3Config(BaseModel):
     profile: str = None
     """The name of the gen3-client profile in use. See https://bit.ly/3NbKGi4"""
 
-    profiles: list[str] = None
-    """The name of all the gen3-client profiles."""
-
     version: str = None
     """The version of gen3-client in use."""
 
@@ -82,6 +79,10 @@ class Config(BaseModel):
         """
 
         return json.loads(self.json())
+
+    def commit_dir(self):
+        """Return the path to the commits directory."""
+        return self.state_dir / self.gen3.project_id / 'commits'
 
 
 # main

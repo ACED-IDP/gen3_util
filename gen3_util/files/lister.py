@@ -1,8 +1,10 @@
+
 from functools import lru_cache
 
 from gen3.index import Gen3Index
 from gen3.submission import Gen3Submission
 
+from gen3_util.common import Push
 from gen3_util.config import Config, gen3_services
 
 
@@ -49,6 +51,10 @@ def ls(config: Config, object_id: str = None, metadata: dict = {}, auth=None):
 def meta_nodes(config: Config, project_id: str, auth, gen3_type: str = 'document_reference'):
     """Retrieve all the nodes in a project."""
 
+    if not auth:
+        # disconnected mode
+        return []
+
     offset = 0
     batch_size = 1000
     _nodes = []
@@ -56,9 +62,9 @@ def meta_nodes(config: Config, project_id: str, auth, gen3_type: str = 'document
     while True:
         query = """
         {
-          node(project_id: "PROJECT_ID", of_type: "document_reference", first: FIRST, offset: OFFSET) {
+          node(project_id: "PROJECT_ID", first: FIRST, offset: OFFSET) {
             id
-            __typename
+            type
           }
         }
         """.replace('PROJECT_ID', project_id).replace('FIRST', str(batch_size)).replace('OFFSET', str(offset))
@@ -67,6 +73,8 @@ def meta_nodes(config: Config, project_id: str, auth, gen3_type: str = 'document
             break
         _nodes.extend(response['data']['node'])
         offset += batch_size
+
+    _nodes.extend(Push(config=config).pending_meta_index())
 
     return _nodes
 

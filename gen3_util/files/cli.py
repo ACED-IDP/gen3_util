@@ -91,14 +91,20 @@ def _manifest_put(config: Config, local_path: str, remote_path: str, project_id:
     """
 
     with CLIOutput(config=config) as output:
-        _ = manifest_put(config, local_path, project_id=project_id, md5=md5)
-        _['observation_id'] = observation_id
-        _['patient_id'] = patient_id
-        _['specimen_id'] = specimen_id
-        _['task_id'] = task_id
-        _['remote_path'] = remote_path
-        output.update(_)
-        manifest_save(config, project_id, [_])
+        try:
+            if not project_id:
+                project_id = config.gen3.project_id
+            _ = manifest_put(config, local_path, project_id=project_id, md5=md5)
+            _['observation_id'] = observation_id
+            _['patient_id'] = patient_id
+            _['specimen_id'] = specimen_id
+            _['task_id'] = task_id
+            _['remote_path'] = remote_path
+            output.update(_)
+            manifest_save(config, project_id, [_])
+        except Exception as e:
+            output.exit_code = 1
+            output.update({'msg': str(e)})
 
 
 @file_group.command(name="status")
@@ -143,7 +149,7 @@ def _manifest_upload(config: Config, project_id: str, duplicate_check: bool, upl
             print(f"upload_indexd failed with {e}", file=sys.stderr)
             raise e
 
-        completed_process = upload_files(config=config, project_id=project_id, manifest_entries=manifest_entries, profile=config.gen3.profile, upload_path=upload_path)
+        completed_process = upload_files(config=config, project_id=project_id, manifest_entries=manifest_entries, profile=config.gen3.profile, upload_path=upload_path, overwrite_files=False)
         if completed_process.returncode != 0:
             click.secho(f"upload_files failed with {completed_process.returncode}", fg='red')
             exit(1)

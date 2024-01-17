@@ -46,7 +46,7 @@ def test_init(tmp_path, program, profile):
     print(_)
     assert _['config']['gen3']['project_id'] == project_id
     assert _['config']['gen3']['profile'] == profile
-    assert _['config']['state_dir'] == str(pathlib.Path(PROJECT_DIR) / 'gen3_util')
+    assert _['config']['state_dir'] == str(pathlib.Path(PROJECT_DIR) / 'state')
 
     result = runner.invoke(cli, ['--format', 'json', 'access', 'ls', '--all'])
     assert result.exit_code == 0, f"cmd failed with {result.output}"

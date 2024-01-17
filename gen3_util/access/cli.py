@@ -53,7 +53,7 @@ def sign(config: Config, username: str):
                 submitter_msgs.append(ensure_program_project(config, project_id, auth=auth))
 
             output.update(LogAccess(**{
-                'msg': msg + ' ' + ' '.join(submitter_msgs),
+                'msg': msg + ' ' + '/n'.join(submitter_msgs),
                 'requests': signed_requests,
             }))
 

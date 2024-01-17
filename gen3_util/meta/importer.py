@@ -36,9 +36,9 @@ def md5sum(file_name):
     return md5_hash.hexdigest()
 
 
-@click.command('create')
+@click.command("create")
 @click.argument('output_path')
-@click.option('--project_id', required=True,
+@click.option('--project_id',
               default=None,
               show_default=True,
               help='Gen3 program-project',
@@ -53,6 +53,11 @@ def import_indexd(config: Config, output_path, project_id, overwrite, source):
     """
 
     from gen3_util.meta.skeleton import study_metadata
+
+    if not project_id:
+        project_id = config.gen3.project_id
+    else:
+        config.gen3.project_id = project_id
 
     with CLIOutput(config=config) as output:
         output.update(study_metadata(config=config, project_id=project_id, output_path=output_path,

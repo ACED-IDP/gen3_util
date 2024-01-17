@@ -216,6 +216,7 @@ def clone_project(project_id, profile, tmp_path):
     assert pathlib.Path(tmp_path, project_id, 'META', 'DocumentReference.ndjson').exists()
 
 
+@pytest.mark.skip("deprecated")
 def test_incremental_workflow(program, profile, tmp_path):
     """Test the workflow to create a project in incremental steps."""
 

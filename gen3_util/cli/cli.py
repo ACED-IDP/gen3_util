@@ -13,9 +13,12 @@ from gen3_util.access.cli import access_group
 from gen3_util.buckets.cli import bucket_group
 from gen3_util.cli import StdNaturalOrderGroup, CLIOutput
 from gen3_util.cli.cloner import clone
-from gen3_util.cli.initializer import initialize_project
-from gen3_util.common import print_formatted, LEGACY_PROJECT_DIR
-from gen3_util.config import Config, ensure_auth, gen3_client_profiles
+from gen3_util.cli.committer import commit
+from gen3_util.cli.initializer import initialize_project_server_side
+from gen3_util.cli.pusher import push
+from gen3_util.cli.status import status
+from gen3_util.common import print_formatted
+from gen3_util.config import Config, ensure_auth, gen3_client_profiles, init
 from gen3_util.config.cli import config_group
 from gen3_util.files.cli import file_group
 from gen3_util.jobs.cli import job_group
@@ -38,16 +41,11 @@ def cli(ctx, config, output_format, profile, state_dir):
     if output_format:
         config__.output.format = output_format
 
-    config__.gen3.profiles = gen3_client_profiles()
-
     if profile:
-        if profile not in config__.gen3.profiles:
-            click.secho(f"Profile {profile} not found. Current profiles are: {config__.gen3.profiles}", fg='red')
+        if profile not in gen3_client_profiles():
+            click.secho(f"Profile {profile} not found.", fg='red')
             exit(1)
         config__.gen3.profile = profile
-
-    if not config__.state_dir:
-        state_dir = LEGACY_PROJECT_DIR / 'gen3_util'
 
     if state_dir:
         _ = pathlib.Path(state_dir).expanduser()
@@ -85,8 +83,13 @@ def init_cli(config, project_id: str):
     with (CLIOutput(config=config) as output):
         try:
             _check_parameters(config, project_id)
+            logs = []
+            # create directories
+            for _ in init(config, project_id):
+                logs.append(_)
 
-            logs = initialize_project(config, project_id)
+            # request the project get signed
+            logs.extend(initialize_project_server_side(config, project_id))
 
             output.update({'msg': 'Initialized empty repository', 'logs': logs})
         except AssertionError as e:
@@ -101,7 +104,7 @@ def _check_parameters(config, project_id):
     if not project_id.count('-') == 1:
         raise AssertionError("project_id must be of the form program-project")
     if not config.gen3.profile:
-        raise AssertionError("No profile specified.")
+        click.secho("No profile set. Continuing in disconnected mode. Use `set profile <profile>`", fg='yellow')
 
 
 @cli.command(name='clone')
@@ -116,12 +119,76 @@ def _check_parameters(config, project_id):
 @click.pass_obj
 def clone_cli(config: Config, project_id: str, data_type: str):
     """Clone meta and files from remote."""
+
     with CLIOutput(config=config) as output:
 
         try:
             _check_parameters(config, project_id)
             logs = clone(config, project_id, data_type)
             output.update({'msg': f'Cloned repository {project_id}', 'logs': logs})
+
+        except AssertionError as e:
+            output.update({'msg': str(e)})
+            output.exit_code = 1
+
+
+@cli.command(name='commit')
+@click.argument('staging_dir', type=click.Path(exists=True))
+@click.option('--message', '-m', default=None, required=True, show_default=True,
+              help="Use the given <msg> as the commit message.")
+@click.pass_obj
+def commit_cli(config: Config, staging_dir: str, message: str):
+    """Clone meta and files from remote.
+
+    \b
+    STAGING_DIR: directory containing new meta data files to be committed.
+    """
+    with CLIOutput(config=config) as output:
+        try:
+            assert config.gen3.project_id, "Not in an initialed project directory."
+            project_id = config.gen3.project_id
+            staging_dir = pathlib.Path(staging_dir)
+            _check_parameters(config, project_id)
+            results = commit(config, staging_dir, pathlib.Path().cwd(), message)
+            if not results.message:
+                results.msg = 'Saved committed changes.'
+            output.update(results)
+
+        except AssertionError as e:
+            output.update({'msg': str(e)})
+            output.exit_code = 1
+
+
+@cli.command(name='push')
+@click.option('--overwrite_index', default=False, is_flag=True, required=False, show_default=True,
+              help="overwrite files records in index")
+@click.option('--overwrite_files', default=False, is_flag=True, required=False, show_default=True,
+              help="overwrite files already uploaded")
+@click.option('--restricted_project_id', default=None, required=False, show_default=True,
+              help="extra program-project, restricts access to files to admin only")
+@click.pass_obj
+def push_cli(config: Config, restricted_project_id: str, overwrite_index: bool, overwrite_files: bool):
+    """Submit committed changes to commons."""
+    with CLIOutput(config=config) as output:
+        try:
+            output.update(
+                push(config, restricted_project_id=restricted_project_id, overwrite_index=overwrite_index, overwrite_files=overwrite_files)
+            )
+        except Exception as e:
+            output.update({'msg': str(e)})
+            output.exit_code = 1
+
+
+@cli.command(name="status")
+@click.pass_obj
+def status_cli(config: Config):
+    """Show the working tree status."""
+    with CLIOutput(config=config) as output:
+        try:
+            assert config.gen3.project_id, "Not in an initialed project directory."
+            project_id = config.gen3.project_id
+            _check_parameters(config, project_id)
+            output.update(status(config))
 
         except AssertionError as e:
             output.update({'msg': str(e)})

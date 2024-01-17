@@ -110,6 +110,8 @@ class CLIOutput:
                 _ = self.output.obj
             elif isinstance(self.output.obj, int):
                 _ = {'count': self.output.obj}
+            elif hasattr(self.output.obj, 'model_dump'):
+                _.update(self.output.obj.model_dump())
             else:
                 _.update(self.output.obj.dict())
         rc = self.output.exit_code

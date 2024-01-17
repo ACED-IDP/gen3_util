@@ -52,6 +52,7 @@ def ls(config: Config, mine: bool, active: bool = False, username: str = None, a
     """List requests."""
     if not auth:
         auth = ensure_auth(profile=config.gen3.profile)
+    assert auth, "auth required"
     requests = get_requests(auth=auth, mine=mine, active=active, username=username)
     if not isinstance(requests, list):
         raise Exception(f"Unexpected response: {requests}")

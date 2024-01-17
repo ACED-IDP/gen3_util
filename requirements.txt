@@ -24,8 +24,7 @@ PyYAML>=6.0.1
 
 
 # function caching
-# joblib
-# IO
+diskcache
 
 # FHIR Model
 fhir.resources==7.0.2
@@ -36,3 +35,6 @@ PyJWT==2.8.0
 # for tabular
 deepmerge
 flatten-json
+
+# bundle
+nested_lookup

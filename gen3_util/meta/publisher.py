@@ -1,8 +1,11 @@
 import asyncio
 import json
 import pathlib
+import sys
 
 from gen3.jobs import Gen3Jobs
+
+from gen3_util.common import Push
 from gen3_util.meta.uploader import cp as cp_upload
 
 from gen3_util.config import Config, ensure_auth
@@ -28,4 +31,33 @@ def publish_meta_data(config: Config, meta_data_path: str, ignore_state: bool, p
     else:
         _ = jobs_client.create_job('fhir_import_export', args)
         _ = {'output': json.dumps(_)}
+    return _
+
+
+def publish_commits(config: Config, push: Push, wait: bool = True, auth=None) -> dict:
+    """Publish commits to the portal."""
+    if not auth:
+        auth = ensure_auth(profile=config.gen3.profile)
+    user = auth.curl('/user/user').json()
+
+    for commit in push.commits:
+        upload_result = cp_upload(
+            config, commit.meta_path, config.gen3.project_id, ignore_state=True, auth=auth, user=user
+        )
+        commit.object_id = upload_result['object_id']
+        print(
+            upload_result['msg'],
+            file=sys.stderr
+        )
+
+    jobs_client = Gen3Jobs(auth_provider=auth)
+
+    args = {'push': push.model_dump(), 'project_id': config.gen3.project_id, 'method': 'put'}
+    if wait:
+        _ = asyncio.run(jobs_client.async_run_job_and_wait('fhir_import_export', args))
+        _ = {'output': _}
+    else:
+        _ = jobs_client.create_job('fhir_import_export', args)
+        _ = {'output': _}
+
     return _

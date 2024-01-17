@@ -6,6 +6,7 @@ from urllib.parse import urlparse
 from fhir.resources.coding import Coding
 from fhir.resources.identifier import Identifier
 from fhir.resources.reference import Reference
+from nested_lookup import nested_lookup
 from pydantic import BaseModel
 
 from gen3_util.config import Config
@@ -63,14 +64,32 @@ def validate(config: Config, directory_path: pathlib.Path) -> ValidateDirectoryR
     """Check FHIR data, accumulate results."""
     exceptions = []
     resources = defaultdict(int)
-    print("DIRECTORY PATH: ", directory_path)
-    for parse_result in directory_reader(directory_path):
+    # add resources to bundle
+    references = []
+    ids = []
 
+    for parse_result in directory_reader(directory_path):
         if parse_result.exception:
-            # print('parse_result', parse_result)
             exceptions.append(parse_result)
-        else:
-            resources[parse_result.resource.resource_type] += 1
+            continue
+        _ = parse_result.resource
+        ids.append(f"{_.resource_type}/{_.id}")
+        nested_references = nested_lookup('reference', parse_result.json_obj)
+        # https://www.hl7.org/fhir/medicationrequest-definitions.html#MedicationRequest.medication
+        # is a reference to a Medication resource https://www.hl7.org/fhir/references.html#CodeableReference
+        # so it has a reference.reference form, strip it out
+        nested_references = [_ for _ in nested_references if isinstance(_, str)]
+        references.extend(nested_references)
+        resources[parse_result.resource.resource_type] += 1
+
+    # assert references exist
+    references = set(references)
+    ids = set(ids)
+    if not references.issubset(ids):
+        _ = Exception(f"references not found {references - ids}")
+        _ = ParseResult(resource=None, exception=_, path=directory_path, resource_id=None)
+        exceptions.append(_)
+
     return ValidateDirectoryResult(resources={'summary': dict(resources)}, exceptions=exceptions)
 
 

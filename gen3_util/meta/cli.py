@@ -11,6 +11,7 @@ from gen3.jobs import Gen3Jobs
 from gen3_util.cli import NaturalOrderGroup, CLIOutput
 from gen3_util.common import unzip_collapse
 from gen3_util.config import Config, ensure_auth
+from gen3_util.meta.bundler import meta_to_bundle
 from gen3_util.meta.delta import get as delta_get
 from gen3_util.meta.downloader import cp as cp_download
 from gen3_util.meta.importer import import_indexd
@@ -161,6 +162,21 @@ def meta_validate(config: Config, directory):
     """Validate FHIR data"""
     with CLIOutput(config) as output:
         output.update(validate(config, directory))
+
+
+@meta_group.command(name="bundle")
+@click.argument('directory', type=click.Path(exists=True))
+@click.argument('gz_file_path', type=click.Path(file_okay=True, dir_okay=False, writable=True))
+@click.pass_obj
+def meta_bundle(config: Config, directory, gz_file_path):
+    """Bundle FHIR data into zip file
+
+    \b
+    directory: meta_data directory
+    output_file: zip file
+    """
+    with CLIOutput(config) as output:
+        output.update(meta_to_bundle(config, config.gen3.project_id, pathlib.Path(directory), pathlib.Path(gz_file_path)))
 
 
 @meta_group.command(name="push")

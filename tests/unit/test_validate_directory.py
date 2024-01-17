@@ -8,20 +8,20 @@ def test_validate_directory_files(directory_path=pathlib.Path('tests/fixtures/va
     """Ensure valid json rendered from files."""
     results = validate(None, directory_path)
     assert len(results.exceptions) == 0, f"Did not expect exceptions {results.exceptions}"
-    assert sum([_ for _ in results.resources['summary'].values()]) == 5, f"Expected 5 resources {results.resources}"
+    assert sum([_ for _ in results.resources['summary'].values()]) == 8, f"Expected 8 resources {results.resources}"
 
 
 def test_validate_directory_zips(directory_path=pathlib.Path('tests/fixtures/valid-zips')):
     """Ensure valid json rendered from gz."""
     results = validate(None, directory_path)
     assert len(results.exceptions) == 0, f"Did not expect exceptions {results.exceptions}"
-    assert sum([_ for _ in results.resources['summary'].values()]) == 5, f"Expected 5 resources {results.resources}"
+    assert sum([_ for _ in results.resources['summary'].values()]) == 8, f"Expected 8 resources {results.resources}"
 
 
 def test_validate_invalid_files(directory_path=pathlib.Path('tests/fixtures/invalid-files')):
     """Ensure invalid json is captured."""
     results = validate(None, directory_path)
-    assert len(results.exceptions) == 3, f"Expected exceptions {results.exceptions}"
+    assert len(results.exceptions) == 4, f"Expected exceptions {results.exceptions}"
 
 
 def test_validate_pattern(directory_path=pathlib.Path('tests/fixtures/valid-files'), pattern="bundle.json"):

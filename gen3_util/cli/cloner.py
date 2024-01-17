@@ -27,7 +27,6 @@ def clone(config: Config, project_id: str, data_type: str = 'all') -> list[str]:
     for _ in init(config, project_id):
         logs.append(_)
     meta_data_path = pathlib.Path(path) / 'META'
-    data_path = pathlib.Path(path) / 'DATA'
     assert meta_data_path.exists(), f"Directory {meta_data_path} does not exist."
 
     auth = ensure_auth(profile=config.gen3.profile)
@@ -74,7 +73,8 @@ def clone(config: Config, project_id: str, data_type: str = 'all') -> list[str]:
         manifest_file = config.state_dir / f"manifest-{download_meta['did']}.json"
         with manifest_file.open('w') as fp:
             json.dump(manifest, fp, indent=2, default=str)
-        # download the manifest
+        # download files using the manifest created above
+        data_path = pathlib.Path(path)
         cmd = f"gen3-client download-multiple --manifest {manifest_file.absolute()} --profile {config.gen3.profile} --download-path {data_path} --no-prompt  --skip-completed --numparallel {worker_count()}"
         logs.append(cmd)
         download_results = subprocess.run(cmd.split(), capture_output=False, stdout=sys.stderr)

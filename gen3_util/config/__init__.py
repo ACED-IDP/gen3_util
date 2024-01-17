@@ -86,8 +86,7 @@ def _get_gen3_client_key(path: pathlib.Path, profile: str = None) -> str:
     for section in gen3_util_ini.sections():
         if section == profile:
             return gen3_util_ini[section]['api_key']
-    click.secho(f"no profile '{profile}' found in {path}, specify one of {gen3_util_ini.sections()}, optionally set environmental variable: GEN3_UTIL_PROFILE", fg='red', err=True)
-    exit(1)
+    click.secho(f"no profile '{profile}' found in {path}, specify one of {gen3_util_ini.sections()}, optionally set environmental variable: GEN3_UTIL_PROFILE", fg='yellow')
 
 
 def ensure_auth(refresh_file: [pathlib.Path, str] = None, validate: bool = False, profile: str = None) -> Gen3Auth:
@@ -108,6 +107,9 @@ def ensure_auth(refresh_file: [pathlib.Path, str] = None, validate: bool = False
         elif 'ACCESS_TOKEN' in os.environ:
             auth = Gen3Auth(refresh_file=f"accesstoken:///{os.getenv('ACCESS_TOKEN')}")
         elif gen_client_ini_path().exists():
+            if not profile:
+                # in disconnected mode
+                return None
             # https://github.com/uc-cdis/gen3sdk-python/blob/master/gen3/auth.py#L190-L191
             key = _get_gen3_client_key(gen_client_ini_path(), profile=profile)
             msg = key_expired_msg(key, key_name=profile, expiration_threshold_days=10)
@@ -208,20 +210,31 @@ def init(config: Config, project_id: str) -> Generator[str, None, None]:
     assert project_id, "project_id is missing"
     assert project_id.count('-') == 1, f"{project_id} should have a single '-' delimiter."
 
+    existing_dirs = []
     for _ in PROJECT_DIRECTORIES:
-        assert not pathlib.Path(_).exists(), f"Already initialized. Directory ({_} already exists)"
+        if pathlib.Path(_).exists():
+            existing_dirs.append(_)
         pathlib.Path(_).mkdir(exist_ok=True)
 
-    yield f"Created project directories {PROJECT_DIRECTORIES}"
+    if existing_dirs:
+        yield f"Directory already exists {existing_dirs}"
+    else:
+        yield f"Created project directories {PROJECT_DIRECTORIES}"
 
     config.gen3.project_id = project_id
-    config.state_dir = pathlib.Path('.g3t') / 'gen3_util'
+    config.state_dir = pathlib.Path('.g3t') / 'state'
     config.state_dir.mkdir(parents=True, exist_ok=True)
 
-    if not config.gen3.profile:
-        yield "WARNING No profile specified."
-
     config_file = pathlib.Path(PROJECT_DIR) / 'config.yaml'
-    with open(config_file, 'w') as f:
-        yaml.dump(config.model_dump(), f)
-    yield f"Created project configuration file={config_file} project_id={config.gen3.project_id} profile={config.gen3.profile}"
+    if not config_file.exists():
+        with open(config_file, 'w') as f:
+            yaml.dump(config.model_dump(), f)
+        yield f"Created project configuration file={config_file} project_id={config.gen3.project_id} profile={config.gen3.profile}"
+    else:
+        updated_config = yaml.load(open(config_file), Loader=yaml.SafeLoader)
+        updated_config = Config(**updated_config)
+        updated_config.gen3.project_id = project_id
+        updated_config.gen3.profile = config.gen3.profile
+        with open(config_file, 'w') as f:
+            yaml.dump(updated_config.model_dump(), f)
+        yield f"Updated project configuration file={config_file} project_id={config.gen3.project_id} profile={config.gen3.profile}"

@@ -12,10 +12,12 @@ from urllib.parse import urlparse
 
 import orjson
 import requests
+from gen3.index import Gen3Index
 from pydantic.json import pydantic_encoder
 
 from gen3_util.buckets import get_program_bucket
-from gen3_util.config import Config, gen3_services
+from gen3_util.common import Commit
+from gen3_util.config import Config, gen3_services, ensure_auth
 from gen3_util.files import get_mime_type
 from gen3_util.files.uploader import _normalize_file_url
 from gen3_util import ACED_NAMESPACE
@@ -25,10 +27,13 @@ from tqdm import tqdm
 logger = logging.getLogger(__name__)
 
 
-def _get_connection(config: Config):
+def _get_connection(config: Config, commit_id: str = None):
     """Return sqlite connection, ensure table exists."""
     config.state_dir.mkdir(parents=True, exist_ok=True)
-    _connection = sqlite3.connect(config.state_dir / 'manifest.sqlite')
+    sqllite_path = config.state_dir / 'manifest.sqlite'
+    if commit_id:
+        sqllite_path = config.state_dir / config.gen3.project_id / 'commits' / commit_id / 'manifest.sqlite'
+    _connection = sqlite3.connect(sqllite_path)
     with _connection:
         _connection.execute('CREATE TABLE if not exists manifest (object_id PRIMARY KEY, project_id Text, entity Text)')
     return _connection
@@ -75,9 +80,9 @@ def save(config: Config, project_id: str, generator):
                                  ) for _ in generator])
 
 
-def ls(config: Config, project_id: str, object_id: str = None):
+def ls(config: Config, project_id: str, object_id: str = None, commit_id: str = None):
     """Read from local sqlite."""
-    connection = _get_connection(config)
+    connection = _get_connection(config, commit_id=commit_id)
     with connection:
         cursor = connection.cursor()
         if object_id:
@@ -87,7 +92,13 @@ def ls(config: Config, project_id: str, object_id: str = None):
         return [orjson.loads(_[0]) for _ in cursor.fetchall()]
 
 
-def _write_indexd(index_client, project_id: str, manifest_item: dict, bucket_name: str, duplicate_check: bool, restricted_project_id: str) -> bool:
+def _write_indexd(index_client,
+                  project_id: str,
+                  manifest_item: dict,
+                  bucket_name: str,
+                  duplicate_check: bool,
+                  restricted_project_id: str,
+                  existing_records: list[str] = []) -> bool:
     """Write manifest entry to indexd."""
     manifest_item['project_id'] = project_id
     program, project = project_id.split('-')
@@ -98,19 +109,14 @@ def _write_indexd(index_client, project_id: str, manifest_item: dict, bucket_nam
 
     if duplicate_check:
         try:
-            existing_record = index_client.get_record(guid=manifest_item["object_id"])
+            existing_record = manifest_item["object_id"] in existing_records
         except Exception:  # noqa
             pass
         if existing_record:
-            md5_match = existing_record['hashes']['md5'] == manifest_item['md5']
-            if md5_match:
-                # SYNC
-                logger.debug(f"Deleting existing record {manifest_item['object_id']}")
-                index_client.delete_record(guid=manifest_item['object_id'])
-                existing_record = None
-            else:
-                logger.info(
-                    f"NOT DELETING, MD5 didn't match existing record {manifest_item['object_id']} existing_record_md5:{existing_record['hashes']['md5']} manifest_md5:{manifest_item['md5']}")
+            # SYNC
+            logger.debug(f"Deleting existing record {manifest_item['object_id']}")
+            index_client.delete_record(guid=manifest_item['object_id'])
+            existing_record = False
 
     authz = [f'/programs/{program}/projects/{project}']
     if restricted_project_id:
@@ -158,6 +164,41 @@ def create_hashes_metadata(manifest_item, program, project):
 def worker_count():
     """Return number of workers for multiprocessing."""
     return multiprocessing.cpu_count() - 1
+
+
+def upload_commit_to_indexd(config: Config, commit: Commit, overwrite_index: bool = False,
+                            restricted_project_id: str = None, auth=None) -> list[dict]:
+    """Save manifest to indexd, returns list of manifest entries"""
+    if restricted_project_id:
+        assert restricted_project_id.count('-') == 1, f"{restricted_project_id} should have a single '-' delimiter."
+    if not auth:
+        auth = ensure_auth(profile=config.gen3.profile)
+
+    program, project = config.gen3.project_id.split('-')
+    bucket_name = get_program_bucket(config, program, auth=auth)
+    assert bucket_name, f"could not find bucket for {program}"
+    index_client = Gen3Index(auth_provider=auth)
+    _generator = ls(config, project_id=config.gen3.project_id, commit_id=commit.commit_id)
+    # see if there are existing records
+    dids = [_['object_id'] for _ in _generator]
+    existing_records = index_client.get_records(dids=dids)
+    if existing_records:
+        existing_records = [_['did'] for _ in existing_records]
+    print(f"Found {len(existing_records)} existing records")
+    manifest_entries = []
+    for manifest_item in tqdm(_generator):
+        _ = _write_indexd(
+            index_client=index_client,
+            project_id=config.gen3.project_id,
+            manifest_item=manifest_item,
+            bucket_name=bucket_name,
+            duplicate_check=overwrite_index,
+            restricted_project_id=restricted_project_id,
+            existing_records=existing_records
+        )
+        assert _, "Expected a result from _write_indexd"
+        manifest_entries.append(manifest_item)
+    return manifest_entries
 
 
 def upload_indexd(config: Config, project_id: str, object_id: str = None, duplicate_check: bool = False,
@@ -216,7 +257,8 @@ def upload_indexd(config: Config, project_id: str, object_id: str = None, duplic
     return manifest_entries
 
 
-def upload_files(config: Config, manifest_entries: list[dict], project_id: str, profile: str, upload_path: str) -> subprocess.CompletedProcess:
+def upload_files(config: Config, manifest_entries: list[dict], project_id: str, profile: str, upload_path: str,
+                 overwrite_files: bool, auth=None) -> subprocess.CompletedProcess:
     """Upload files to gen3 via gen3-client."""
 
     assert project_id, "project_id is missing"
@@ -225,7 +267,9 @@ def upload_files(config: Config, manifest_entries: list[dict], project_id: str, 
 
     assert profile, "profile is missing"
 
-    file_client, index_client, user, auth = gen3_services(config=config)
+    if not auth:
+        auth = ensure_auth(profile=profile)
+
     bucket_name = get_program_bucket(config, program, auth=auth)
     assert bucket_name, f"could not find bucket for {program}"
 
@@ -234,6 +278,7 @@ def upload_files(config: Config, manifest_entries: list[dict], project_id: str, 
     with open(manifest_path, 'w') as manifest_file:
         json.dump(manifest_entries, manifest_file)
 
+    assert upload_path, "upload_path is missing"
     cmd = f"gen3-client upload-multiple --manifest {manifest_path} --profile {profile} --upload-path {upload_path} --bucket {bucket_name} --numparallel {worker_count()}"
     print(f"Running: {cmd}", file=sys.stderr)
     cmd = cmd.split()

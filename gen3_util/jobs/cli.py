@@ -71,25 +71,21 @@ def get(config: Config, job_id):
     except HTTPError as e:
         status['msg'] = str(e)
 
-    completed = True
     if 'status' not in status:
         status['msg'] = "Job not found"
-        completed = False
     else:
         if status['status'].lower() != 'completed':
             status['msg'] = f"Job {job_id} is not complete, status: {status['status']}"
-            completed = False
 
-    if completed:
-        _ = jobs_client.get_output(job_id)
+    _ = jobs_client.get_output(job_id)
 
-        if 'output' not in _:
-            status['msg'] = f"Job output not found  (raw): {_}"
-        else:
-            try:
-                status['output'] = json.loads(_['output'])
-            except JSONDecodeError:
-                status['output'] = _['output']
+    if 'output' not in _:
+        status['msg'] = f"Job output not found  (raw): {_}"
+    else:
+        try:
+            status['output'] = json.loads(_['output'])
+        except JSONDecodeError:
+            status['output'] = _['output']
 
     with CLIOutput(config=config) as output:
         output.update(status)
