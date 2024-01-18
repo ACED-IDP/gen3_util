@@ -9,7 +9,7 @@ from fhir.resources.bundle import Bundle, BundleEntry
 import gen3_util.files.manifest
 from gen3_util.cli.initializer import initialize_project_server_side
 from gen3_util.common import create_id
-from gen3_util.config import ensure_auth
+from gen3_util.config import ensure_auth, init
 from gen3_util.meta import directory_reader
 from gen3_util.meta.skeleton import study_metadata
 
@@ -21,6 +21,7 @@ def test_init_project(config, program, tmp_path):
 
     # navigate to tmp_path
     os.chdir(tmp_path)
+
     auth = ensure_auth(profile=config.gen3.profile)
 
     # create project
@@ -54,10 +55,15 @@ def test_init_project(config, program, tmp_path):
 def test_bundle(config, program, tmp_path):
     """Serialize and validate a bundle."""
 
+    # navigate to tmp_path
+    os.chdir(tmp_path)
+
     # create project
     guid = str(uuid.uuid4())
     project_id = f'{program}-TEST_COMMIT_{guid.replace("-", "_")}'
     config.gen3.project_id = project_id
+    for _ in init(config, project_id):
+        print(_)
 
     # add a file, associated with a patient
     file_size = 1024

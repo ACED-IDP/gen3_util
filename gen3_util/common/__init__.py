@@ -7,7 +7,8 @@ import shutil
 import uuid
 import zipfile
 from datetime import datetime
-from typing import Mapping, Iterator, Dict, TextIO
+from hashlib import md5
+from typing import Mapping, Iterator, Dict, TextIO, Generator
 from urllib.parse import urlparse
 
 import orjson
@@ -193,6 +194,7 @@ def to_resource_path(project_id):
 
 def unzip_collapse(zip_file, extract_to):
     """Unzip a file, collapse the directory structure."""
+    c = 0
     with zipfile.ZipFile(zip_file, 'r') as zip_ref:
         for file_info in zip_ref.infolist():
             if file_info.is_dir():
@@ -201,6 +203,8 @@ def unzip_collapse(zip_file, extract_to):
             extracted_path = os.path.join(extract_to, filename)
             with zip_ref.open(file_info.filename) as source, open(extracted_path, 'wb') as target:
                 shutil.copyfileobj(source, target)
+            c += 1
+    assert c > 0, f"no files extracted from {zip_file}"
 
 
 def calc_md5(file_path, md5_hash):
@@ -319,7 +323,34 @@ class Push(BaseModel):
         if not pending_path.exists():
             return pending
         for _ in read_ndjson_file(pending_path):
-            for line in open(commits_dir / _['commit_id'] / 'meta-index.ndjson').readlines():
-                line = orjson.loads(line)
-                pending.append({'id': line['id'], 'resourceType': line['resourceType']})
+            with open(commits_dir / _['commit_id'] / 'meta-index.ndjson') as fp:
+                for line in fp.readlines():
+                    pending.append(orjson.loads(line))
         return pending
+
+
+def dict_md5(resource: dict) -> str:
+    """Return the md5 of the dict."""
+    return md5(orjson.dumps(resource, option=orjson.OPT_SORT_KEYS)).hexdigest()
+
+
+def write_meta_index(index_path: pathlib.Path, source_path: pathlib.Path) -> pathlib.Path:
+    """Write an index of ids and hashes from a path containing ndjson files.
+    """
+    index_path = index_path / 'meta-index.ndjson'
+    with open(index_path, 'w') as fp:
+        for _ in sorted(source_path.glob("*.ndjson")):
+            for resource in read_ndjson_file(_):
+                _ = {'id': resource['id'], 'resourceType': resource['resourceType'], 'md5': dict_md5(resource)}
+                fp.write(orjson.dumps(_).decode())
+                fp.write('\n')
+    return index_path
+
+
+def read_meta_index(index_path: pathlib.Path) -> Generator[dict, None, None]:
+    """Read an index of ids and hashes from a path containing ndjson files.
+    """
+    index_path = index_path / 'meta-index.ndjson'
+    with open(index_path, 'r') as fp:
+        for line in fp.readlines():
+            yield orjson.loads(line)

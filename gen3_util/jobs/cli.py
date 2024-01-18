@@ -6,7 +6,7 @@ import click
 from gen3.jobs import Gen3Jobs
 from requests import HTTPError
 
-from gen3_util.cli import CLIOutput
+from gen3_util.cli import CLIOutput, ENV_VARIABLE_PREFIX
 from gen3_util.cli import NaturalOrderGroup
 from gen3_util.config import Config, ensure_auth
 from gen3_util.jobs.lister import ls
@@ -29,7 +29,7 @@ def project_ls(config: Config):
 
 @job_group.command('import')
 @click.option('--project_id', default=None, show_default=True,
-              help="Gen3 program-project", envvar='PROJECT_ID')
+              help="Gen3 program-project", envvar=f"{ENV_VARIABLE_PREFIX}PROJECT_ID")
 @click.argument('object_id')
 @click.pass_obj
 def import_meta(config: Config, project_id: str, object_id: str):

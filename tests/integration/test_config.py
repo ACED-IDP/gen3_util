@@ -5,5 +5,5 @@ from gen3_util.cli.cli import cli
 def test_config_ls(caplog):
     """Ensure we can ls access."""
     runner = CliRunner()
-    result = runner.invoke(cli, ['config', 'ls'])
+    result = runner.invoke(cli, ['utilities', 'config', 'ls'])
     assert result.exit_code == 0

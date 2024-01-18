@@ -184,7 +184,7 @@ def add_policies(config: Config, project_id: str, auth: Gen3Auth = None) -> LogA
         requests.append(cp(request=policy, config=config, auth=auth).request)
         request_ids.append(requests[-1]['request_id'])
 
-    commands = ["gen3_util access sign"]
+    commands = ["g3t utilities access sign"]
     msg = f"An authorized user must approve these requests to assign default policies to {project_id}"
     return LogAccess(**{
         'requests': requests,

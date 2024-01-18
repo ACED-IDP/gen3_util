@@ -37,7 +37,9 @@ def push(config: Config,
             restricted_project_id=restricted_project_id,
             auth=auth
         )
-        assert len(manifest_entries) > 0, "No manifest entries uploaded to ."
+        # if len(manifest_entries) == 0:
+        #     print(f"INFO No files to upload for {commit.commit_id}", file=sys.stderr)
+
         print(
             f"Indexed {len(manifest_entries)} files",
             file=sys.stderr

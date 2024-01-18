@@ -2,11 +2,12 @@ import json
 import os
 import sys
 from json import JSONDecodeError
+from pathlib import Path
 
 import click
 from requests import HTTPError
 
-from gen3_util.cli import CLIOutput
+from gen3_util.cli import CLIOutput, ENV_VARIABLE_PREFIX
 from gen3_util.cli import NaturalOrderGroup
 from gen3_util.config import Config
 from gen3_util.files.lister import ls
@@ -28,8 +29,8 @@ def file_group(config):
 @click.pass_obj
 @click.option('--object_id', default=None, required=False, show_default=True,
               help="id of the object in the indexd database")
-@click.option('--project_id', default=None, required=True, show_default=True,
-              help="Gen3 program-project", envvar='PROJECT_ID')
+@click.option('--project_id', default=None, required=None, show_default=True,
+              help="Gen3 program-project", envvar=f"{ENV_VARIABLE_PREFIX}PROJECT_ID")
 @click.option('--specimen_id', default=None, required=False, show_default=True,
               help="fhir specimen identifier", envvar='SPECIMEN_ID')
 @click.option('--patient_id', default=None, required=False, show_default=True,
@@ -39,11 +40,15 @@ def file_group(config):
 @click.option('--task_id', default=None, required=False, show_default=True,
               help="fhir task identifier", envvar='TASK_ID')
 @click.option('--is_metadata', default=False, is_flag=True, required=False, show_default=True,
-              help="Meta data extract",)
+              help="Meta data",)
+@click.option('--is_snapshot', default=False, is_flag=True, required=False, show_default=True,
+              help="Meta data",)
 @click.option('--md5', default=None, required=False, show_default=True,
               help="file's md5")
-def files_ls(config: Config, object_id: str, project_id: str, specimen_id: str, patient_id: str, observation_id: str, task_id: str, md5: str, is_metadata: bool):
+def files_ls(config: Config, object_id: str, project_id: str, specimen_id: str, patient_id: str, observation_id: str, task_id: str, md5: str, is_metadata: bool, is_snapshot: bool):
     """List uploaded files in a project bucket."""
+    if not project_id:
+        project_id = config.gen3.project_id
     with CLIOutput(config=config) as output:
         _ = {}
         if project_id:
@@ -60,14 +65,16 @@ def files_ls(config: Config, object_id: str, project_id: str, specimen_id: str, 
             _['md5'] = md5
         if is_metadata:
             _['is_metadata'] = is_metadata
+        if is_snapshot:
+            _['is_snapshot'] = is_snapshot
         output.update(ls(config, object_id=object_id, metadata=_))
 
 
 @file_group.command(name="add")
-@click.argument('local_path', )
-@click.argument('remote_path', required=False, default=None)
+@click.argument('local_path', type=click.Path(exists=True, dir_okay=False))
+# @click.argument('remote_path', required=False, default=None)
 @click.option('--project_id', default=None, required=False, show_default=True,
-              help="Gen3 program-project", envvar='PROJECT_ID')
+              help="Gen3 program-project", envvar=f"{ENV_VARIABLE_PREFIX}PROJECT_ID", hidden=True)
 # @click.option('--source_path', required=False, default=None, show_default=True,
 #               help='Path on local file system')
 @click.option('--specimen_id', default=None, required=False, show_default=True,
@@ -81,17 +88,20 @@ def files_ls(config: Config, object_id: str, project_id: str, specimen_id: str, 
 @click.option('--md5', default=None, required=False, show_default=True,
               help="MD5 sum, if not provided, will be calculated before upload")
 @click.pass_obj
-def _manifest_put(config: Config, local_path: str, remote_path: str, project_id: str, md5: str,
-                  specimen_id: str, patient_id: str, observation_id: str, task_id: str):
-    """Add file to the working index.
+def manifest_put_cli(config: Config, local_path: str, project_id: str, md5: str,
+                     specimen_id: str, patient_id: str, observation_id: str, task_id: str):
+    """Add file to the index.
 
     \b
-    local_path: path to file on local file system
-    remote_path: name of the file in bucket, defaults to local_path
+    local_path: relative path to file or symbolic link on the local file system
     """
-
+    # TODO deprecate `remote_path` insist on relative paths
     with CLIOutput(config=config) as output:
         try:
+            assert Path('.g3t').exists(), "Please add files from the project root directory."
+            assert Path(local_path).absolute().is_relative_to(Path.cwd().absolute()), \
+                f"{local_path} must be relative to the project root, please move the file or create a symbolic link"
+
             if not project_id:
                 project_id = config.gen3.project_id
             _ = manifest_put(config, local_path, project_id=project_id, md5=md5)
@@ -99,7 +109,7 @@ def _manifest_put(config: Config, local_path: str, remote_path: str, project_id:
             _['patient_id'] = patient_id
             _['specimen_id'] = specimen_id
             _['task_id'] = task_id
-            _['remote_path'] = remote_path
+            _['remote_path'] = None
             output.update(_)
             manifest_save(config, project_id, [_])
         except Exception as e:
@@ -109,12 +119,12 @@ def _manifest_put(config: Config, local_path: str, remote_path: str, project_id:
 
 @file_group.command(name="status")
 @click.option('--project_id', default=None, required=False, show_default=True,
-              help="Gen3 program-project", envvar='PROJECT_ID')
+              help="Gen3 program-project", envvar=f"{ENV_VARIABLE_PREFIX}PROJECT_ID")
 @click.option('--object_id', default=None, required=False, show_default=True,
               help="file id")
 @click.pass_obj
 def _manifest_ls(config: Config, project_id: str, object_id: str):
-    """List files in working index.
+    """List files in index.
     """
 
     with CLIOutput(config=config) as output:
@@ -124,7 +134,7 @@ def _manifest_ls(config: Config, project_id: str, object_id: str):
 
 @file_group.command(name="push")
 @click.option('--project_id', default=None, required=False, show_default=True,
-              help="Gen3 program-project authorization", envvar='PROJECT_ID')
+              help="Gen3 program-project authorization", envvar=f"{ENV_VARIABLE_PREFIX}PROJECT_ID")
 @click.option('--restricted_project_id', default=None, required=False, show_default=True,
               help="Gen3 program-project, additional authorization", envvar='RESTRICTED_PROJECT_ID')
 @click.option('--upload-path', default='.', show_default=True, help="gen3-client upload path")
@@ -134,7 +144,7 @@ def _manifest_ls(config: Config, project_id: str, object_id: str):
 @click.option('--wait', default=False, is_flag=True, show_default=True, help="Wait for metadata completion.")
 @click.pass_obj
 def _manifest_upload(config: Config, project_id: str, duplicate_check: bool, upload_path: str, manifest_path: str, restricted_project_id: str, meta_data: bool, wait: bool):
-    """Upload working index to project bucket.
+    """Upload index to project bucket.
 
     """
 
@@ -172,14 +182,14 @@ def _manifest_upload(config: Config, project_id: str, duplicate_check: bool, upl
 @click.option('--local', default=False, required=False, show_default=True, is_flag=True,
               help="Remove file only from local project.")
 @click.option('--project_id', default=None, required=False, show_default=True,
-              help="Gen3 program-project", envvar='PROJECT_ID')
+              help="Gen3 program-project", envvar=f"{ENV_VARIABLE_PREFIX}PROJECT_ID")
 @click.option('--object_id', default=None, required=False, show_default=True,
               help="file UUID", envvar='OBJECT_ID')
 @click.option('--local_path', default=None, required=False, show_default=True,
               help="file local path")
 @click.pass_obj
 def files_rm(config: Config, object_id: str, local: bool, project_id: str, local_path: str):
-    """Remove files from the working index or project bucket."""
+    """Remove files from the index or project bucket."""
     with CLIOutput(config=config) as output:
         try:
             if not local:
@@ -199,7 +209,7 @@ def files_rm(config: Config, object_id: str, local: bool, project_id: str, local
 # Hidden commands ............................................................
 @file_group.command(name="export", hidden=True)
 @click.option('--project_id', default=None, required=False, show_default=True,
-              help="Gen3 program-project", envvar='PROJECT_ID')
+              help="Gen3 program-project", envvar=f"{ENV_VARIABLE_PREFIX}PROJECT_ID")
 @click.option('--object_id', default=None, required=False, show_default=True, help="file UUID", envvar='OBJECT_ID')
 @click.pass_obj
 def manifest_export(config: Config, project_id: str, object_id: str):

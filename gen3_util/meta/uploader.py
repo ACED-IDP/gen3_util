@@ -72,7 +72,15 @@ def _validate_parameters(from_: str) -> pathlib.Path:
     return from_
 
 
-def cp(config: Config, from_: str, project_id: str, ignore_state: bool, auth=None, user=None, object_name=None):
+def cp(config: Config,
+       from_: str,
+       project_id: str,
+       ignore_state: bool,
+       auth=None,
+       user=None,
+       object_name=None,
+       metadata: dict = {}
+       ):
     """Copy meta to bucket, used by etl_pod job"""
     from_ = _validate_parameters(str(from_))
     if not isinstance(from_, pathlib.Path):
@@ -83,8 +91,12 @@ def cp(config: Config, from_: str, project_id: str, ignore_state: bool, auth=Non
 
     index_client = Gen3Index(auth_provider=auth)
     file_client = Gen3File(auth_provider=auth)
-    if not user:
-        user = auth.curl('/user/user').json()
+
+    metadata = dict({'submitter': None, 'metadata_version': '0.0.1', 'is_metadata': True} | metadata)
+    if not metadata['submitter']:
+        if not user:
+            user = auth.curl('/user/user').json()
+        metadata['submitter'] = user['name']
 
     program, project = project_id.split('-')
 
@@ -94,7 +106,7 @@ def cp(config: Config, from_: str, project_id: str, ignore_state: bool, auth=Non
     with tempfile.TemporaryDirectory() as temp_dir:
         if from_.is_dir():
             temp_dir = pathlib.Path(temp_dir)
-            # TODO - use a better name, add timestamp instead of random
+
             if not object_name:
                 now = datetime.now().strftime("%Y%m%d-%H%M%S")
                 object_name = f'_{project_id}-{now}_meta.zip'
@@ -121,7 +133,7 @@ def cp(config: Config, from_: str, project_id: str, ignore_state: bool, auth=Non
             object_name,
             program,
             project,
-            {'metadata_submitter': user['username'], 'metadata_version': '0.0.1', 'is_metadata': True},
+            metadata,
             stat.st_size
         )
 

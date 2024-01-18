@@ -1,7 +1,7 @@
 import click
 
 from gen3_util.access.requestor import add_policies
-from gen3_util.cli import CLIOutput
+from gen3_util.cli import CLIOutput, ENV_VARIABLE_PREFIX
 from gen3_util.cli import NaturalOrderGroup
 from gen3_util.common import validate_project_id
 from gen3_util.config import Config, ensure_auth
@@ -18,7 +18,7 @@ def project_group(config: Config):
 
 @project_group.command(name="new")
 @click.option('--project_id', default=None, show_default=True,
-              help="Gen3 program-project", envvar='PROJECT_ID')
+              help="Gen3 program-project", envvar=f"{ENV_VARIABLE_PREFIX}PROJECT_ID")
 @click.pass_obj
 def new_project(config: Config, project_id: str):
     """Creates project resource with default policies.
@@ -51,7 +51,7 @@ def project_ls(config: Config, full: bool):
 
 @project_group.command(name="rm")
 @click.option('--project_id', default=None, show_default=True,
-              help="Gen3 program-project", envvar='PROJECT_ID')
+              help="Gen3 program-project", envvar=f"{ENV_VARIABLE_PREFIX}PROJECT_ID")
 @click.pass_obj
 def project_rm(config: Config, project_id: str):
     """Remove project.

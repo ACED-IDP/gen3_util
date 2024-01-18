@@ -4,7 +4,6 @@ from functools import lru_cache
 from gen3.index import Gen3Index
 from gen3.submission import Gen3Submission
 
-from gen3_util.common import Push
 from gen3_util.config import Config, gen3_services
 
 
@@ -17,6 +16,8 @@ def ls(config: Config, object_id: str = None, metadata: dict = {}, auth=None):
 
     if metadata.get('is_metadata', False):
         metadata['is_metadata'] = 'true'
+    if metadata.get('is_snapshot', False):
+        metadata['is_snapshot'] = 'true'
 
     if object_id:
         if ',' in object_id:
@@ -49,7 +50,7 @@ def ls(config: Config, object_id: str = None, metadata: dict = {}, auth=None):
 
 
 def meta_nodes(config: Config, project_id: str, auth, gen3_type: str = 'document_reference'):
-    """Retrieve all the nodes in a project."""
+    """Retrieve the id, type for all nodes in a project from the remote and local commits."""
 
     if not auth:
         # disconnected mode
@@ -73,8 +74,6 @@ def meta_nodes(config: Config, project_id: str, auth, gen3_type: str = 'document
             break
         _nodes.extend(response['data']['node'])
         offset += batch_size
-
-    _nodes.extend(Push(config=config).pending_meta_index())
 
     return _nodes
 

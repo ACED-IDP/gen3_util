@@ -1,3 +1,4 @@
+import sys
 
 from gen3.jobs import Gen3Jobs
 
@@ -29,6 +30,7 @@ def status(config: Config, auth=None) -> list[str]:
             'commit_id': _['commit_id'],
             'message': _['message'],
             'resource_counts': _['resource_counts'],
+            'manifest_files': [mf for mf in _['manifest']],
          } for _ in pending_commits
     ]
     remote = counts(config, auth=auth)
@@ -47,9 +49,12 @@ def status(config: Config, auth=None) -> list[str]:
                 with Cache(cache_path) as cache:
                     job = cache.get(push.published_job['output']['uid'])
                     if not job:
-                        job = jobs_client.get_status(push.published_job['output']['uid'])
-                        if job and 'status' in job and job['status'] not in INCOMPLETE_STATUSES:
-                            cache.set(push.published_job['output']['uid'], job)
+                        try:
+                            job = jobs_client.get_status(push.published_job['output']['uid'])
+                            if job and 'status' in job and job['status'] not in INCOMPLETE_STATUSES:
+                                cache.set(push.published_job['output']['uid'], job)
+                        except Exception as e:
+                            print(f"Warning: {e}", file=sys.stderr)
 
                 if job and 'status' in job:
                     push.published_job['output']['status'] = job['status']

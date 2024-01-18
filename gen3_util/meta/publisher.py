@@ -42,7 +42,13 @@ def publish_commits(config: Config, push: Push, wait: bool = True, auth=None) ->
 
     for commit in push.commits:
         upload_result = cp_upload(
-            config, commit.meta_path, config.gen3.project_id, ignore_state=True, auth=auth, user=user
+            config=config,
+            from_=commit.meta_path,
+            project_id=config.gen3.project_id,
+            ignore_state=True,
+            auth=auth,
+            user=user,
+            metadata={'message': commit.message, 'is_commit': True}
         )
         commit.object_id = upload_result['object_id']
         print(

@@ -5,6 +5,7 @@ from typing import Union
 
 import pydantic
 from pydantic import BaseModel
+
 ACED_NAMESPACE = uuid.uuid3(uuid.NAMESPACE_DNS, 'aced-ipd.org')
 
 
@@ -69,7 +70,7 @@ class Config(BaseModel):
     """output setup"""
     gen3: Gen3Config = Gen3Config()
     """gen3 setup"""
-    state_dir: pathlib.Path = pathlib.Path('~/.gen3/gen3-util-state').expanduser()
+    state_dir: pathlib.Path = None
     """retry state for file transfer"""
 
     def model_dump(self):

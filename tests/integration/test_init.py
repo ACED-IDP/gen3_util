@@ -40,7 +40,7 @@ def test_init(tmp_path, program, profile):
     for _ in PROJECT_DIRECTORIES:
         assert pathlib.Path(tmp_path, _).exists(), f"{_} not found in {tmp_path}"
 
-    result = runner.invoke(cli, ['--format', 'json', 'config', 'ls'])
+    result = runner.invoke(cli, ['--format', 'json', 'utilities', 'config', 'ls'])
     assert result.exit_code == 0, f"cmd failed with {result.output}"
     _ = json.loads(result.output)
     print(_)
@@ -48,7 +48,7 @@ def test_init(tmp_path, program, profile):
     assert _['config']['gen3']['profile'] == profile
     assert _['config']['state_dir'] == str(pathlib.Path(PROJECT_DIR) / 'state')
 
-    result = runner.invoke(cli, ['--format', 'json', 'access', 'ls', '--all'])
+    result = runner.invoke(cli, ['--format', 'json', 'utilities', 'access', 'ls', '--all'])
     assert result.exit_code == 0, f"cmd failed with {result.output}"
     _ = ', '.join([_['policy_id'] for _ in json.loads(result.output)['requests']])
     print(_)

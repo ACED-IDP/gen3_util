@@ -5,7 +5,7 @@ import sqlite3
 import subprocess
 import sys
 import uuid
-from datetime import datetime
+from datetime import datetime, time
 import multiprocessing
 # from multiprocessing.pool import Pool
 from urllib.parse import urlparse
@@ -66,18 +66,29 @@ def put(config: Config, file_name: str, project_id: str, md5: str):
     }
 
 
-def save(config: Config, project_id: str, generator):
+def save(config: Config, project_id: str, generator, max_retries: int = 3, base_delay=2):
     """Write to local sqlite."""
-    connection = _get_connection(config)
-    with connection:
-        connection.executemany('INSERT OR REPLACE into manifest values (?, ?, ?)',
-                               [(
-                                   _['object_id'],
-                                   project_id,
-                                   orjson.dumps(
-                                       _, default=pydantic_encoder
-                                   ).decode()
-                                 ) for _ in generator])
+    for retry_count in range(max_retries):
+        try:
+            connection = _get_connection(config)
+            with connection:
+                connection.executemany('INSERT OR REPLACE into manifest values (?, ?, ?)',
+                                       [(
+                                           _['object_id'],
+                                           project_id,
+                                           orjson.dumps(
+                                               _, default=pydantic_encoder
+                                           ).decode()
+                                         ) for _ in generator])
+            return
+        except sqlite3.OperationalError as e:
+            print(f"Error locking database: {e}", file=sys.stderr)
+            # Calculate the delay for the next retry using exponential backoff
+            delay = base_delay * 2**retry_count
+            print(f"Retrying in {delay} seconds...", file=sys.stderr)
+            # Wait before the next retry
+            time.sleep(delay)
+        raise Exception(f"Failed to lock database after {max_retries} retries.")
 
 
 def ls(config: Config, project_id: str, object_id: str = None, commit_id: str = None):
@@ -98,7 +109,8 @@ def _write_indexd(index_client,
                   bucket_name: str,
                   duplicate_check: bool,
                   restricted_project_id: str,
-                  existing_records: list[str] = []) -> bool:
+                  existing_records: list[str] = [],
+                  message: str = None) -> bool:
     """Write manifest entry to indexd."""
     manifest_item['project_id'] = project_id
     program, project = project_id.split('-')
@@ -106,6 +118,9 @@ def _write_indexd(index_client,
     # SYNC
     existing_record = None
     hashes, metadata = create_hashes_metadata(manifest_item, program, project)
+
+    if message:
+        metadata['message'] = message
 
     if duplicate_check:
         try:
@@ -173,6 +188,7 @@ def upload_commit_to_indexd(config: Config, commit: Commit, overwrite_index: boo
         assert restricted_project_id.count('-') == 1, f"{restricted_project_id} should have a single '-' delimiter."
     if not auth:
         auth = ensure_auth(profile=config.gen3.profile)
+    assert commit.message, f"commit.message is missing {commit}"
 
     program, project = config.gen3.project_id.split('-')
     bucket_name = get_program_bucket(config, program, auth=auth)
@@ -181,6 +197,9 @@ def upload_commit_to_indexd(config: Config, commit: Commit, overwrite_index: boo
     _generator = ls(config, project_id=config.gen3.project_id, commit_id=commit.commit_id)
     # see if there are existing records
     dids = [_['object_id'] for _ in _generator]
+    if len(dids) == 0:
+        # print(f"INFO No files to upload for {commit.commit_id}", file=sys.stderr)
+        return []
     existing_records = index_client.get_records(dids=dids)
     if existing_records:
         existing_records = [_['did'] for _ in existing_records]

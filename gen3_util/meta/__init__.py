@@ -105,7 +105,7 @@ def directory_reader(directory_path: str,
         if recurse:
             input_files = [_ for _ in directory_path.glob('**/*.*') if is_json_extension(_.name)]
 
-    assert len(input_files) > 0, f"No files found in {directory_path.name}"
+    # assert len(input_files) > 0, f"No files found in {directory_path.name}"
 
     for input_file in input_files:
         offset = 0

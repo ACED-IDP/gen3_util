@@ -15,10 +15,11 @@ from fhir.resources.task import Task, TaskOutput, TaskInput
 from orjson import orjson
 
 from gen3_util import Config
-from gen3_util.common import EmitterContextManager, create_id
+from gen3_util.common import EmitterContextManager, create_id, Push
 from gen3_util.config import ensure_auth
 from gen3_util.files.lister import ls, meta_nodes
 from gen3_util.files.manifest import ls as manifest_ls
+from gen3_util.meta import directory_reader
 
 
 def update_document_reference(document_reference, index_record):
@@ -77,10 +78,17 @@ def study_metadata(config: Config, project_id: str, output_path: str, overwrite:
 
     existing_resource_ids = set()
     if not overwrite:
-        print(f"Checking for existing records for project_id:{project_id}...", file=sys.stderr)
+        print(f"Checking remote for existing records for project_id:{project_id}...", file=sys.stderr)
         nodes = meta_nodes(config, project_id, auth=auth)  # fetches all nodes by default
+        print(f"Retrieved {len(nodes)} from remote.", file=sys.stderr)
+        len_nodes = len(nodes)
+        print(f"Checking {output_path} and pending commits...", file=sys.stderr)
+        nodes.extend(Push(config=config).pending_meta_index())
+        for parse_result in directory_reader(output_path):
+            nodes.append({'id': parse_result.resource.id, 'type': parse_result.resource.resource_type})
+        len_nodes = len(nodes) - len_nodes
+        print(f"Retrieved {len_nodes} locally.", file=sys.stderr)
         existing_resource_ids = set([_['id'] for _ in nodes])
-        print(f"Retrieved {len(existing_resource_ids)} existing records.", file=sys.stderr)
 
     # get file client
     if source == 'indexd':
@@ -94,7 +102,7 @@ def study_metadata(config: Config, project_id: str, output_path: str, overwrite:
     else:
         raise ValueError(f"source must be 'indexd' or 'manifest' not {source}")
 
-    with EmitterContextManager(output_path, file_mode="w") as emitter:
+    with EmitterContextManager(output_path, file_mode="a") as emitter:
         if len(records) == 0:
             print(f"No records found for project_id:{project_id}", file=sys.stderr)
         new_record_count = 0
