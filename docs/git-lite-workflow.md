@@ -23,9 +23,9 @@ The g3t init command is used to initialize a new repository in a directory. When
 
 Initialization: Running g3t init initializes a new Git repository in the current directory. It doesn't affect your existing files; instead, it adds:
 * a hidden subfolder `.g3t` within your project that houses the internal data structure required for version control.
-* a visible subfolder `META` within your project that houses the FHIR metadata files. 
+* a visible subfolder `META` within your project that houses the FHIR metadata files.
 
-Existing Files: If you run g3t init in a directory that already contains files, g3t will not overwrite them. 
+Existing Files: If you run g3t init in a directory that already contains files, g3t will not overwrite them.
 
 ```g3t init
 g3t init --help
@@ -51,7 +51,7 @@ The convention of using a `META` directory for supporting files a common practic
 * Clarity and Readability: By placing metadata files in a dedicated directory, it becomes easier for researchers (including yourself and others) to locate and understand the main codebase. This improves overall project clarity and readability.
 * Build Tools Integration: Many build tools and development environments are configured by default to recognize the `META` directory as the main metadata location. This convention simplifies the configuration process and ensures that tools can easily identify and analyze your data files.
 * Consistency Across Projects: Adopting a common convention, such as using `META` for metadata files, promotes consistency across different projects. When researchers work on multiple projects, having a consistent structure makes it easier to navigate and understand each study.
-* The 'META' directory will contain files FHIR resource name with the extension [.ndjson](https://www.hl7.org/fhir/nd-json.html). e.g. `ResearchStudy.ndjson`  
+* The 'META' directory will contain files FHIR resource name with the extension [.ndjson](https://www.hl7.org/fhir/nd-json.html). e.g. `ResearchStudy.ndjson`
 
 ### Data directories
 
@@ -83,10 +83,10 @@ Options:
 If you have an existing project that you want to migrate using g3t, you can do so by following these steps:
 * Create a new repository using g3t init.
 * Either move or copy your existing data files into the new repository.  Alternatively, g3t create Symbolic links are supported.
-* 
+*
 
 ## Workflow
- 
+
 ### add data files
 
 ```
@@ -109,7 +109,7 @@ Options:
 
 ### Create metadata files
 
-Every file uploaded to the project must have accompanying metadata in the form of FHIR resources.  The metadata is stored in the `META` directory.  
+Every file uploaded to the project must have accompanying metadata in the form of FHIR resources.  The metadata is stored in the `META` directory.
 * The minimum required metadata for a study is the `ResearchStudy` resource.
 * The minimum required metadata for a file is the `DocumentReference` resource.
 
@@ -120,7 +120,7 @@ Additional resources can be added to the metadata files:
 * measurements (Observation)
 
 As a convenience, the `g3t utilities meta create` command will create a minimal metadata for each file in the project.
-* This command will create a skeleton metadata file for each file added to the project using the `_id` parameters specified on the `g3t add` command.  
+* This command will create a skeleton metadata file for each file added to the project using the `_id` parameters specified on the `g3t add` command.
 * You can edit the metadata to map additional fields.
 * The metadata files can be created at any time, but the system will validate them before the changes are committed.
 
@@ -142,7 +142,7 @@ Usage: g3t commit [OPTIONS] [METADATA_PATH]
 
 Options:
   -m, --message TEXT  Use the given <msg> as the commit message.  [required]
- 
+
 ```
 ## Viewing the Changes to be committed
 
@@ -188,7 +188,7 @@ Options:
 The `g3t clone` command is used to clone a project from the remote repository. Here's a brief explanation of what happens when you use g3t clone:
 * A subdirectory is created for the project, it is named after the `project_id`.
 * The project is initialized locally, including the `.g3t` and `META` directories.
-* The current metadata is downloaded from the remote repository.  
+* The current metadata is downloaded from the remote repository.
 * By default, data files are not downloaded by default:
   * Use the `--data_type all` option to specify `all` files will be downloaded.
 
@@ -205,35 +205,168 @@ Options:
 
 ```
 
-## example
+## submitter test script
 
 ```bash
-export G3T_PROFILE=local
-export G3T_PROJECT_ID=test-test001y
-g3t init
-## approval of project
+# Use case: As a data submitter, I will need to create a project.
+## test should work with or without environment variables
+#export G3T_PROFILE=local
+#export G3T_PROJECT_ID=test-test002b
+#g3t init
+unset G3T_PROJECT_ID
+unset G3T_PROFILE
+g3t --profile local init --project_id test-test002b
+
+# Use case: As a institution data steward, I need to approve the project before it can be shared.
 g3t utilities access sign
 
-## add file to project ; create metadata skeleton ; commit changes
+# Use case: As a data submitter, I will need to add files to the project and associate them with a subject(patient).
+g3t add tests/fixtures/dir_to_study/file-1.txt  --patient_id P1
+g3t utilities meta create
+## test meta generation:  META should have 4 files
+g3t commit  -m "commit-1"
+## test that the commit: g3t status should return commit info - was message added?
+#  resource_counts:
+#      DocumentReference: 1
+#      Patient: 1
+#      ResearchStudy: 1
+#     ResearchSubject: 1
 
-g3t add tests/fixtures/dir_to_study/file-1.txt  --patient_id P1 ; g3t utilities meta create ; g3t commit  -m "commit-1"
-g3t add tests/fixtures/dir_to_study/file-2.csv  --patient_id P2 ; g3t utilities meta create; g3t commit -m "commit-2"
-g3t add tests/fixtures/dir_to_study/sub-dir/file-3.pdf --patient_id P3 ; g3t utilities meta create; g3t commit -m "commit-3"
+# Use case: when subjects are added to study I need to add them to the project.
+g3t add tests/fixtures/dir_to_study/file-2.csv  --patient_id P2
+g3t status
+## test add: should return one entry in "uncommitted_manifest:"
+g3t utilities meta create
+## test meta generation:  META should have 4 files Patient ResearchSubject DocumentReference should have 1 new record each
+g3t commit -m "commit-2"
+## test the commit: g3t status should return commit info - was message added? there should only be the three new records
+#    resource_counts:
+#      DocumentReference: 1
+#      Patient: 1
+#      ResearchSubject: 1
+#    manifest_files:
+#    - tests/fixtures/dir_to_study/file-2.csv
 
+# Use case: some subjects have specimens, I need to add them to the project.
+g3t add tests/fixtures/dir_to_study/sub-dir/file-3.pdf --patient_id P3 --specimen_id S3
+g3t utilities meta create
+## test should create a Specimen.ndjson file in META
+# Created 4 new records.
+wc -l META/Specimen.ndjson
+#       1 META/Specimen.ndjson
+g3t commit -m "commit-3"
+## test the commit: g3t status should return commit info - was message added? 4 new records
+#    message: commit-3
+#    resource_counts:
+#      DocumentReference: 1
+#      Patient: 1
+#      ResearchSubject: 1
+#      Specimen: 1
+#    manifest_files:
+#    - tests/fixtures/dir_to_study/sub-dir/file-3.pdf
+
+# Use case: I'm ready to share my data
 ## push to remote
 g3t push
-
-## view status
+## test:  the system should respond with reasonable, informative messages without too much verbosity
+## I need to know the status of my project. During job execution, I should be able to query the status.
 g3t status
+## test: After job execution, I should have detailed information about the results.
+#  pushed_commits:
+#  - published_timestamp: 2024-01-19T09:45:47.018426
+#    published_job:
+#      output:
+#        uid: 82322961-8d2a-47e4-8833-af0e299aa393
+#        name: fhir-import-export-ohiwi
+#        status: Completed
+#    commits:
+#    - d050c8f931bab152279ff18e0a21434f commit-1
+#    - 2f77cf6017ec3b0485b7493ebe459f53 commit-2
+#    - a550281b43713937ce684e3cab13639f commit-3
+
+## test: Once complete, the remote counts should reconcile with my activity
+#remote:
+#  resource_counts:
+#    DocumentReference: 3
+#    Patient: 3
+#    ResearchStudy: 1
+#    ResearchSubject: 3
+#    Specimen: 1
+wc -l META/*.ndjson
+#       3 META/DocumentReference.ndjson
+#       3 META/Patient.ndjson
+#       1 META/ResearchStudy.ndjson
+#       3 META/ResearchSubject.ndjson
+#       1 META/Specimen.ndjson
+
+## If I want more detailed information, I should be able to query it
+## get UID from status -> local.pushed_commits.published_job.output.uid
+g3t utilities jobs get UID
+# ....
+
+
+# Use case: As a data submitter, when I know more about meta, I should be able to add it.
+# e.g. alter a patient record
+sed -i.bak 's/"P1"}]}/"P1"}], "gender": "male"}/' META/Patient.ndjson
+# see https://stackoverflow.com/a/22084103
+rm META/Patient.ndjson.bak
+g3t commit -m "commit-4"
+## test: the commit should process only one patient record
+#resource_counts:
+#  Patient: 1
+
+## Use case: I should be able to publish a 'meta only' change
+g3t push
+
+## Use case: As a human being, I make mistakes, the system should prevent me from committing `no changes`
+g3t commit -m "commit-5 has no changes"
+## test: the system should reject the commit
+# msg: No resources changed in META
+
+## Use case: As a human being, I make mistakes, the system should prevent me from committing `invalid fhir`
+sed -i.bak 's/"gender"/"foobar"/' META/Patient.ndjson
+# see https://stackoverflow.com/a/22084103
+rm META/Patient.ndjson.bak
+g3t commit -m "commit-6 has invalid fhir"
+## test: should fail validation, the response should be informative and give me enough information to fix the problem
+
 
 ```
 
-## clone from remote
+## submitter test script
 ```shell
-# export G3T_PROFILE=local
-# export G3T_PROJECT_ID=test-XXXX
+# Use case: As a data consumer, I will need download a project.
 
-g3t clone
-## pull all files from remote
+## test should work with or without environment variables
+
+#export G3T_PROFILE=local
+#export G3T_PROJECT_ID=test-test002b
+#g3t clone
+
+unset G3T_PROJECT_ID
+unset G3T_PROFILE
+g3t --profile local clone --project_id test-test002b
+
+## test: the project should exist
+cd test-test002b
+## test: the meta data should be in place with the latest changes
+grep male META/Patient.ndjson | jq .id
+#"20d7d7eb-46f9-5175-b474-cb504f66e10e"
+## test by default, the files should not be downloaded
+ls tests
+# ls: tests: No such file or directory
+
+## Use case: I should be able to download files
 g3t pull
+## test directory should now contain
+tree tests
+#tests
+#└── fixtures
+#    └── dir_to_study
+#        ├── file-1.txt
+#        ├── file-2.csv
+#        └── sub-dir
+#            └── file-3.pdf
+#
+
 ```
