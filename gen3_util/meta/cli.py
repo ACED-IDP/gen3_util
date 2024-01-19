@@ -155,7 +155,7 @@ def meta_from_tabular(config: Config, meta_data_path: str, tabular_data_path: st
 
 
 @meta_group.command(name="validate")
-@click.argument('directory')
+@click.argument('directory', type=click.Path(exists=True), default='META')
 @click.pass_obj
 def meta_validate(config: Config, directory):
     """Validate FHIR data"""
