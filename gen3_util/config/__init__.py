@@ -222,7 +222,7 @@ def init(config: Config, project_id: str) -> Generator[str, None, None]:
         yield f"Created project directories {PROJECT_DIRECTORIES}"
 
     config.gen3.project_id = project_id
-    config.state_dir = pathlib.Path('.g3t') / 'state'
+    config.state_dir = pathlib.Path(PROJECT_DIR) / 'state'
     config.state_dir.mkdir(parents=True, exist_ok=True)
 
     config_file = pathlib.Path(PROJECT_DIR) / 'config.yaml'

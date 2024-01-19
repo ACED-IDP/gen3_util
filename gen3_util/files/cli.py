@@ -9,6 +9,7 @@ from requests import HTTPError
 
 from gen3_util.cli import CLIOutput, ENV_VARIABLE_PREFIX
 from gen3_util.cli import NaturalOrderGroup
+from gen3_util.common import PROJECT_DIR
 from gen3_util.config import Config
 from gen3_util.files.lister import ls
 from gen3_util.files.manifest import put as manifest_put, save as manifest_save, ls as manifest_ls, upload_indexd, \
@@ -98,7 +99,7 @@ def manifest_put_cli(config: Config, local_path: str, project_id: str, md5: str,
     # TODO deprecate `remote_path` insist on relative paths
     with CLIOutput(config=config) as output:
         try:
-            assert Path('.g3t').exists(), "Please add files from the project root directory."
+            assert Path(PROJECT_DIR).exists(), "Please add files from the project root directory."
             assert Path(local_path).absolute().is_relative_to(Path.cwd().absolute()), \
                 f"{local_path} must be relative to the project root, please move the file or create a symbolic link"
 
