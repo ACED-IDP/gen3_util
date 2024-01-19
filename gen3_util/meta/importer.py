@@ -42,7 +42,8 @@ def md5sum(file_name):
               default=None,
               show_default=True,
               help='Gen3 program-project',
-              envvar=f"{ENV_VARIABLE_PREFIX}PROJECT_ID"
+              envvar=f"{ENV_VARIABLE_PREFIX}PROJECT_ID",
+              hidden=True
               )
 @click.option("--overwrite", is_flag=True, show_default=True, default=False, help="Ignore existing records.")
 @click.option('--source',
