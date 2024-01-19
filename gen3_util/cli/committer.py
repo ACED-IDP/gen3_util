@@ -20,7 +20,7 @@ class CommitResult(BaseModel):
     resource_counts: dict = None
     exceptions: list[ParseResult] = None
     logs: list[str] = None
-    msg: str = None
+    message: str = None
     commit_id: str = None
     path: pathlib.Path = None
     manifest_files: list[str] = None
@@ -137,7 +137,7 @@ def commit(config: Config, metadata_path: pathlib.Path, files_path: pathlib.Path
             resource_counts=dict(resource_counts),
             exceptions=exceptions,
             logs=logs,
-            msg="Failed validation",
+            message="Failed validation",
         )
         return commit_result
     else:

@@ -215,7 +215,7 @@ Options:
 #g3t init
 unset G3T_PROJECT_ID
 unset G3T_PROFILE
-g3t --profile local init --project_id test-test002b
+g3t --profile local init --project_id test-test002d
 
 # Use case: As a institution data steward, I need to approve the project before it can be shared.
 g3t utilities access sign
@@ -345,10 +345,10 @@ g3t commit -m "commit-6 has invalid fhir"
 
 unset G3T_PROJECT_ID
 unset G3T_PROFILE
-g3t --profile local clone --project_id test-test002b
+g3t --profile local clone --project_id test-test002c
 
 ## test: the project should exist
-cd test-test002b
+cd test-test002c
 ## test: the meta data should be in place with the latest changes
 grep male META/Patient.ndjson | jq .id
 #"20d7d7eb-46f9-5175-b474-cb504f66e10e"

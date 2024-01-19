@@ -151,9 +151,11 @@ def commit_cli(config: Config, metadata_path: str, message: str):
             metadata_path = pathlib.Path(metadata_path)
             _check_parameters(config, project_id)
             results = commit(config, metadata_path, pathlib.Path().cwd(), message)
-            if not results.msg:
-                results.msg = 'Saved committed changes.'
-            output.update(results.model_dump())
+            if not results.message:
+                results.message = 'Saved committed changes.'
+            _ = results.model_dump()
+            _['msg'] = results.message
+            output.update(_)
 
         except AssertionError as e:
             output.update({'msg': str(e)})
