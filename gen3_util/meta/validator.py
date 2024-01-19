@@ -68,7 +68,7 @@ def validate(config: Config, directory_path: pathlib.Path) -> ValidateDirectoryR
     references = []
     ids = []
 
-    for parse_result in directory_reader(directory_path):
+    for parse_result in directory_reader(directory_path, validate=True):
         if parse_result.exception:
             exceptions.append(parse_result)
             continue
