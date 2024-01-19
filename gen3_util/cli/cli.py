@@ -19,7 +19,7 @@ from gen3_util.cli.initializer import initialize_project_server_side
 from gen3_util.cli.puller import pull_files
 from gen3_util.cli.pusher import push
 from gen3_util.cli.status import status
-from gen3_util.common import print_formatted
+from gen3_util.common import print_formatted, write_meta_index, PROJECT_DIR
 from gen3_util.config import Config, ensure_auth, gen3_client_profiles, init
 from gen3_util.config.cli import config_group
 from gen3_util.files.cli import file_group, manifest_put_cli
@@ -151,9 +151,9 @@ def commit_cli(config: Config, metadata_path: str, message: str):
             metadata_path = pathlib.Path(metadata_path)
             _check_parameters(config, project_id)
             results = commit(config, metadata_path, pathlib.Path().cwd(), message)
-            if not results.message:
+            if not results.msg:
                 results.msg = 'Saved committed changes.'
-            output.update(results)
+            output.update(results.model_dump())
 
         except AssertionError as e:
             output.update({'msg': str(e)})
@@ -245,6 +245,23 @@ def pull_cli(config: Config):
                 )
             )
 
+        except AssertionError as e:
+            output.update({'msg': str(e)})
+            output.exit_code = 1
+
+
+@cli.command(name="update-index")
+@click.pass_obj
+def update_index_cli(config: Config):
+    """Update the index from the META directory."""
+    assert pathlib.Path(PROJECT_DIR).exists(), "Please run from the project root directory."
+    with CLIOutput(config=config) as output:
+        try:
+            write_meta_index(
+                index_path=config.state_dir,
+                source_path=(pathlib.Path.cwd() / 'META')
+            )
+            output.update({'msg': 'OK'})
         except AssertionError as e:
             output.update({'msg': str(e)})
             output.exit_code = 1
