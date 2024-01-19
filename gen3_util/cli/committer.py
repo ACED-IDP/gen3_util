@@ -20,7 +20,7 @@ class CommitResult(BaseModel):
     resource_counts: dict = None
     exceptions: list[ParseResult] = None
     logs: list[str] = None
-    message: str = None
+    msg: str = None
     commit_id: str = None
     path: pathlib.Path = None
     manifest_files: list[str] = None
@@ -32,6 +32,7 @@ class CommitResult(BaseModel):
         """
         for _ in self.exceptions:
             _.exception = str(_.exception)
+            _.path = str(_.path)
         return orjson.loads(self.json())
 
 
@@ -51,13 +52,13 @@ def prepare_metadata_zip(config, metadata_path) -> (str, pathlib.Path, list[str]
         with EmitterContextManager(work_path, file_mode="w") as emitter:
             for _ in sorted(metadata_path.glob("*.ndjson")):
                 for resource in read_ndjson_file(_):
-                    # is it in the existing index?
-                    existing_md5 = existing_meta_index.get(resource['id'], None)
+                    # is it in the pending index?
+                    existing_md5 = pending_meta_index.get(resource['id'], None)
                     if not existing_md5:
-                        # is it in the pending index?
-                        existing_md5 = pending_meta_index.get(resource['id'], None)
+                        # is it in the existing index?
+                        existing_md5 = existing_meta_index.get(resource['id'], None)
                     resource_md5 = dict_md5(resource)
-                    if existing_md5 and existing_md5 == resource_md5:
+                    if existing_md5 and (existing_md5 == resource_md5):
                         continue
                     # new resource or resource has changed
                     emitter.emit(resource['resourceType']).write(
@@ -66,6 +67,8 @@ def prepare_metadata_zip(config, metadata_path) -> (str, pathlib.Path, list[str]
                     emitted_resource_md5s.append(resource_md5)
                     resource_counts[resource['resourceType']] += 1
 
+        # there should be at least one resource changed
+        assert len(emitted_resource_md5s) > 0, f"No resources changed in {metadata_path}"
         # aggregate md5 for all resources
         m = md5()
         for _ in emitted_resource_md5s:
@@ -75,7 +78,7 @@ def prepare_metadata_zip(config, metadata_path) -> (str, pathlib.Path, list[str]
         object_name = 'meta.zip'
 
         commit_path = config.state_dir / project_id / 'commits' / md5_string
-        assert not commit_path.exists(), f"{commit_path} already exists,  a commit with the same metadata already exists"
+        assert not commit_path.exists(), f"{md5_string} already exists,  a commit with the same metadata already exists"
         commit_path.mkdir(parents=True, exist_ok=True)
         zipfile_path = commit_path / object_name
         with ZipFile(zipfile_path, 'w') as zip_object:
@@ -134,7 +137,7 @@ def commit(config: Config, metadata_path: pathlib.Path, files_path: pathlib.Path
             resource_counts=dict(resource_counts),
             exceptions=exceptions,
             logs=logs,
-            message="Failed validation",
+            msg="Failed validation",
         )
         return commit_result
     else:
