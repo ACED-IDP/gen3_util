@@ -3,6 +3,7 @@ from collections import defaultdict
 from typing import List
 from urllib.parse import urlparse
 
+import orjson
 from fhir.resources.coding import Coding
 from fhir.resources.identifier import Identifier
 from fhir.resources.reference import Reference
@@ -19,6 +20,16 @@ class ValidateDirectoryResult(BaseModel):
     """Results of FHIR validation of directory."""
     resources: dict
     exceptions: List[ParseResult]
+
+    def model_dump(self):
+        """
+
+         temporary until we switch to pydantic2
+        """
+        for _ in self.exceptions:
+            _.exception = str(_.exception)
+            _.path = str(_.path)
+        return orjson.loads(self.json())
 
 
 def _check_coding(self: Coding, *args, **kwargs):

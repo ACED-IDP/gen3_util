@@ -160,7 +160,8 @@ def meta_from_tabular(config: Config, meta_data_path: str, tabular_data_path: st
 def meta_validate(config: Config, directory):
     """Validate FHIR data"""
     with CLIOutput(config) as output:
-        output.update(validate(config, directory))
+        result = validate(config, directory)
+        output.update(result.model_dump())
 
 
 @meta_group.command(name="bundle")
