@@ -351,6 +351,8 @@ def read_meta_index(index_path: pathlib.Path) -> Generator[dict, None, None]:
     """Read an index of ids and hashes from a path containing ndjson files.
     """
     index_path = index_path / 'meta-index.ndjson'
+    if not index_path.exists():
+        return
     with open(index_path, 'r') as fp:
         for line in fp.readlines():
             yield orjson.loads(line)
