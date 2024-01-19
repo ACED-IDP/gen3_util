@@ -3,7 +3,7 @@ import pathlib
 import sys
 
 from gen3_util import Config
-from gen3_util.common import Push
+from gen3_util.common import Push, write_meta_index
 from gen3_util.config import ensure_auth
 from gen3_util.files.manifest import upload_files, upload_commit_to_indexd
 from gen3_util.meta.publisher import publish_commits
@@ -90,6 +90,12 @@ def push(config: Config,
     print(
         f"Cleared {pending_path}",
         file=sys.stderr
+    )
+
+    # index the cloned metadata
+    write_meta_index(
+        index_path=config.state_dir,
+        source_path=(pathlib.Path.cwd() / 'META')
     )
 
     return published_job
