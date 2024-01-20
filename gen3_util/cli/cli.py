@@ -165,8 +165,8 @@ def commit_cli(config: Config, metadata_path: str, message: str):
 @cli.command(name='push')
 @click.option('--overwrite', default=False, is_flag=True, required=False, show_default=True,
               help="overwrite files records in index")
-@click.option('--restricted_project_id', default=None, required=False, show_default=True, hidden=True,
-              help="extra program-project, restricts access to files to admin only")
+@click.option('--restricted_project_id', default=None, required=False, show_default=True,
+              help="adds additional access control")
 @click.pass_obj
 def push_cli(config: Config, restricted_project_id: str, overwrite: bool):
     """Submit committed changes to commons."""
