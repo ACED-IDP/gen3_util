@@ -7,7 +7,7 @@ from gen3_util.config import Config, ensure_auth
 def ls(config: Config, auth=None):
     """List meta."""
     if not auth:
-        auth = ensure_auth(profile=config.gen3.profile)
+        auth = ensure_auth(config=config)
     index_client = Gen3Index(auth_provider=auth)
     records = index_client.client.list_with_params(limit=1000, params={'metadata': {'is_metadata': 'true'}})
     return {'records': [_.to_json() for _ in records]}
@@ -16,7 +16,7 @@ def ls(config: Config, auth=None):
 def counts(config: Config, auth=None):
     """Count meta."""
     if not auth:
-        auth = ensure_auth(profile=config.gen3.profile)
+        auth = ensure_auth(config=config)
 
     submission_client = Gen3Submission(auth)
     project_id = config.gen3.project_id

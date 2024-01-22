@@ -22,7 +22,7 @@ def test_init_project(config, program, tmp_path):
     # navigate to tmp_path
     os.chdir(tmp_path)
 
-    auth = ensure_auth(profile=config.gen3.profile)
+    auth = ensure_auth(config=config)
 
     # create project
     guid = str(uuid.uuid4())

@@ -38,7 +38,7 @@ def import_meta(config: Config, project_id: str, object_id: str):
     \b
     OBJECT_ID: indexd record id of uploaded metadata
     """
-    auth = ensure_auth(profile=config.gen3.profile)
+    auth = ensure_auth(config=config)
     # delivered to sower job in env['ACCESS_TOKEN']
     jobs_client = Gen3Jobs(auth_provider=auth)
     # delivered to sower job in env['INPUT_DATA']
@@ -64,7 +64,7 @@ def get(config: Config, job_id):
     """
     status = {'output': None}
 
-    auth = ensure_auth(profile=config.gen3.profile)
+    auth = ensure_auth(config=config)
     jobs_client = Gen3Jobs(auth_provider=auth)
     try:
         status = jobs_client.get_status(job_id)

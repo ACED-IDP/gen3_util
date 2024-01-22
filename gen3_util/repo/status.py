@@ -17,7 +17,7 @@ def status(config: Config, auth=None) -> list[str]:
     """Show project status."""
     logs = []
     if not auth and config.gen3.profile:
-        auth = ensure_auth(profile=config.gen3.profile)
+        auth = ensure_auth(config=config)
     if not auth:
         logs.append("Warning: disconnected mode.")
 

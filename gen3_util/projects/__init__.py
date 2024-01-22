@@ -28,7 +28,7 @@ def get_user(config: Config = None, auth: Gen3Auth = None) -> dict:
     """Fetch information about the user."""
     if not auth:
         assert config
-        auth = ensure_auth(profile=config.gen3.profile)
+        auth = ensure_auth(config=config)
     return auth.curl('/user/user').json()
 
 

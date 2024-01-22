@@ -24,7 +24,7 @@ def new_project(config: Config, project_id: str):
     """Creates project resource with default policies.
     """
     with CLIOutput(config=config) as output:
-        auth = ensure_auth(profile=config.gen3.profile)
+        auth = ensure_auth(config=config)
         msgs = validate_project_id(project_id)
         if not msgs:
             program, project = project_id.split('-')
@@ -44,7 +44,7 @@ def new_project(config: Config, project_id: str):
 @click.pass_obj
 def project_ls(config: Config, full: bool):
     """List all projects user has access to."""
-    auth = ensure_auth(profile=config.gen3.profile)
+    auth = ensure_auth(config=config)
     with CLIOutput(config=config) as output:
         output.update(ls(config, auth=auth, full=full))
 

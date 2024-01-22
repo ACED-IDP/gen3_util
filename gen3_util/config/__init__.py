@@ -89,13 +89,13 @@ def _get_gen3_client_key(path: pathlib.Path, profile: str = None) -> str:
     click.secho(f"no profile '{profile}' found in {path}, specify one of {gen3_util_ini.sections()}, optionally set environmental variable: GEN3_UTIL_PROFILE", fg='yellow')
 
 
-def ensure_auth(refresh_file: [pathlib.Path, str] = None, validate: bool = False, profile: str = None) -> Gen3Auth:
+def ensure_auth(refresh_file: [pathlib.Path, str] = None, validate: bool = False, config: Config = None) -> Gen3Auth:
     """Confirm connection to Gen3 using their conventions.
 
     Args:
         refresh_file (pathlib.Path): The file containing the downloaded JSON web token.
         validate: check the connection by getting a new token
-        profile: gen3-client profile
+        config: Config
 
     """
 
@@ -107,8 +107,11 @@ def ensure_auth(refresh_file: [pathlib.Path, str] = None, validate: bool = False
         elif 'ACCESS_TOKEN' in os.environ:
             auth = Gen3Auth(refresh_file=f"accesstoken:///{os.getenv('ACCESS_TOKEN')}")
         elif gen_client_ini_path().exists():
+            profile = config.gen3.profile
             if not profile:
-                # in disconnected mode
+                # in disconnected mode, or not in project dir
+                if config.no_config_found:
+                    print("INFO: No config file found in current directory or parents.", file=sys.stderr)
                 return None
             # https://github.com/uc-cdis/gen3sdk-python/blob/master/gen3/auth.py#L190-L191
             key = _get_gen3_client_key(gen_client_ini_path(), profile=profile)
@@ -141,7 +144,7 @@ def ensure_auth(refresh_file: [pathlib.Path, str] = None, validate: bool = False
 
 def gen3_services(config: Config) -> tuple[Gen3File, Gen3Index, dict, Gen3Auth]:
     """Create Gen3 Services."""
-    auth = ensure_auth(profile=config.gen3.profile)
+    auth = ensure_auth(config=config)
     assert auth, f"Failed to set auth {config.gen3.profile}"
     file_client = Gen3File(auth_provider=auth)
     index_client = Gen3Index(auth_provider=auth)
@@ -190,11 +193,17 @@ def default():
             return Config(**read_yaml(_))
 
     # use default
+
+    # different pkg_resources open for 3.9
     if sys.version_info[:3] <= (3, 9):
-        return Config(**yaml.safe_load(pkg_resources.open_text(gen3_util, 'config.yaml').read()))
+        _config = Config(**yaml.safe_load(pkg_resources.open_text(gen3_util, 'config.yaml').read()))
     else:
         # https://docs.python.org/3.11/library/importlib.resources.html#importlib.resources.open_text
-        return Config(**yaml.safe_load(pkg_resources.files(gen3_util).joinpath('config.yaml').open().read()))
+        _config = Config(**yaml.safe_load(pkg_resources.files(gen3_util).joinpath('config.yaml').open().read()))
+
+    # No config file found in directory or parents.
+    _config.no_config_found = True
+    return _config
 
 
 def custom(path: [str, pathlib.Path]):

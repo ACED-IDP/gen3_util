@@ -28,7 +28,7 @@ def clone(config: Config, project_id: str, data_type: str = 'all') -> list[str]:
     meta_data_path = pathlib.Path(path) / 'META'
     assert meta_data_path.exists(), f"Directory {meta_data_path} does not exist."
 
-    auth = ensure_auth(profile=config.gen3.profile)
+    auth = ensure_auth(config=config)
     results = ls(config=config, metadata={'project_id': config.gen3.project_id, 'is_snapshot': True}, auth=auth)
     records = 'records' in results and results['records'] or []
     records = sorted(records, key=lambda d: d['file_name'])

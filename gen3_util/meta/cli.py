@@ -52,7 +52,7 @@ def _meta_pull(config: Config, meta_data_path: str,  project_id: str, force: boo
         click.secho("--project_id must be of the form program-project", fg='red')
         exit(1)
 
-    auth = ensure_auth(profile=config.gen3.profile)
+    auth = ensure_auth(config=config)
 
     try:
 

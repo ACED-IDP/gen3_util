@@ -87,7 +87,7 @@ def cp(config: Config,
         from_ = pathlib.Path(from_)
 
     if not auth:
-        auth = ensure_auth(profile=config.gen3.profile)
+        auth = ensure_auth(config=config)
 
     index_client = Gen3Index(auth_provider=auth)
     file_client = Gen3File(auth_provider=auth)

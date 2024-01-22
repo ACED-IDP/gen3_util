@@ -72,6 +72,8 @@ class Config(BaseModel):
     """gen3 setup"""
     state_dir: pathlib.Path = None
     """retry state for file transfer"""
+    no_config_found: bool = False
+    """Is this default config used because none found in cwd or parents?"""
 
     def model_dump(self):
         """Dump the config model.

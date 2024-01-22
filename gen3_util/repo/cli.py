@@ -42,9 +42,6 @@ def cli(ctx, output_format, profile, version):
     config__ = gen3_util.config.default()
     logging.basicConfig(format=config__.log.format, level=config__.log.level, stream=sys.stderr)
 
-    # if config:
-    #     config__ = gen3_util.config.custom(config)
-
     if output_format:
         config__.output.format = output_format
 
@@ -53,11 +50,6 @@ def cli(ctx, output_format, profile, version):
             click.secho(f"Profile {profile} not found.", fg='red')
             exit(1)
         config__.gen3.profile = profile
-
-    # if state_dir:
-    #     _ = pathlib.Path(state_dir).expanduser()
-    #     _.mkdir(parents=True, exist_ok=True)
-    #     config__.state_dir = _
 
     # ensure that ctx.obj exists
     ctx.obj = config__
@@ -83,7 +75,7 @@ def ping(config: Config):
             ok = False
         else:
             try:
-                auth = ensure_auth(profile=config.gen3.profile, validate=True)
+                auth = ensure_auth(config=config, validate=True)
                 msgs.append(f"Connected using profile:{config.gen3.profile}")
             except (AssertionError, ValueError) as e:
                 msgs.append(str(e))

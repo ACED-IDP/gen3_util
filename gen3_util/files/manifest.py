@@ -187,7 +187,7 @@ def upload_commit_to_indexd(config: Config, commit: Commit, overwrite_index: boo
     if restricted_project_id:
         assert restricted_project_id.count('-') == 1, f"{restricted_project_id} should have a single '-' delimiter."
     if not auth:
-        auth = ensure_auth(profile=config.gen3.profile)
+        auth = ensure_auth(config=config)
     assert commit.message, f"commit.message is missing {commit}"
 
     program, project = config.gen3.project_id.split('-')

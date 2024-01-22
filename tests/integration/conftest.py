@@ -33,16 +33,16 @@ def program() -> str:
 
 
 @pytest.fixture
-def submission_client() -> str:
-    """Gen3Submission client"""
-    auth = ensure_auth(profile='development')
-    return Gen3Submission(auth_provider=auth)
-
-
-@pytest.fixture
 def config(profile, tmp_path) -> Config:
     """A config"""
     _ = gen3_util.config.default()
     _.gen3.profile = profile
     _.state_dir = pathlib.Path(tmp_path) / 'state'
     return _
+
+
+@pytest.fixture
+def submission_client(config) -> str:
+    """Gen3Submission client"""
+    auth = ensure_auth(config=config)
+    return Gen3Submission(auth_provider=auth)

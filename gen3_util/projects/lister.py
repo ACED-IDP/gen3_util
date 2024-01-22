@@ -9,7 +9,7 @@ def ls(config: Config, resource_filter: str = None, msgs: list[str] = [], auth: 
     """List projects."""
 
     if not auth:
-        auth = ensure_auth(profile=config.gen3.profile)
+        auth = ensure_auth(config=config)
     submission = Gen3Submission(auth)
 
     projects = get_projects(auth, submission)

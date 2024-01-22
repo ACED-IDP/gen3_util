@@ -22,7 +22,7 @@ def push(config: Config,
     assert len(push_.pending_commits()) > 0, "No pending commits."
 
     if not auth:
-        auth = ensure_auth(profile=config.gen3.profile)
+        auth = ensure_auth(config=config)
 
     # first publish files to indexd and copy to bucket
     for commit in push_.pending_commits():

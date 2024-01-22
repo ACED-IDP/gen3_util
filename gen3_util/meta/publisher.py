@@ -23,7 +23,7 @@ def publish_meta_data(config: Config, meta_data_path: str, ignore_state: bool, p
     msgs.append(upload_result['msg'])  # TODO - why is this msgs here
 
     object_id = upload_result['object_id']
-    auth = ensure_auth(profile=config.gen3.profile)
+    auth = ensure_auth(config=config)
     jobs_client = Gen3Jobs(auth_provider=auth)
     args = {'object_id': object_id, 'project_id': project_id, 'method': 'put'}
     if wait:
@@ -37,7 +37,7 @@ def publish_meta_data(config: Config, meta_data_path: str, ignore_state: bool, p
 def publish_commits(config: Config, push: Push, wait: bool = True, auth=None) -> dict:
     """Publish commits to the portal."""
     if not auth:
-        auth = ensure_auth(profile=config.gen3.profile)
+        auth = ensure_auth(config=config)
     user = auth.curl('/user/user').json()
 
     for commit in push.commits:

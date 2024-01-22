@@ -72,7 +72,7 @@ def study_metadata(config: Config, project_id: str, output_path: str, overwrite:
     logs = []
     if not auth:
         if config.gen3.profile:
-            auth = ensure_auth(profile=config.gen3.profile)
+            auth = ensure_auth(config=config)
     if not auth:
         logs.append("Running in disconnected mode.")
 

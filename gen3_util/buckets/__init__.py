@@ -9,7 +9,7 @@ def get_buckets(config: Config = None, auth: Gen3Auth = None) -> dict:
     """Fetch information about the buckets."""
     if not auth:
         assert config
-        auth = ensure_auth(profile=config.gen3.profile)
+        auth = ensure_auth(config=config)
 
     response = auth.curl('/user/data/buckets')
 

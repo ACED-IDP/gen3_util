@@ -12,13 +12,7 @@ ENV_VARIABLE_PREFIX = 'G3T_'
 def _common_options(self):
     """Insert common commands into Group or Command."""
     assert len(self.params) == 0
-    # self.params.insert(0,
-    #                    click.core.Option(('--config',),
-    #                                      envvar=f"{ENV_VARIABLE_PREFIX}CONFIG",
-    #                                      default=None,
-    #                                      required=False,
-    #                                      show_default=True,
-    #                                      help=f'Path to config file. {ENV_VARIABLE_PREFIX}_CONFIG'))
+
     self.params.insert(0,
                        click.core.Option(('--format', 'output_format'),
                                          envvar=f"{ENV_VARIABLE_PREFIX}FORMAT",
@@ -39,13 +33,6 @@ def _common_options(self):
                        click.core.Option(('--version', 'version'),
                                          is_flag=True
                                          ))
-
-    # self.params.insert(3,
-    #                    click.core.Option(('--state_dir', ),
-    #                                      envvar=f"{ENV_VARIABLE_PREFIX}_STATE_DIR",
-    #                                      default=None,
-    #                                      show_default=True,
-    #                                      help=f'Directory for file transfer state {ENV_VARIABLE_PREFIX}_STATE_DIR'))
 
 
 class StdCommand(click.Command):

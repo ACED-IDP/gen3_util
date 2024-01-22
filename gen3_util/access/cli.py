@@ -55,7 +55,7 @@ def sign(config: Config, username: str):
     \b
     """
     with CLIOutput(config=config) as output:
-        auth = ensure_auth(profile=config.gen3.profile)
+        auth = ensure_auth(config=config)
         access = ls(config, mine=False, username=username, active=True, auth=auth)
         unsigned_requests = [_ for _ in access.requests if _['status'] != 'SIGNED']
 
@@ -99,11 +99,15 @@ def sign(config: Config, username: str):
 def access_ls(config: Config, mine: bool, active: bool, username: str):
     """List current user's requests."""
     with CLIOutput(config=config) as output:
-        msg = 'OK'
-        access = ls(config, mine, active, username)
-        if not access.requests or len(access.requests) == 0:
-            msg = 'No unsigned requests'
-        output.update({'requests': access.requests, 'msg': msg})
+        try:
+            msg = 'OK'
+            access = ls(config, mine, active, username)
+            if not access.requests or len(access.requests) == 0:
+                msg = 'No unsigned requests'
+            output.update({'requests': access.requests, 'msg': msg})
+        except Exception as e:
+            output.update({'msg': str(e)})
+            output.exit_code = 1
 
 
 @access_group.command(name="cat")

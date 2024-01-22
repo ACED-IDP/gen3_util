@@ -32,13 +32,13 @@ def file_group(config):
               help="id of the object in the indexd database")
 @click.option('--project_id', default=None, required=None, show_default=True,
               help="Gen3 program-project", envvar=f"{ENV_VARIABLE_PREFIX}PROJECT_ID")
-@click.option('--specimen_id', default=None, required=False, show_default=True,
+@click.option('--specimen', default=None, required=False, show_default=True,
               help="fhir specimen identifier", envvar='SPECIMEN_ID')
-@click.option('--patient_id', default=None, required=False, show_default=True,
+@click.option('--patient', default=None, required=False, show_default=True,
               help="fhir patient identifier", envvar='PATIENT_ID')
-@click.option('--observation_id', default=None, required=False, show_default=True,
+@click.option('--observation', default=None, required=False, show_default=True,
               help="fhir observation identifier", envvar='OBSERVATION_ID')
-@click.option('--task_id', default=None, required=False, show_default=True,
+@click.option('--task', default=None, required=False, show_default=True,
               help="fhir task identifier", envvar='TASK_ID')
 @click.option('--is_metadata', default=False, is_flag=True, required=False, show_default=True,
               help="Meta data",)

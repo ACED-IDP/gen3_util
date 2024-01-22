@@ -7,7 +7,7 @@ from gen3_util.config import Config, ensure_auth
 
 def rm(config: Config, object_id: str) -> dict:
     """Remove files."""
-    auth = ensure_auth(profile=config.gen3.profile)
+    auth = ensure_auth(config=config)
     file_client = Gen3File(auth_provider=auth)
     response = file_client.delete_file_locations(guid=object_id)
     response.raise_for_status()

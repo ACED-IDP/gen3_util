@@ -14,7 +14,7 @@ def initialize_project_server_side(config, project_id, auth=None):
     if auth is None:
         if not config.gen3.profile:
             return ["Disconnected mode, skipping server side initialization"]
-        auth = ensure_auth(profile=config.gen3.profile)
+        auth = ensure_auth(config=config)
 
     logs = []
     program, project = project_id.split('-')
