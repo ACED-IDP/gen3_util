@@ -41,7 +41,7 @@ setup(
 
     # Versions should comply with PEP 440:
     # https://packaging.python.org/en/latest/single_source_version.html
-    version='0.0.14rc6',  # Required
+    version='0.0.14rc7',  # Required
 
     # This is a one-line description or tagline of what your project does. This
     # corresponds to the "Summary" metadata field:
@@ -121,9 +121,9 @@ setup(
 
     entry_points={
         'console_scripts': [
-            'gen3_util = gen3_util.cli.cli:cli',
-            'g3t = gen3_util.cli.cli:cli',
-            'gen3-tracker = gen3_util.cli.cli:cli',
+            'gen3_util = gen3_util.repo.cli:cli',
+            'g3t = gen3_util.repo.cli:cli',
+            'gen3-tracker = gen3_util.repo.cli:cli',
         ],
     },
 

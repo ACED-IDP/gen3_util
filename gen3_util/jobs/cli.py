@@ -6,8 +6,8 @@ import click
 from gen3.jobs import Gen3Jobs
 from requests import HTTPError
 
-from gen3_util.cli import CLIOutput, ENV_VARIABLE_PREFIX
-from gen3_util.cli import NaturalOrderGroup
+from gen3_util.repo import CLIOutput, ENV_VARIABLE_PREFIX
+from gen3_util.repo import NaturalOrderGroup
 from gen3_util.config import Config, ensure_auth
 from gen3_util.jobs.lister import ls
 

@@ -8,7 +8,7 @@ from json import JSONDecodeError
 import click
 from gen3.jobs import Gen3Jobs
 
-from gen3_util.cli import NaturalOrderGroup, CLIOutput, ENV_VARIABLE_PREFIX
+from gen3_util.repo import NaturalOrderGroup, CLIOutput, ENV_VARIABLE_PREFIX
 from gen3_util.common import unzip_collapse
 from gen3_util.config import Config, ensure_auth
 from gen3_util.meta.bundler import meta_to_bundle

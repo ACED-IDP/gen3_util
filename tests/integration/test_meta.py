@@ -7,7 +7,7 @@ import uuid
 import pytest
 from click.testing import CliRunner
 
-from gen3_util.cli.cli import cli
+from gen3_util.repo.cli import cli
 
 CURRENT_DIR = pathlib.Path.cwd()
 

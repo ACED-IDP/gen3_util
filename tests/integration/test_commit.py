@@ -7,7 +7,7 @@ import random
 from fhir.resources.bundle import Bundle, BundleEntry
 
 import gen3_util.files.manifest
-from gen3_util.cli.initializer import initialize_project_server_side
+from gen3_util.repo.initializer import initialize_project_server_side
 from gen3_util.common import create_id
 from gen3_util.config import ensure_auth, init
 from gen3_util.meta import directory_reader

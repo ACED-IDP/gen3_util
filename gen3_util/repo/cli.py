@@ -13,13 +13,13 @@ from gen3.auth import Gen3AuthError
 import gen3_util
 from gen3_util.access.cli import access_group
 from gen3_util.buckets.cli import bucket_group
-from gen3_util.cli import StdNaturalOrderGroup, CLIOutput, NaturalOrderGroup, ENV_VARIABLE_PREFIX
-from gen3_util.cli.cloner import clone
-from gen3_util.cli.committer import commit
-from gen3_util.cli.initializer import initialize_project_server_side
-from gen3_util.cli.puller import pull_files
-from gen3_util.cli.pusher import push
-from gen3_util.cli.status import status
+from gen3_util.repo import StdNaturalOrderGroup, CLIOutput, NaturalOrderGroup, ENV_VARIABLE_PREFIX
+from gen3_util.repo.cloner import clone
+from gen3_util.repo.committer import commit
+from gen3_util.repo.initializer import initialize_project_server_side
+from gen3_util.repo.puller import pull_files
+from gen3_util.repo.pusher import push
+from gen3_util.repo.status import status
 from gen3_util.common import write_meta_index, PROJECT_DIR
 from gen3_util.config import Config, ensure_auth, gen3_client_profiles, init
 from gen3_util.config.cli import config_group

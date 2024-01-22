@@ -6,7 +6,7 @@ from gen3.submission import Gen3Submission
 
 import gen3_util
 from gen3_util import Config
-from gen3_util.cli import ENV_VARIABLE_PREFIX
+from gen3_util.repo import ENV_VARIABLE_PREFIX
 from gen3_util.config import ensure_auth
 
 

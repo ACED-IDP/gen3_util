@@ -3,7 +3,7 @@ import sys
 from gen3.jobs import Gen3Jobs
 
 from gen3_util import Config
-from gen3_util.cli.committer import commit_status
+from gen3_util.repo.committer import commit_status
 from gen3_util.common import read_ndjson_file, Push
 from gen3_util.config import ensure_auth
 from gen3_util.files.manifest import ls

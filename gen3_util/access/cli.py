@@ -3,8 +3,8 @@ import click
 from gen3_util.access import create_request
 from gen3_util.access.requestor import ls, cat, update, LogAccess
 from gen3_util.access.submitter import ensure_program_project
-from gen3_util.cli import CLIOutput
-from gen3_util.cli import NaturalOrderGroup
+from gen3_util.repo import CLIOutput
+from gen3_util.repo import NaturalOrderGroup
 from gen3_util.common import validate_email
 from gen3_util.config import Config, ensure_auth
 

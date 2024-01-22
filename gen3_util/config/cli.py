@@ -3,7 +3,7 @@ import subprocess
 import click
 
 from gen3_util import Config
-from gen3_util.cli import NaturalOrderGroup, CLIOutput
+from gen3_util.repo import NaturalOrderGroup, CLIOutput
 
 
 @click.group(name='config', cls=NaturalOrderGroup)

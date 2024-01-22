@@ -1,8 +1,8 @@
 import click
 
 from gen3_util.access.requestor import add_user, rm_user
-from gen3_util.cli import CLIOutput, ENV_VARIABLE_PREFIX
-from gen3_util.cli import NaturalOrderGroup
+from gen3_util.repo import CLIOutput, ENV_VARIABLE_PREFIX
+from gen3_util.repo import NaturalOrderGroup
 from gen3_util.config import Config
 
 

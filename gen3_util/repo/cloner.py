@@ -6,7 +6,7 @@ from io import StringIO
 from gen3.file import Gen3File
 
 from gen3_util import Config
-from gen3_util.cli.puller import pull_files
+from gen3_util.repo.puller import pull_files
 from gen3_util.common import unzip_collapse, write_meta_index
 from gen3_util.config import ensure_auth, init
 from gen3_util.files.lister import ls

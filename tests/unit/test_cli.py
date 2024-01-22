@@ -1,5 +1,5 @@
 from click.testing import CliRunner
-from gen3_util.cli.cli import cli
+from gen3_util.repo.cli import cli
 
 
 def test_any_command(caplog):

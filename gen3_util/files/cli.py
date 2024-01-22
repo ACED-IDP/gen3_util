@@ -7,8 +7,8 @@ from pathlib import Path
 import click
 from requests import HTTPError
 
-from gen3_util.cli import CLIOutput, ENV_VARIABLE_PREFIX
-from gen3_util.cli import NaturalOrderGroup
+from gen3_util.repo import CLIOutput, ENV_VARIABLE_PREFIX
+from gen3_util.repo import NaturalOrderGroup
 from gen3_util.common import PROJECT_DIR
 from gen3_util.config import Config
 from gen3_util.files.lister import ls

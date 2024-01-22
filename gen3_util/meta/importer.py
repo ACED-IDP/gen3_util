@@ -6,7 +6,7 @@ import click
 import unicodedata
 
 from gen3_util import ACED_NAMESPACE
-from gen3_util.cli import CLIOutput, ENV_VARIABLE_PREFIX
+from gen3_util.repo import CLIOutput, ENV_VARIABLE_PREFIX
 from gen3_util.config import Config
 
 logger = logging.getLogger(__name__)

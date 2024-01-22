@@ -1,7 +1,7 @@
 import click
 
 from gen3_util.buckets.lister import ls
-from gen3_util.cli import NaturalOrderGroup, CLIOutput
+from gen3_util.repo import NaturalOrderGroup, CLIOutput
 from gen3_util.config import Config, ensure_auth
 
 

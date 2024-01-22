@@ -4,7 +4,7 @@ import pathlib
 import uuid
 
 from click.testing import CliRunner
-from gen3_util.cli.cli import cli
+from gen3_util.repo.cli import cli
 from gen3_util.common import PROJECT_DIRECTORIES, PROJECT_DIR
 
 CURRENT_DIR = pathlib.Path.cwd()
