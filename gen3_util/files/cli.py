@@ -1,5 +1,6 @@
 import json
 import os
+import pathlib
 import sys
 from json import JSONDecodeError
 from pathlib import Path
@@ -52,7 +53,7 @@ def files_ls(config: Config, object_id: str, project_id: str, specimen: str, pat
     """List uploaded files in a project bucket."""
     if not project_id:
         project_id = config.gen3.project_id
-    with CLIOutput(config=config) as output:
+    with (CLIOutput(config=config) as output):
         try:
             _ = {}
             if project_id:
@@ -73,7 +74,10 @@ def files_ls(config: Config, object_id: str, project_id: str, specimen: str, pat
                 _['is_snapshot'] = is_snapshot
             results = ls(config, object_id=object_id, metadata=_)
             if not long:
-                results = [_['file_name'] for _ in results['records']]
+                results = {
+                    'downloaded': [_['file_name'] for _ in results['records'] if pathlib.Path(_['file_name']).exists()],
+                    'indexed': [_['file_name'] for _ in results['records'] if not pathlib.Path(_['file_name']).exists()]
+                }
             output.update(results)
         except Exception as e:
             output.update({'msg': str(e)})
@@ -87,19 +91,19 @@ def files_ls(config: Config, object_id: str, project_id: str, specimen: str, pat
               help="Gen3 program-project", envvar=f"{ENV_VARIABLE_PREFIX}PROJECT_ID", hidden=True)
 # @click.option('--source_path', required=False, default=None, show_default=True,
 #               help='Path on local file system')
-@click.option('--specimen_id', default=None, required=False, show_default=True,
-              help="fhir specimen identifier", envvar='SPECIMEN_ID')
-@click.option('--patient_id', default=None, required=False, show_default=True,
-              help="fhir patient identifier", envvar='PATIENT_ID')
-@click.option('--task_id', default=None, required=False, show_default=True,
-              help="fhir task identifier", envvar='TASK_ID')
-@click.option('--observation_id', default=None, required=False, show_default=True,
-              help="fhir observation identifier", envvar='OBSERVATION_ID')
+@click.option('--specimen', default=None, required=False, show_default=True,
+              help="fhir specimen identifier", envvar=f'{ENV_VARIABLE_PREFIX}SPECIMEN')
+@click.option('--patient', default=None, required=False, show_default=True,
+              help="fhir patient identifier", envvar=f'{ENV_VARIABLE_PREFIX}PATIENT')
+@click.option('--task', default=None, required=False, show_default=True,
+              help="fhir task identifier", envvar=f'{ENV_VARIABLE_PREFIX}TASK')
+@click.option('--observation', default=None, required=False, show_default=True,
+              help="fhir observation identifier", envvar=f'{ENV_VARIABLE_PREFIX}OBSERVATION')
 @click.option('--md5', default=None, required=False, show_default=True,
               help="MD5 sum, if not provided, will be calculated before upload")
 @click.pass_obj
 def manifest_put_cli(config: Config, local_path: str, project_id: str, md5: str,
-                     specimen_id: str, patient_id: str, observation_id: str, task_id: str):
+                     specimen: str, patient: str, observation: str, task: str):
     """Add file to the index.
 
     \b
@@ -115,10 +119,10 @@ def manifest_put_cli(config: Config, local_path: str, project_id: str, md5: str,
             if not project_id:
                 project_id = config.gen3.project_id
             _ = manifest_put(config, local_path, project_id=project_id, md5=md5)
-            _['observation_id'] = observation_id
-            _['patient_id'] = patient_id
-            _['specimen_id'] = specimen_id
-            _['task_id'] = task_id
+            _['observation_id'] = observation
+            _['patient_id'] = patient
+            _['specimen_id'] = specimen
+            _['task_id'] = task
             _['remote_path'] = None
             output.update(_)
             manifest_save(config, project_id, [_])
