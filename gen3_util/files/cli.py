@@ -46,7 +46,9 @@ def file_group(config):
               help="Meta data",)
 @click.option('--md5', default=None, required=False, show_default=True,
               help="file's md5")
-def files_ls(config: Config, object_id: str, project_id: str, specimen_id: str, patient_id: str, observation_id: str, task_id: str, md5: str, is_metadata: bool, is_snapshot: bool):
+@click.option('-l', '--long', default=False, required=False, show_default=True, is_flag=True,
+              help="long format")
+def files_ls(config: Config, object_id: str, project_id: str, specimen: str, patient: str, observation: str, task: str, md5: str, is_metadata: bool, is_snapshot: bool, long: bool):
     """List uploaded files in a project bucket."""
     if not project_id:
         project_id = config.gen3.project_id
@@ -55,21 +57,24 @@ def files_ls(config: Config, object_id: str, project_id: str, specimen_id: str, 
             _ = {}
             if project_id:
                 _['project_id'] = project_id
-            if specimen_id:
-                _['specimen_id'] = specimen_id
-            if patient_id:
-                _['patient_id'] = patient_id
-            if task_id:
-                _['task_id'] = task_id
-            if observation_id:
-                _['observation_id'] = observation_id
+            if specimen:
+                _['specimen_id'] = specimen
+            if patient:
+                _['patient_id'] = patient
+            if task:
+                _['task_id'] = task
+            if observation:
+                _['observation_id'] = observation
             if md5:
                 _['md5'] = md5
             if is_metadata:
                 _['is_metadata'] = is_metadata
             if is_snapshot:
                 _['is_snapshot'] = is_snapshot
-            output.update(ls(config, object_id=object_id, metadata=_))
+            results = ls(config, object_id=object_id, metadata=_)
+            if not long:
+                results = [_['file_name'] for _ in results['records']]
+            output.update(results)
         except Exception as e:
             output.update({'msg': str(e)})
             output.exit_code = 1
