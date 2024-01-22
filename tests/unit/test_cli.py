@@ -2,16 +2,6 @@ from click.testing import CliRunner
 from gen3_util.cli.cli import cli
 
 
-def test_default_command(caplog):
-    """Ensure it prints version if no other command"""
-    runner = CliRunner()
-    result = runner.invoke(cli, ['version'])
-    assert result.exit_code == 0
-    expected = ['version']
-    for _ in expected:
-        assert _ in result.output, f"Should have printed expected={_} actual={result.output}"
-
-
 def test_any_command(caplog):
     """Ensure it does not print version if command provided"""
     runner = CliRunner()
@@ -38,7 +28,6 @@ def test_help(caplog):
   clone      Clone meta and files from remote.
   pull       Download data files.
   utilities  Useful utilities.
-  version    Print version
         """.split()
     for expected_string in expected_strings:
         assert expected_string in result.output, f"Should have printed {expected_string}"

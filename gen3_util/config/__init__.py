@@ -142,6 +142,7 @@ def ensure_auth(refresh_file: [pathlib.Path, str] = None, validate: bool = False
 def gen3_services(config: Config) -> tuple[Gen3File, Gen3Index, dict, Gen3Auth]:
     """Create Gen3 Services."""
     auth = ensure_auth(profile=config.gen3.profile)
+    assert auth, f"Failed to set auth {config.gen3.profile}"
     file_client = Gen3File(auth_provider=auth)
     index_client = Gen3Index(auth_provider=auth)
     user = auth.curl('/user/user').json()

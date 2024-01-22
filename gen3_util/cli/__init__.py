@@ -35,6 +35,11 @@ def _common_options(self):
                                          show_default=True,
                                          help=f'Connection name. {ENV_VARIABLE_PREFIX}PROFILE See https://bit.ly/3NbKGi4'))
 
+    self.params.insert(2,
+                       click.core.Option(('--version', 'version'),
+                                         is_flag=True
+                                         ))
+
     # self.params.insert(3,
     #                    click.core.Option(('--state_dir', ),
     #                                      envvar=f"{ENV_VARIABLE_PREFIX}_STATE_DIR",

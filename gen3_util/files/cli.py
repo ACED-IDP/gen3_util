@@ -51,24 +51,28 @@ def files_ls(config: Config, object_id: str, project_id: str, specimen_id: str, 
     if not project_id:
         project_id = config.gen3.project_id
     with CLIOutput(config=config) as output:
-        _ = {}
-        if project_id:
-            _['project_id'] = project_id
-        if specimen_id:
-            _['specimen_id'] = specimen_id
-        if patient_id:
-            _['patient_id'] = patient_id
-        if task_id:
-            _['task_id'] = task_id
-        if observation_id:
-            _['observation_id'] = observation_id
-        if md5:
-            _['md5'] = md5
-        if is_metadata:
-            _['is_metadata'] = is_metadata
-        if is_snapshot:
-            _['is_snapshot'] = is_snapshot
-        output.update(ls(config, object_id=object_id, metadata=_))
+        try:
+            _ = {}
+            if project_id:
+                _['project_id'] = project_id
+            if specimen_id:
+                _['specimen_id'] = specimen_id
+            if patient_id:
+                _['patient_id'] = patient_id
+            if task_id:
+                _['task_id'] = task_id
+            if observation_id:
+                _['observation_id'] = observation_id
+            if md5:
+                _['md5'] = md5
+            if is_metadata:
+                _['is_metadata'] = is_metadata
+            if is_snapshot:
+                _['is_snapshot'] = is_snapshot
+            output.update(ls(config, object_id=object_id, metadata=_))
+        except Exception as e:
+            output.update({'msg': str(e)})
+            output.exit_code = 1
 
 
 @file_group.command(name="add")

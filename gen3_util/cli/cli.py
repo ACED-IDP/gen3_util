@@ -8,6 +8,7 @@ from datetime import datetime
 from importlib.metadata import version as pkg_version
 
 import click
+from gen3.auth import Gen3AuthError
 
 import gen3_util
 from gen3_util.access.cli import access_group
@@ -19,7 +20,7 @@ from gen3_util.cli.initializer import initialize_project_server_side
 from gen3_util.cli.puller import pull_files
 from gen3_util.cli.pusher import push
 from gen3_util.cli.status import status
-from gen3_util.common import print_formatted, write_meta_index, PROJECT_DIR
+from gen3_util.common import write_meta_index, PROJECT_DIR
 from gen3_util.config import Config, ensure_auth, gen3_client_profiles, init
 from gen3_util.config.cli import config_group
 from gen3_util.files.cli import file_group, manifest_put_cli
@@ -29,10 +30,14 @@ from gen3_util.projects.cli import project_group
 from gen3_util.users.cli import users_group
 
 
-@click.group(cls=StdNaturalOrderGroup)
+@click.group(cls=StdNaturalOrderGroup, invoke_without_command=True)
 @click.pass_context
-def cli(ctx, output_format, profile):
+def cli(ctx, output_format, profile, version):
     """Gen3 Tracker: manage FHIR metadata and files."""
+    if version:
+        _ = pkg_version('gen3-util')
+        click.echo(_)
+        ctx.exit()
 
     config__ = gen3_util.config.default()
     logging.basicConfig(format=config__.log.format, level=config__.log.level, stream=sys.stderr)
@@ -82,6 +87,13 @@ def ping(config: Config):
                 msgs.append(f"Connected using profile:{config.gen3.profile}")
             except (AssertionError, ValueError) as e:
                 msgs.append(str(e))
+                ok = False
+            except Gen3AuthError as e:
+                msg = str(e).split(':')[0]
+                msgs.append(msg)
+                msg2 = str(e).split('<p class="introduction">')[-1]
+                msg2 = msg2.split('</p>')[0]
+                msgs.append(msg2)
                 ok = False
 
         if ok:
@@ -284,14 +296,6 @@ utilities_group.add_command(access_group)
 utilities_group.add_command(config_group)
 utilities_group.add_command(job_group)
 utilities_group.add_command(users_group)
-
-
-@cli.command(name='version')
-@click.pass_obj
-def version(config):
-    """Print version"""
-    _ = pkg_version('gen3-util')
-    print_formatted(config, {'version': _})
 
 
 if __name__ == '__main__':
