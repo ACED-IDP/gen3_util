@@ -14,7 +14,7 @@ import gen3_util
 from gen3_util.access.cli import access_group
 from gen3_util.buckets.cli import bucket_group
 from gen3_util.repo import StdNaturalOrderGroup, CLIOutput, NaturalOrderGroup, ENV_VARIABLE_PREFIX
-from gen3_util.repo.cloner import clone
+from gen3_util.repo.cloner import clone, download_unzip_snapshot_meta, find_latest_snapshot
 from gen3_util.repo.committer import commit
 from gen3_util.repo.initializer import initialize_project_server_side
 from gen3_util.repo.puller import pull_files
@@ -229,27 +229,44 @@ def clone_cli(config: Config, project_id: str, data_type: str):
 
 
 @cli.command(name="pull")
+@click.option(
+    '--data_type', default='all',
+    type=click.Choice(['meta', 'files', 'all'], case_sensitive=False),
+    required=False, show_default=True,
+    help="Clone meta and/or files from remote."
+)
 @click.pass_obj
-def pull_cli(config: Config):
-    """Download data files."""
+def pull_cli(config: Config, data_type: str):
+    """Download latest meta and data files."""
     with CLIOutput(config=config) as output:
         try:
-            assert config.gen3.project_id, "Not in an initialed project directory."
+            assert config.gen3.project_id, "Not in an initialized project directory."
             project_id = config.gen3.project_id
             _check_parameters(config, project_id)
             now = datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
             manifest_name = f"pull_{project_id}_{now}.manifest.json"
             path = pathlib.Path.cwd()
             original_path = path  # used to make path relative in the log message
-            output.update(
-                pull_files(
-                    config=config,
-                    manifest_name=manifest_name,
-                    original_path=original_path,
-                    path=path,
-                    auth=None
-                )
+            auth = ensure_auth(config=config)
+
+            logs = pull_files(
+                config=config,
+                manifest_name=manifest_name,
+                original_path=original_path,
+                path=path,
+                auth=auth
             )
+
+            snapshot_manifest = find_latest_snapshot(auth, config)
+            download_unzip_snapshot_meta(
+                config=config,
+                auth=auth,
+                snapshot_manifest=snapshot_manifest,
+                logs=logs,
+                original_path=original_path,
+                extract_to=path
+            )
+            output.update(logs)
 
         except AssertionError as e:
             output.update({'msg': str(e)})

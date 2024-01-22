@@ -17,7 +17,7 @@ from orjson import orjson
 from gen3_util import Config
 from gen3_util.common import EmitterContextManager, create_id, Push
 from gen3_util.config import ensure_auth
-from gen3_util.files.lister import ls, meta_nodes
+from gen3_util.files.lister import ls
 from gen3_util.files.manifest import ls as manifest_ls
 from gen3_util.meta import directory_reader
 
@@ -78,8 +78,9 @@ def study_metadata(config: Config, project_id: str, output_path: str, overwrite:
 
     existing_resource_ids = set()
     if not overwrite:
-        print(f"Checking remote for existing records for project_id:{project_id}...", file=sys.stderr)
-        nodes = meta_nodes(config, project_id, auth=auth)  # fetches all nodes by default
+        # print(f"Checking remote for existing records for project_id:{project_id}...", file=sys.stderr)
+        # nodes = meta_nodes(config, project_id, auth=auth)  # fetches all nodes by default
+        nodes = []
         print(f"Retrieved {len(nodes)} from remote.", file=sys.stderr)
         len_nodes = len(nodes)
         print(f"Checking {output_path} and pending commits...", file=sys.stderr)

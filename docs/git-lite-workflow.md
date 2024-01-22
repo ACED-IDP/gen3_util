@@ -215,7 +215,7 @@ Options:
 #g3t init
 unset G3T_PROJECT_ID
 unset G3T_PROFILE
-g3t --profile local init --project_id test-test002d
+g3t --profile local init --project_id test-test001b
 
 # Use case: As a institution data steward, I need to approve the project before it can be shared.
 g3t utilities access sign
@@ -333,7 +333,7 @@ g3t commit -m "commit-6 has invalid fhir"
 
 ```
 
-## submitter test script
+## consumer test script
 ```shell
 # Use case: As a data consumer, I will need download a project.
 
@@ -345,12 +345,12 @@ g3t commit -m "commit-6 has invalid fhir"
 
 unset G3T_PROJECT_ID
 unset G3T_PROFILE
-g3t --profile local clone --project_id test-test002c
+g3t --profile local clone --project_id test-test001b
 
 ## test: the project should exist
-cd test-test002c
+cd test-test001b
 ## test: the meta data should be in place with the latest changes
-grep male META/Patient.ndjson | jq .id
+grep male META/Patient.ndjson |  jq '[.id, .gender]'
 #"20d7d7eb-46f9-5175-b474-cb504f66e10e"
 ## test by default, the files should not be downloaded
 ls tests
