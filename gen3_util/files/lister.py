@@ -1,4 +1,4 @@
-
+import json
 from functools import lru_cache
 
 from gen3.index import Gen3Index
@@ -14,10 +14,16 @@ def ls(config: Config, object_id: str = None, metadata: dict = {}, auth=None):
     else:
         index_client = Gen3Index(auth_provider=auth)
 
+    negate_params = {'metadata': {}}
     if metadata.get('is_metadata', False):
         metadata['is_metadata'] = 'true'
+    else:
+        negate_params['metadata']['is_metadata'] = 'true'
+
     if metadata.get('is_snapshot', False):
         metadata['is_snapshot'] = 'true'
+    else:
+        negate_params['metadata']['is_snapshot'] = 'true'
 
     if object_id:
         if ',' in object_id:
@@ -34,6 +40,9 @@ def ls(config: Config, object_id: str = None, metadata: dict = {}, auth=None):
         params = {'authz': f"/programs/{program}/projects/{project}"}
         metadata.pop('project_id')
     params['metadata'] = metadata
+
+    if len(negate_params['metadata']):
+        params['negate_params'] = json.dumps(negate_params)
 
     records = index_client.client.list_with_params(params=params)
 
