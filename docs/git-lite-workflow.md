@@ -370,3 +370,42 @@ tree tests
 #
 
 ```
+
+
+## Approving projects test script
+
+```shell
+# As a data steward, I need to know un approved users can't approve projects
+
+# As an approved user, create a project, do __not__ sign it
+g3t --profile local init --project_id test-test001b
+
+# Using a gmail address not used elsewhere in the system, log in to the portal and create a profile file
+# Register that token with gen3-client, here we use the profile name `local-G`
+# Attempt to sign the project
+g3t --profile local-G utilities access sign
+## expected output
+# msg: No unsigned requests found
+```
+
+## Adding users who can approve projects
+
+
+```shell
+# As an admin, in order to delegate approvals for the 'create project' and 'add user' use cases, I need to give permissions to users.
+
+## As an admin, add the requester reader and updater role on a particular program to an un privileged user
+g3t utilities access add data_steward_example@<institution>.edu --resource_path /programs/<institution>/projects  --roles requestor_updater_role
+g3t utilities access add data_steward_example@<institution>.edu --resource_path /programs/<institution>/projects  --roles requestor_reader_role
+g3t utilities access add data_steward_example@<institution>.edu --resource_path /services/sheepdog/submission/project  --roles administrator
+# As an admin, approve that request
+g3t utilities access sign
+
+# As an admin, create a project, do __not__ sign it
+g3t init --project_id <institution>-<any_project>
+
+# As a data steward, login to the portal and create a profile file, configure gen3-client with the profile name `local-steward`
+g3t --profile <local-steward> utilities access sign
+## The steward should be able to sign the project, the client should also create the project
+
+```
