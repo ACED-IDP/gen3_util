@@ -356,3 +356,25 @@ def read_meta_index(index_path: pathlib.Path) -> Generator[dict, None, None]:
     with open(index_path, 'r') as fp:
         for line in fp.readlines():
             yield orjson.loads(line)
+
+
+def to_metadata_dict(project_id=None, is_metadata=None, is_snapshot=None, md5=None, observation=None, patient=None, specimen=None, task=None):
+    """Create metadata dict from parameters"""
+    _ = {}
+    if project_id:
+        _['project_id'] = project_id
+    if specimen:
+        _['specimen_id'] = specimen
+    if patient:
+        _['patient_id'] = patient
+    if task:
+        _['task_id'] = task
+    if observation:
+        _['observation_id'] = observation
+    if md5:
+        _['md5'] = md5
+    if is_metadata:
+        _['is_metadata'] = is_metadata
+    if is_snapshot:
+        _['is_snapshot'] = is_snapshot
+    return _

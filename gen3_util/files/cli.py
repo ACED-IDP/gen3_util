@@ -10,14 +10,14 @@ from requests import HTTPError
 
 from gen3_util.repo import CLIOutput, ENV_VARIABLE_PREFIX
 from gen3_util.repo import NaturalOrderGroup
-from gen3_util.common import PROJECT_DIR
+from gen3_util.common import PROJECT_DIR, to_metadata_dict
 from gen3_util.config import Config
 from gen3_util.files.lister import ls
 from gen3_util.files.manifest import put as manifest_put, save as manifest_save, ls as manifest_ls, upload_indexd, \
     upload_files, rm as manifest_rm
 from gen3_util.files.remover import rm
 from gen3_util.meta.publisher import publish_meta_data
-from gen3_util.meta.skeleton import study_metadata
+from gen3_util.meta.skeleton import study_metadata, transform_manifest_to_indexd_keys
 
 
 @click.group(name='files', cls=NaturalOrderGroup)
@@ -55,23 +55,16 @@ def files_ls(config: Config, object_id: str, project_id: str, specimen: str, pat
         project_id = config.gen3.project_id
     with (CLIOutput(config=config) as output):
         try:
-            _ = {}
-            if project_id:
-                _['project_id'] = project_id
-            if specimen:
-                _['specimen_id'] = specimen
-            if patient:
-                _['patient_id'] = patient
-            if task:
-                _['task_id'] = task
-            if observation:
-                _['observation_id'] = observation
-            if md5:
-                _['md5'] = md5
-            if is_metadata:
-                _['is_metadata'] = is_metadata
-            if is_snapshot:
-                _['is_snapshot'] = is_snapshot
+            _ = to_metadata_dict(
+                is_metadata=is_metadata,
+                is_snapshot=is_snapshot,
+                md5=md5,
+                observation=observation,
+                patient=patient,
+                project_id=project_id,
+                specimen=specimen,
+                task=task)
+            _ = transform_manifest_to_indexd_keys(_)
             results = ls(config, object_id=object_id, metadata=_)
             if not long:
                 results = {

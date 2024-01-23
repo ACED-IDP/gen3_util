@@ -54,7 +54,7 @@ def find_latest_snapshot(auth, config):
     results = ls(config=config, metadata={'project_id': config.gen3.project_id, 'is_snapshot': True}, auth=auth)
     records = 'records' in results and results['records'] or []
     records = sorted(records, key=lambda d: d['file_name'])
-    assert len(records) > 0, f"No metadata found for {config.gen3.project_id}"
+    assert len(records) > 0, f"No snapshot found for {config.gen3.project_id}"
     # print(f"Found {len(records)} metadata records {[_['file_name'] for _ in records]}", file=sys.stderr)
     # most recent metadata, file_name has a timestamp
     download_meta = records[-1]

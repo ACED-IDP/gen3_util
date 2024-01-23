@@ -17,13 +17,15 @@ def ls(config: Config, object_id: str = None, metadata: dict = {}, auth=None):
     negate_params = {'metadata': {}}
     if metadata.get('is_metadata', False):
         metadata['is_metadata'] = 'true'
-    else:
-        negate_params['metadata']['is_metadata'] = 'true'
+    # else:
+    #     negate_params['metadata']['is_metadata'] = 'true'
 
     if metadata.get('is_snapshot', False):
         metadata['is_snapshot'] = 'true'
-    else:
+
+    if 'is_snapshot' not in metadata and 'is_metadata' not in metadata:
         negate_params['metadata']['is_snapshot'] = 'true'
+        negate_params['metadata']['is_metadata'] = 'true'
 
     if object_id:
         if ',' in object_id:
@@ -52,6 +54,7 @@ def ls(config: Config, object_id: str = None, metadata: dict = {}, auth=None):
         return record
 
     records = [_ensure_project_id(_.to_json()) for _ in records]
+
     return {
         'records': records,
         'msg': f"Project {project_id} has {len(records)} files."

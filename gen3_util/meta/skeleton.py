@@ -138,11 +138,27 @@ def manifest_to_indexd(config, project_id):
     return records
 
 
+def transform_manifest_to_indexd_keys(metadata: dict):
+    """Transform manifest record to indexd record."""
+    new_keys = {}
+    for k, v in metadata.items():
+        if k in ['object_id', 'project_id']:
+            continue
+        if k.endswith('_id'):
+            new_key = k.replace('_id', '_identifier')
+            new_keys[new_key] = v
+
+    return new_keys
+
+
 def transform_manifest_to_indexd(_: dict, project_id: str) -> dict:
     """Transform manifest record to indexd record."""
     old_keys = []
     new_keys = {'document_reference_id': _['did']}
-    for k, v in _['metadata'].items():
+
+    metadata = _['metadata']
+
+    for k, v in metadata.items():
         if k in ['object_id', 'project_id']:
             continue
         if k.endswith('_id'):
@@ -151,6 +167,7 @@ def transform_manifest_to_indexd(_: dict, project_id: str) -> dict:
             old_keys.append(k)
     for k in old_keys:
         del _['metadata'][k]
+
     _['metadata'].update(new_keys)
     _['metadata']['project_id'] = project_id
     _['created_date'] = _['metadata']['modified']

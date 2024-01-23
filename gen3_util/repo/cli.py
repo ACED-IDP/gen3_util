@@ -13,6 +13,7 @@ from gen3.auth import Gen3AuthError
 import gen3_util
 from gen3_util.access.cli import access_group
 from gen3_util.buckets.cli import bucket_group
+from gen3_util.meta.skeleton import transform_manifest_to_indexd_keys
 from gen3_util.repo import StdNaturalOrderGroup, CLIOutput, NaturalOrderGroup, ENV_VARIABLE_PREFIX
 from gen3_util.repo.cloner import clone, download_unzip_snapshot_meta, find_latest_snapshot
 from gen3_util.repo.committer import commit
@@ -20,7 +21,7 @@ from gen3_util.repo.initializer import initialize_project_server_side
 from gen3_util.repo.puller import pull_files
 from gen3_util.repo.pusher import push
 from gen3_util.repo.status import status
-from gen3_util.common import write_meta_index, PROJECT_DIR
+from gen3_util.common import write_meta_index, PROJECT_DIR, to_metadata_dict
 from gen3_util.config import Config, ensure_auth, gen3_client_profiles, init
 from gen3_util.config.cli import config_group
 from gen3_util.files.cli import file_group, manifest_put_cli
@@ -229,15 +230,26 @@ def clone_cli(config: Config, project_id: str, data_type: str):
 
 
 @cli.command(name="pull")
-@click.option(
-    '--data_type', default='all',
-    type=click.Choice(['meta', 'files', 'all'], case_sensitive=False),
-    required=False, show_default=True,
-    help="Clone meta and/or files from remote."
-)
+@click.argument('path_filter', required=False)
+@click.option('--specimen', default=None, required=False, show_default=True,
+              help="fhir specimen identifier", envvar=f'{ENV_VARIABLE_PREFIX}SPECIMEN')
+@click.option('--patient', default=None, required=False, show_default=True,
+              help="fhir patient identifier", envvar=f'{ENV_VARIABLE_PREFIX}PATIENT')
+@click.option('--task', default=None, required=False, show_default=True,
+              help="fhir task identifier", envvar=f'{ENV_VARIABLE_PREFIX}TASK')
+@click.option('--observation', default=None, required=False, show_default=True,
+              help="fhir observation identifier", envvar=f'{ENV_VARIABLE_PREFIX}OBSERVATION')
+@click.option('--md5', default=None, required=False, show_default=True,
+              help="file's md5")
+@click.option('--meta', default=True, required=False, show_default=True,
+              help="update meta", is_flag=True)
 @click.pass_obj
-def pull_cli(config: Config, data_type: str):
-    """Download latest meta and data files."""
+def pull_cli(config: Config, meta: bool, specimen: str, patient: str, task: str, observation: str, md5: str, path_filter: str):
+    """Download latest meta and data files.
+
+    \b
+    PATH: wildcard filter with a path prefix (optional).
+    """
     with CLIOutput(config=config) as output:
         try:
             assert config.gen3.project_id, "Not in an initialized project directory."
@@ -249,24 +261,31 @@ def pull_cli(config: Config, data_type: str):
             original_path = path  # used to make path relative in the log message
             auth = ensure_auth(config=config)
 
+            metadata_dict = to_metadata_dict(
+                md5=md5, observation=observation, patient=patient, specimen=specimen, task=task
+            )
+
             logs = pull_files(
                 config=config,
                 manifest_name=manifest_name,
                 original_path=original_path,
                 path=path,
-                auth=auth
+                auth=auth,
+                extra_metadata=transform_manifest_to_indexd_keys(metadata_dict),
+                path_filter=path_filter
             )
 
-            snapshot_manifest = find_latest_snapshot(auth, config)
-            download_unzip_snapshot_meta(
-                config=config,
-                auth=auth,
-                snapshot_manifest=snapshot_manifest,
-                logs=logs,
-                original_path=original_path,
-                extract_to=path
-            )
-            output.update(logs)
+            if meta:
+                snapshot_manifest = find_latest_snapshot(auth, config)
+                download_unzip_snapshot_meta(
+                    config=config,
+                    auth=auth,
+                    snapshot_manifest=snapshot_manifest,
+                    logs=logs,
+                    original_path=original_path,
+                    extract_to=path
+                )
+                output.update(logs)
 
         except AssertionError as e:
             output.update({'msg': str(e)})
