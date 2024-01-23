@@ -82,8 +82,9 @@ def sign(config: Config, username: str):
             submitter_msgs = []
             for policy_id in distinct_policy_ids:
                 _ = policy_id.split('.')
-                project_id = f"{_[1]}-{_[3]}"
-                submitter_msgs.append(ensure_program_project(config, project_id, auth=auth))
+                if len(_) == 4:
+                    project_id = f"{_[1]}-{_[3]}"
+                    submitter_msgs.append(ensure_program_project(config, project_id, auth=auth))
 
             output.update(LogAccess(**{
                 'msg': msg + ' ' + '/n'.join(submitter_msgs),
