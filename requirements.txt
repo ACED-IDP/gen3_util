@@ -38,3 +38,7 @@ flatten-json
 
 # bundle
 nested_lookup
+
+# file paths
+wcmatch
+
