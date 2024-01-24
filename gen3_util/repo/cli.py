@@ -60,9 +60,10 @@ def cli(ctx, output_format, profile, version):
             exit(1)
         else:
             if len(_profiles) > 1:
-                click.secho(f"No --profile specified, found multiple gen3_client profiles: {_profiles}", fg='red')
-            click.secho(f"Using default gen3_client profile {_profiles[0]}", fg='yellow')
-            config__.gen3.profile = _profiles[0]
+                click.secho(f"WARNING: No --profile specified, found multiple gen3_client profiles: {_profiles}", fg='red')
+            else:
+                click.secho(f"Using default gen3_client profile {_profiles[0]}", fg='yellow')
+                config__.gen3.profile = _profiles[0]
 
     # ensure that ctx.obj exists
     ctx.obj = config__
@@ -88,7 +89,9 @@ def ping(config: Config):
             ok = False
         else:
             try:
+                assert config.gen3.profile, "No profile found"
                 auth = ensure_auth(config=config, validate=True)
+                assert auth, "Authentication failed"
                 msgs.append(f"Connected using profile:{config.gen3.profile}")
             except (AssertionError, ValueError) as e:
                 msgs.append(str(e))
