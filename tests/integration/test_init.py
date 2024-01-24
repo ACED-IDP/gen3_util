@@ -32,7 +32,7 @@ def test_init(tmp_path, program, profile):
     guid = str(uuid.uuid4())
     project_id = f'{program}-TEST_INCREMENTAL_{guid.replace("-", "_")}'
 
-    result = runner.invoke(cli, ['--format', 'json', '--profile', profile, 'init', '--project_id', project_id])
+    result = runner.invoke(cli, ['--format', 'json', '--profile', profile, 'init', project_id])
     assert result.exit_code == 0, f"cmd failed with {result.output}"
     result_output = result.output
     print(result_output)

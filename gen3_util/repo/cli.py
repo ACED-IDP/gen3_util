@@ -115,11 +115,14 @@ def ping(config: Config):
 
 
 @cli.command(name='init')
-@click.option('--project_id', default=None, required=False, show_default=True,
-              help=f"Gen3 program-project {ENV_VARIABLE_PREFIX}PROJECT_ID", envvar=f"{ENV_VARIABLE_PREFIX}PROJECT_ID")
+@click.argument('project_id', default=None, required=False, envvar=f"{ENV_VARIABLE_PREFIX}PROJECT_ID")
 @click.pass_obj
 def init_cli(config, project_id: str):
-    """Create project, both locally and on remote."""
+    """Create project, both locally and on remote.
+
+    \b
+    PROJECT_ID: Gen3 program-project env:G3T_PROJECT_ID
+    """
     with (CLIOutput(config=config) as output):
         try:
             _check_parameters(config, project_id)
