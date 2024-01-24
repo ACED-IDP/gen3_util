@@ -156,7 +156,7 @@ def _write_indexd(index_client,
             assert response, "Expected response from indexd create_record"
         except (requests.exceptions.HTTPError, AssertionError) as e:
             if 'already exists' in str(e):
-                logger.error(f"indexd record already exists, consider using --duplicate_check. {manifest_item['object_id']} {str(e)}")
+                logger.error(f"indexd record already exists, consider using --overwrite. {manifest_item['object_id']} {str(e)}")
             raise e
     return True
 

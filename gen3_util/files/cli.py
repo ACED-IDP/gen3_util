@@ -145,12 +145,14 @@ def _manifest_ls(config: Config, project_id: str, object_id: str):
 @click.option('--restricted_project_id', default=None, required=False, show_default=True,
               help="Gen3 program-project, additional authorization", envvar='RESTRICTED_PROJECT_ID')
 @click.option('--upload-path', default='.', show_default=True, help="gen3-client upload path")
-@click.option('--duplicate_check', default=False, is_flag=True, show_default=True, help="Update files records")
+@click.option('--overwrite', default=False, is_flag=True, show_default=True, help="Update files records")
 @click.option('--manifest_path', default=None, show_default=True, help="Provide your own manifest file.")
-@click.option('--no_meta_data', 'meta_data', default=True, is_flag=True, show_default=True, help="Generate and submit metadata.")
+@click.option('--no_meta_data', 'meta_data',
+              default=True, is_flag=True, show_default=True, help="Generate and submit metadata.")
 @click.option('--wait', default=False, is_flag=True, show_default=True, help="Wait for metadata completion.")
 @click.pass_obj
-def _manifest_upload(config: Config, project_id: str, duplicate_check: bool, upload_path: str, manifest_path: str, restricted_project_id: str, meta_data: bool, wait: bool):
+def _manifest_upload(config: Config, project_id: str, overwrite: bool, upload_path: str, manifest_path: str,
+                     restricted_project_id: str, meta_data: bool, wait: bool):
     """Upload index to project bucket.
 
     """
@@ -160,7 +162,13 @@ def _manifest_upload(config: Config, project_id: str, duplicate_check: bool, upl
     with CLIOutput(config=config) as output:
         print("Updating file index...", file=sys.stderr)
         try:
-            manifest_entries = upload_indexd(config, project_id=project_id, duplicate_check=duplicate_check, manifest_path=manifest_path, restricted_project_id=restricted_project_id)
+            manifest_entries = upload_indexd(
+                config=config,
+                project_id=project_id,
+                duplicate_check=overwrite,
+                manifest_path=manifest_path,
+                restricted_project_id=restricted_project_id
+            )
             output.update({'manifest_entries': manifest_entries})
         except (AssertionError, HTTPError) as e:
             print(f"upload_indexd failed with {e}", file=sys.stderr)
@@ -174,9 +182,9 @@ def _manifest_upload(config: Config, project_id: str, duplicate_check: bool, upl
         if meta_data:
             print("Updating metadata...", file=sys.stderr)
             meta_data_path = config.state_dir / f"{project_id}-meta_data"
-            new_record_count = study_metadata(config=config, overwrite=duplicate_check, project_id=project_id, source='manifest', output_path=meta_data_path)
+            new_record_count = study_metadata(config=config, overwrite=overwrite, project_id=project_id, source='manifest', output_path=meta_data_path)
             if new_record_count > 0:
-                _ = publish_meta_data(config, str(meta_data_path), ignore_state=duplicate_check, project_id=project_id, wait=wait)
+                _ = publish_meta_data(config, str(meta_data_path), ignore_state=overwrite, project_id=project_id, wait=wait)
                 try:
                     _ = json.loads(_['output'])
                     output.update({'job': {'publish_meta_data': _}})
