@@ -40,7 +40,6 @@ def test_projects(caplog):
     assert result.exit_code == 0
     print(result.output)
     expected_strings = """
-      new  Creates project resource with default policies.
       ls   List all projects user has access to.
       rm   Remove project.
     """.split()
