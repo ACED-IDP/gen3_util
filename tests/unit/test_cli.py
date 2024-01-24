@@ -86,7 +86,7 @@ def test_config(caplog):
     """Ensure it prints file"""
     runner = CliRunner()
     result = runner.invoke(cli, 'utilities config --help'.split())
-    assert result.exit_code == 0
+    assert result.exit_code == 0, result.output
     print(result.output)
     expected_strings = """
       ls  Show defaults.

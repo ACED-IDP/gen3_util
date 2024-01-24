@@ -2,6 +2,7 @@ import logging
 import os
 import pathlib
 import sys
+from configparser import ConfigParser
 from datetime import datetime, timezone, timedelta
 from typing import Generator
 
@@ -72,20 +73,31 @@ def key_expired_msg(api_key, expiration_threshold_days, key_name):
     return msg
 
 
+def _get_gen3_client_default_profile(path: pathlib.Path = None, gen3_util_ini: ConfigParser = None) -> str:
+    """Read gen3-client ini file, return default (only) profile."""
+    if gen3_util_ini is None:
+        assert path, "path is required"
+        gen3_util_ini = read_ini(path)
+    if len(gen3_util_ini.sections()) == 1:
+        # default to first section if only one section
+        profile = gen3_util_ini.sections()[0]
+        return profile
+    return None
+
+
 def _get_gen3_client_key(path: pathlib.Path, profile: str = None) -> str:
     """Read gen3-client ini file, return api_key for profile."""
 
     gen3_util_ini = read_ini(path)
 
-    if not profile and len(gen3_util_ini.sections()) == 1:
-        # default to first section if only one section
-        profile = gen3_util_ini.sections()[0]
-    if not profile:
-        # default to default section if no profile specified
-        profile = gen3_util_ini.default_section
-    for section in gen3_util_ini.sections():
-        if section == profile:
-            return gen3_util_ini[section]['api_key']
+    if profile:
+        for section in gen3_util_ini.sections():
+            if section == profile:
+                return gen3_util_ini[section]['api_key']
+    else:
+        profile = _get_gen3_client_default_profile(gen3_util_ini=gen3_util_ini)
+        if profile:
+            return gen3_util_ini[profile]['api_key']
     click.secho(f"no profile '{profile}' found in {path}, specify one of {gen3_util_ini.sections()}, optionally set environmental variable: GEN3_UTIL_PROFILE", fg='yellow')
 
 

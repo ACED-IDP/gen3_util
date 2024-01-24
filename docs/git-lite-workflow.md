@@ -211,11 +211,11 @@ Options:
 # Use case: As a data submitter, I will need to create a project.
 ## test should work with or without environment variables
 #export G3T_PROFILE=local
-#export G3T_PROJECT_ID=test-test002b
+#export G3T_PROJECT_ID=ohsu-test002b
 #g3t init
 unset G3T_PROJECT_ID
 unset G3T_PROFILE
-g3t --profile local init --project_id test-test001b
+g3t --profile local init --project_id ohsu-test001b
 
 # Use case: As a institution data steward, I need to approve the project before it can be shared.
 g3t utilities access sign
@@ -333,6 +333,48 @@ g3t commit -m "commit-6 has invalid fhir"
 
 ```
 
+## submitter test script `one-profile`
+
+```bash
+# Use case: As a data submitter, when I have only one gen3_client profile, I shouldn't need to specify it when I need to create a project.
+## setup: comment out or remove all profiles except one from your ~/.gen3/gen3_client_config.ini
+## test setup: there should be one profiles in ~/.gen3/gen3_client_config.ini
+cat ~/.gen3/gen3_client_config.ini | grep '^\[' | wc -l
+
+unset G3T_PROJECT_ID
+unset G3T_PROFILE
+# do not specify a profile
+g3t init --project_id ohsu-test001b
+## test: the project should be created
+## test: the project should be created with the default profile
+g3t --format json utilities config ls | jq .config.gen3.profile
+# should equal the single profile name in ~/.gen3/gen3_client_config.ini
+```
+
+## submitter test script `one-profile of many`
+
+```bash
+# Use case: As a data submitter, when I have only several gen3_client profiles, I must specify one when I need to create a project.
+## setup: ensure there are several profiles in ~/.gen3/gen3_client_config.ini
+## test setup: there should be several profiles in ~/.gen3/gen3_client_config.ini
+cat ~/.gen3/gen3_client_config.ini | grep '^\[' | wc -l
+
+unset G3T_PROJECT_ID
+unset G3T_PROFILE
+# do not specify a profile
+g3t init --project_id ohsu-test001b
+## test should fail with a message that a profile must be specified
+## No --profile specified, found multiple gen3_client profiles: ...
+
+## retry specifying a profile
+g3t --profile local init --project_id ohsu-test001b
+## test: the project should be created
+## test: the project should be created with the profile specified
+g3t --format json utilities config ls | jq .config.gen3.profile
+# should equal the single profile name in ~/.gen3/gen3_client_config.ini
+```
+
+
 ## consumer test script
 ```shell
 # Use case: As a data consumer, I will need download a project.
@@ -340,15 +382,15 @@ g3t commit -m "commit-6 has invalid fhir"
 ## test should work with or without environment variables
 
 #export G3T_PROFILE=local
-#export G3T_PROJECT_ID=test-test002b
+#export G3T_PROJECT_ID=ohsu-test002b
 #g3t clone
 
 unset G3T_PROJECT_ID
 unset G3T_PROFILE
-g3t --profile local clone --project_id test-test001b
+g3t --profile local clone --project_id ohsu-test001b
 
 ## test: the project should exist
-cd test-test001b
+cd ohsu-test001b
 ## test: the meta data should be in place with the latest changes
 grep male META/Patient.ndjson |  jq '[.id, .gender]'
 #"20d7d7eb-46f9-5175-b474-cb504f66e10e"
@@ -375,10 +417,10 @@ tree tests
 ## Approving projects test script
 
 ```shell
-# As a data steward, I need to know un approved users can't approve projects
+# As a data steward, I need to know un-approved users can't approve projects
 
 # As an approved user, create a project, do __not__ sign it
-g3t --profile local init --project_id test-test001b
+g3t --profile local init --project_id ohsu-test001b
 
 # Using a gmail address not used elsewhere in the system, log in to the portal and create a profile file
 # Register that token with gen3-client, here we use the profile name `local-G`

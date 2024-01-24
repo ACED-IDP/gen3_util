@@ -80,8 +80,9 @@ class Config(BaseModel):
 
          temporary until we switch to pydantic2
         """
-
-        return json.loads(self.json())
+        _ = json.loads(self.json())
+        del _['no_config_found']
+        return _
 
     def commit_dir(self):
         """Return the path to the commits directory."""

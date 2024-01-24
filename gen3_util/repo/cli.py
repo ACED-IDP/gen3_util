@@ -8,6 +8,7 @@ from datetime import datetime
 from importlib.metadata import version as pkg_version
 
 import click
+import requests
 from gen3.auth import Gen3AuthError
 
 import gen3_util
@@ -46,11 +47,22 @@ def cli(ctx, output_format, profile, version):
     if output_format:
         config__.output.format = output_format
 
+    _profiles = gen3_client_profiles()
+    is_help = '--help' in click.get_os_args()
     if profile:
-        if profile not in gen3_client_profiles():
+        if profile not in _profiles:
             click.secho(f"Profile {profile} not found.", fg='red')
             exit(1)
         config__.gen3.profile = profile
+    elif not config__.gen3.profile and not is_help:
+        if not _profiles:
+            click.secho("No gen3_client profile found.", fg='red')
+            exit(1)
+        else:
+            if len(_profiles) > 1:
+                click.secho(f"No --profile specified, found multiple gen3_client profiles: {_profiles}", fg='red')
+            click.secho(f"Using default gen3_client profile {_profiles[0]}", fg='yellow')
+            config__.gen3.profile = _profiles[0]
 
     # ensure that ctx.obj exists
     ctx.obj = config__
@@ -120,7 +132,7 @@ def init_cli(config, project_id: str):
             logs.extend(initialize_project_server_side(config, project_id))
 
             output.update({'msg': 'Initialized empty repository', 'logs': logs})
-        except AssertionError as e:
+        except (AssertionError, requests.exceptions.HTTPError) as e:
             output.update({'msg': str(e)})
             output.exit_code = 1
 
