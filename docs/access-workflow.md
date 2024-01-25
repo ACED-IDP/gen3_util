@@ -12,9 +12,9 @@
 
 specifically:
 
-* gen3_util access `touch` USER_NAME RESOURCE_PATH implements `Fill out access request form`
-*  gen3_util access `update` REQUEST_ID STATUS implements `update access request status`
-*  gen3_util access `ls` implements `send form data`
+* g3t utilities access `add` USER_NAME RESOURCE_PATH implements `Fill out access request form`
+* g3t utilities access `sign` REQUEST_ID STATUS implements `update access request status`
+* g3t utilities  access `ls` implements `send form data`
 
 
 
@@ -23,8 +23,9 @@ see https://github.com/uc-cdis/requestor/blob/master/docs/functionality_and_flow
 ---/---
 
 
-```$ gen3_util access
-Usage: gen3_util access [OPTIONS] COMMAND [ARGS]...
+```
+$ g3t utilities access --help
+Usage: g3t utilities access [OPTIONS] COMMAND [ARGS]...
 
   Manage access requests.
 
