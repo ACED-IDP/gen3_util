@@ -3,7 +3,6 @@ from functools import lru_cache
 
 from gen3.index import Gen3Index
 from gen3.submission import Gen3Submission
-
 from gen3_util.config import Config, gen3_services
 
 

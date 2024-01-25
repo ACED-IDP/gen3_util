@@ -29,7 +29,9 @@ from gen3_util.files.cli import file_group, manifest_put_cli
 from gen3_util.jobs.cli import job_group
 from gen3_util.meta.cli import meta_group
 from gen3_util.projects.cli import project_group
+from gen3_util.projects.remover import rm
 from gen3_util.users.cli import users_group
+from gen3_util.files.middleware import files_ls_wr
 
 
 @click.group(cls=StdNaturalOrderGroup, invoke_without_command=True)
@@ -134,6 +136,8 @@ def init_cli(config, project_id: str):
             for _ in init(config, project_id):
                 logs.append(_)
 
+            click.secho(f"cloning {project_id}...", fg='green')
+
             # request the project get signed
             logs.extend(initialize_project_server_side(config, project_id))
 
@@ -234,6 +238,7 @@ def status_cli(config: Config):
             assert config.gen3.project_id, "Not in an initialed project directory."
             project_id = config.gen3.project_id
             _check_parameters(config, project_id)
+            click.secho("retrieving status...", fg='green')
             output.update(status(config))
 
         except Exception as e:
@@ -345,6 +350,23 @@ def update_index_cli(config: Config):
         except AssertionError as e:
             output.update({'msg': str(e)})
             output.exit_code = 1
+
+
+@cli.command(name="rm")
+@click.option('--project_id', default=None, show_default=True,
+              help="Gen3 program-project", envvar=f"{ENV_VARIABLE_PREFIX}PROJECT_ID")
+@click.pass_obj
+def project_rm(config: Config, project_id: str):
+    """Remove project.
+    """
+    with CLIOutput(config=config) as output:
+        output.update(rm(config, project_id))
+
+
+@cli.command(name="log")
+@click.pass_obj
+def log_cli(config: Config):
+    files_ls_wr(config, object_id=None, project_id=None, specimen=None, patient=None, observation=None, task=None, is_metadata=True, md5=None, is_snapshot=False, long=False)
 
 
 @cli.group(name='utilities', cls=NaturalOrderGroup)

@@ -1,6 +1,5 @@
 import json
 import os
-import pathlib
 import sys
 from json import JSONDecodeError
 from pathlib import Path
@@ -10,14 +9,14 @@ from requests import HTTPError
 
 from gen3_util.repo import CLIOutput, ENV_VARIABLE_PREFIX
 from gen3_util.repo import NaturalOrderGroup
-from gen3_util.common import PROJECT_DIR, to_metadata_dict
+from gen3_util.common import PROJECT_DIR
 from gen3_util.config import Config
-from gen3_util.files.lister import ls
+from gen3_util.files.middleware import files_ls_wr
 from gen3_util.files.manifest import put as manifest_put, save as manifest_save, ls as manifest_ls, upload_indexd, \
     upload_files, rm as manifest_rm
 from gen3_util.files.remover import rm
 from gen3_util.meta.publisher import publish_meta_data
-from gen3_util.meta.skeleton import study_metadata, transform_manifest_to_indexd_keys
+from gen3_util.meta.skeleton import study_metadata
 
 
 @click.group(name='files', cls=NaturalOrderGroup)
@@ -31,7 +30,7 @@ def file_group(config):
 @click.pass_obj
 @click.option('--object_id', default=None, required=False, show_default=True,
               help="id of the object in the indexd database")
-@click.option('--project_id', default=None, required=None, show_default=True,
+@click.option('--project_id', default=None, required=False, show_default=True,
               help="Gen3 program-project", envvar=f"{ENV_VARIABLE_PREFIX}PROJECT_ID")
 @click.option('--specimen', default=None, required=False, show_default=True,
               help="fhir specimen identifier", envvar='SPECIMEN_ID')
@@ -51,30 +50,7 @@ def file_group(config):
               help="long format")
 def files_ls(config: Config, object_id: str, project_id: str, specimen: str, patient: str, observation: str, task: str, md5: str, is_metadata: bool, is_snapshot: bool, long: bool):
     """List uploaded files in a project bucket."""
-    if not project_id:
-        project_id = config.gen3.project_id
-    with (CLIOutput(config=config) as output):
-        try:
-            _ = to_metadata_dict(
-                is_metadata=is_metadata,
-                is_snapshot=is_snapshot,
-                md5=md5,
-                observation=observation,
-                patient=patient,
-                project_id=project_id,
-                specimen=specimen,
-                task=task)
-            _ = transform_manifest_to_indexd_keys(_)
-            results = ls(config, object_id=object_id, metadata=_)
-            if not long:
-                results = {
-                    'downloaded': [_['file_name'] for _ in results['records'] if pathlib.Path(_['file_name']).exists()],
-                    'indexed': [_['file_name'] for _ in results['records'] if not pathlib.Path(_['file_name']).exists()]
-                }
-            output.update(results)
-        except Exception as e:
-            output.update({'msg': str(e)})
-            output.exit_code = 1
+    files_ls_wr(config, object_id, project_id, specimen, patient, observation, task, md5, is_metadata, is_snapshot, long)
 
 
 @file_group.command(name="add")

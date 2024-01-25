@@ -1,6 +1,6 @@
 import click
 
-from attic.submitter import ensure_program_project
+from gen3_util.access.submitter import ensure_program_project
 from gen3_util.config import Config, ensure_auth
 from gen3_util.projects.lister import ls
 from gen3_util.projects.remover import rm

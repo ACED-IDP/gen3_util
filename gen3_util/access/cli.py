@@ -66,6 +66,7 @@ def sign(config: Config, username: str):
             msg = f"Signing {len(unsigned_requests)} requests."
 
             signed_requests = []
+            click.secho("signing requests...", fg='green')
             for request in unsigned_requests:
                 signed_requests.append(
                     update(config, request_id=request['request_id'], status='SIGNED', auth=auth).request

@@ -93,6 +93,7 @@ def update_request(config: Config = None, auth: Gen3Auth = None, request_id: str
     assert status, "required"
     auth = _ensure_auth(auth, config)
     request = {'status': status}
+
     response = requests.put(
         auth.endpoint + "/" + f'requestor/request/{request_id}', json=request, auth=auth
     )

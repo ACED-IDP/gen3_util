@@ -1,4 +1,4 @@
-from typing import List, Any
+from typing import List, Any, Union
 from collections import defaultdict
 
 from gen3.auth import Gen3Auth
@@ -18,7 +18,7 @@ class ProjectSummaries(BaseModel):
     """Summary of projects, including messages."""
     endpoint: str
     """The commons url"""
-    projects: dict[str, ProjectSummary] | list[str] = {}
+    projects: Union[dict[str, ProjectSummary], list[str]] = {}
     """List of projects"""
     messages: List[str] = []
     """List of messages"""
