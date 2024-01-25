@@ -70,8 +70,8 @@ Usage: g3t add [OPTIONS] LOCAL_PATH
   local_path: relative path to file on local file system
 
 Options:
-  --specimen_id TEXT     fhir specimen identifier
-  --patient_id TEXT      fhir patient identifier
+  --specimen TEXT     fhir specimen identifier
+  --patient TEXT      fhir patient identifier
   --task_id TEXT         fhir task identifier
   --observation_id TEXT  fhir observation identifier
   --md5 TEXT             MD5 sum, if not provided, will be calculated before
@@ -98,8 +98,8 @@ Usage: g3t add [OPTIONS] LOCAL_PATH
   local_path: relative path to file or symbolic link on the local file system
 
 Options:
-  --specimen_id TEXT     fhir specimen identifier
-  --patient_id TEXT      fhir patient identifier
+  --specimen TEXT     fhir specimen identifier
+  --patient TEXT      fhir patient identifier
   --task_id TEXT         fhir task identifier
   --observation_id TEXT  fhir observation identifier
   --md5 TEXT             MD5 sum, if not provided, will be calculated before
@@ -215,13 +215,13 @@ Options:
 #g3t init
 unset G3T_PROJECT_ID
 unset G3T_PROFILE
-g3t --profile local init --project_id ohsu-test001b
+g3t --profile local init ohsu-test001b
 
 # Use case: As a institution data steward, I need to approve the project before it can be shared.
 g3t utilities access sign
 
 # Use case: As a data submitter, I will need to add files to the project and associate them with a subject(patient).
-g3t add tests/fixtures/dir_to_study/file-1.txt  --patient_id P1
+g3t add tests/fixtures/dir_to_study/file-1.txt  --patient P1
 g3t utilities meta create
 ## test meta generation:  META should have 4 files
 g3t commit  -m "commit-1"
@@ -233,7 +233,7 @@ g3t commit  -m "commit-1"
 #     ResearchSubject: 1
 
 # Use case: when subjects are added to study I need to add them to the project.
-g3t add tests/fixtures/dir_to_study/file-2.csv  --patient_id P2
+g3t add tests/fixtures/dir_to_study/file-2.csv  --patient P2
 g3t status
 ## test add: should return one entry in "uncommitted_manifest:"
 g3t utilities meta create
@@ -248,12 +248,14 @@ g3t commit -m "commit-2"
 #    - tests/fixtures/dir_to_study/file-2.csv
 
 # Use case: some subjects have specimens, I need to add them to the project.
-g3t add tests/fixtures/dir_to_study/sub-dir/file-3.pdf --patient_id P3 --specimen_id S3
+g3t add tests/fixtures/dir_to_study/sub-dir/file-3.pdf --patient P3 --specimen S3
 g3t utilities meta create
 ## test should create a Specimen.ndjson file in META
 # Created 4 new records.
 wc -l META/Specimen.ndjson
 #       1 META/Specimen.ndjson
+g3t diff
+## test diff: should show new records
 g3t commit -m "commit-3"
 ## test the commit: g3t status should return commit info - was message added? 4 new records
 #    message: commit-3
@@ -310,6 +312,8 @@ g3t utilities jobs get UID
 sed -i.bak 's/"P1"}]}/"P1"}], "gender": "male"}/' META/Patient.ndjson
 # see https://stackoverflow.com/a/22084103
 rm META/Patient.ndjson.bak
+g3t diff
+## test diff: should show changed records
 g3t commit -m "commit-4"
 ## test: the commit should process only one patient record
 #resource_counts:
@@ -344,7 +348,7 @@ cat ~/.gen3/gen3_client_config.ini | grep '^\[' | wc -l
 unset G3T_PROJECT_ID
 unset G3T_PROFILE
 # do not specify a profile
-g3t init --project_id ohsu-test001b
+g3t init ohsu-test001b
 ## test: the project should be created
 ## test: the project should be created with the default profile
 g3t --format json utilities config ls | jq .config.gen3.profile
@@ -362,12 +366,12 @@ cat ~/.gen3/gen3_client_config.ini | grep '^\[' | wc -l
 unset G3T_PROJECT_ID
 unset G3T_PROFILE
 # do not specify a profile
-g3t init --project_id ohsu-test001b
+g3t init ohsu-test001b
 ## test should fail with a message that a profile must be specified
 ## No --profile specified, found multiple gen3_client profiles: ...
 
 ## retry specifying a profile
-g3t --profile local init --project_id ohsu-test001b
+g3t --profile local init ohsu-test001b
 ## test: the project should be created
 ## test: the project should be created with the profile specified
 g3t --format json utilities config ls | jq .config.gen3.profile
@@ -410,44 +414,5 @@ tree tests
 #        └── sub-dir
 #            └── file-3.pdf
 #
-
-```
-
-
-## Approving projects test script
-
-```shell
-# As a data steward, I need to know un-approved users can't approve projects
-
-# As an approved user, create a project, do __not__ sign it
-g3t --profile local init --project_id ohsu-test001b
-
-# Using a gmail address not used elsewhere in the system, log in to the portal and create a profile file
-# Register that token with gen3-client, here we use the profile name `local-G`
-# Attempt to sign the project
-g3t --profile local-G utilities access sign
-## expected output
-# msg: No unsigned requests found
-```
-
-## Adding users who can approve projects
-
-
-```shell
-# As an admin, in order to delegate approvals for the 'create project' and 'add user' use cases, I need to give permissions to users.
-
-## As an admin, add the requester reader and updater role on a particular program to an un privileged user
-g3t utilities access add data_steward_example@<institution>.edu --resource_path /programs/<institution>/projects  --roles requestor_updater_role
-g3t utilities access add data_steward_example@<institution>.edu --resource_path /programs/<institution>/projects  --roles requestor_reader_role
-g3t utilities access add data_steward_example@<institution>.edu --resource_path /services/sheepdog/submission/project  --roles administrator
-# As an admin, approve that request
-g3t utilities access sign
-
-# As an admin, create a project, do __not__ sign it
-g3t init --project_id <institution>-<any_project>
-
-# As a data steward, login to the portal and create a profile file, configure gen3-client with the profile name `local-steward`
-g3t --profile <local-steward> utilities access sign
-## The steward should be able to sign the project, the client should also create the project
 
 ```

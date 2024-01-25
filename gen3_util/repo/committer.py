@@ -3,6 +3,8 @@ import pathlib
 import shutil
 import tempfile
 from collections import defaultdict
+from hashlib import md5
+from typing import Generator
 from zipfile import ZipFile
 
 from orjson import orjson
@@ -10,9 +12,8 @@ from pydantic import BaseModel
 
 from gen3_util import Config
 from gen3_util.common import read_ndjson_file, dict_md5, EmitterContextManager, Push, write_meta_index, read_meta_index
-from gen3_util.meta import directory_reader, ParseResult
 from gen3_util.files.manifest import ls as manifest_ls
-from hashlib import md5
+from gen3_util.meta import directory_reader, ParseResult
 
 
 class CommitResult(BaseModel):
@@ -34,6 +35,44 @@ class CommitResult(BaseModel):
             _.exception = str(_.exception)
             _.path = str(_.path)
         return orjson.loads(self.json())
+
+
+def diff(config, metadata_path) -> Generator[dict, None, None]:
+    """Diff metadata with current state."""
+    existing_meta_index = {_['id']: _['md5'] for _ in read_meta_index(config.state_dir)}
+    pending_meta_index = {_['id']: _['md5'] for _ in Push(config=config).pending_meta_index()}
+
+    for _ in sorted(metadata_path.glob("*.ndjson")):
+        line = 0
+        for resource in read_ndjson_file(_):
+            line += 1
+            # is it in the pending index?
+            existing_md5 = pending_meta_index.get(resource['id'], None)
+            if not existing_md5:
+                # is it in the existing index?
+                existing_md5 = existing_meta_index.get(resource['id'], None)
+            resource_md5 = dict_md5(resource)
+            if existing_md5 and (existing_md5 == resource_md5):
+                continue
+            # new resource or resource has changed
+            new_changed = 'new' if not existing_md5 else 'changed'
+
+            identifier = resource.get('identifier', None)
+            if identifier:
+                if not isinstance(identifier, list):
+                    identifier = [identifier]
+                _identifier = [_ for _ in identifier if _.get('use') == 'official']
+                if len(_identifier) == 0:
+                    _identifier = identifier[0]
+                _identifier = _identifier[0]
+
+            yield {
+                'path': str(_),
+                'line': line,
+                'id': resource['id'],
+                'identifier': _identifier.get('value'),
+                'type': new_changed
+            }
 
 
 def prepare_metadata_zip(config, metadata_path) -> (str, pathlib.Path, list[str]):

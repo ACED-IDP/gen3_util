@@ -17,7 +17,7 @@ from gen3_util.buckets.cli import bucket_group
 from gen3_util.meta.skeleton import transform_manifest_to_indexd_keys
 from gen3_util.repo import StdNaturalOrderGroup, CLIOutput, NaturalOrderGroup, ENV_VARIABLE_PREFIX
 from gen3_util.repo.cloner import clone, download_unzip_snapshot_meta, find_latest_snapshot
-from gen3_util.repo.committer import commit
+from gen3_util.repo.committer import commit, diff
 from gen3_util.repo.initializer import initialize_project_server_side
 from gen3_util.repo.puller import pull_files
 from gen3_util.repo.pusher import push
@@ -179,6 +179,26 @@ def commit_cli(config: Config, metadata_path: str, message: str):
             _ = results.model_dump()
             _['msg'] = results.message
             output.update(_)
+
+        except AssertionError as e:
+            output.update({'msg': str(e)})
+            output.exit_code = 1
+
+
+@cli.command(name='diff')
+@click.argument('metadata_path', type=click.Path(exists=True), default='META', required=False)
+@click.pass_obj
+def diff_cli(config: Config, metadata_path: str):
+    """Show new/changed metadata since last commit.
+
+    \b
+    METADATA_PATH: directory containing metadata files to be compared. [default: ./META]
+    """
+    with CLIOutput(config=config) as output:
+        try:
+            assert config.gen3.project_id, "Not in an initialed project directory."
+            metadata_path = pathlib.Path(metadata_path)
+            output.update({'diff': [_ for _ in diff(config, metadata_path)]})
 
         except AssertionError as e:
             output.update({'msg': str(e)})
