@@ -2,11 +2,10 @@ import click
 
 from gen3_util.access import create_request
 from gen3_util.access.requestor import ls, cat, update, LogAccess
-from gen3_util.access.submitter import ensure_program_project
-from gen3_util.repo import CLIOutput
-from gen3_util.repo import NaturalOrderGroup
 from gen3_util.common import validate_email
 from gen3_util.config import Config, ensure_auth
+from gen3_util.repo import CLIOutput
+from gen3_util.repo import NaturalOrderGroup
 
 
 @click.group(name='access', cls=NaturalOrderGroup)
@@ -68,26 +67,14 @@ def sign(config: Config, username: str):
 
             signed_requests = []
             for request in unsigned_requests:
-                signed_requests.append(update(config, request_id=request['request_id'], status='SIGNED', auth=auth).request)
-
-            msg = f"Signed {len(unsigned_requests)} requests."
-            distinct_policy_ids = sorted(
-                set(
-                    [
-                        _['policy_id'].replace('_reader', '').replace('_writer', '')
-                        for _ in unsigned_requests if _['policy_id'].startswith('programs.')
-                    ]
+                signed_requests.append(
+                    update(config, request_id=request['request_id'], status='SIGNED', auth=auth).request
                 )
-            )
-            submitter_msgs = []
-            for policy_id in distinct_policy_ids:
-                _ = policy_id.split('.')
-                if len(_) == 4:
-                    project_id = f"{_[1]}-{_[3]}"
-                    submitter_msgs.append(ensure_program_project(config, project_id, auth=auth))
+
+            msg = f"Signed {len(unsigned_requests)} requests.  System administrators will create new projects."
 
             output.update(LogAccess(**{
-                'msg': msg + ' ' + '/n'.join(submitter_msgs),
+                'msg': msg,
                 'requests': signed_requests,
             }))
 
