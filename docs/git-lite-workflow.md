@@ -220,6 +220,12 @@ g3t --profile local init ohsu-test001b
 # Use case: As a institution data steward, I need to approve the project before it can be shared.
 g3t utilities access sign
 
+# Use case: As a ACED administrator, I need to create projects in sheepdog so that submissions can take place.
+g3t utilities projects ls
+## test: the project should be listed as incomplete
+g3t utilities projects create
+## test: the project should be listed as complete
+
 # Use case: As a data submitter, I will need to add files to the project and associate them with a subject(patient).
 g3t add tests/fixtures/dir_to_study/file-1.txt  --patient P1
 g3t utilities meta create

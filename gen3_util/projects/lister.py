@@ -28,11 +28,19 @@ def ls(config: Config, resource_filter: str = None, msgs: list[str] = [], auth: 
                 )
     else:
         project_messages = []
+        any_incomplete = False
         for _program in projects:
             for _project in projects[_program]:
                 if resource_filter and resource_filter != f"/programs/{_program}/projects/{_project}":
                     continue
-                project_messages.append(f"/programs/{_program}/projects/{_project}")
+                indicator = 'OK' if projects[_program][_project]['exists'] else 'incomplete'
+                if indicator == 'incomplete':
+                    any_incomplete = True
+                project_messages.append(f"/programs/{_program}/projects/{_project} {indicator}")
+        if any_incomplete:
+            msgs.append("incomplete projects are missing sheepdog records")
+        else:
+            msgs.append("all projects exist in sheepdog")
 
     if len(project_messages) == 0:
         msgs.append("No projects found.")
