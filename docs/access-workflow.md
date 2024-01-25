@@ -75,6 +75,13 @@ g3t init --project_id <institution>-<any_project>
 
 # As a data steward, login to the portal and create a profile file, configure gen3-client with the profile name `local-steward`
 g3t --profile local-steward utilities access sign
-## The steward should be able to sign the project, the client should also create the project
+## The steward should be able to sign the project
+## The project resource now exists in arborist
+
+# As a ACED administrator, I need to create projects in sheepdog so that submissions can take place.
+g3t utilities projects ls
+## test: the project should be listed as incomplete
+g3t utilities projects create
+## test: the project should be listed as complete
 
 ```
