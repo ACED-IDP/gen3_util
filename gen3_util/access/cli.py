@@ -35,14 +35,14 @@ def access_touch(config: Config,  resource_path: str, user_name: str, roles: str
             msgs = validate_email(user_name)
             assert msgs == [], f"Invalid email address: {user_name} {msgs}"
 
-            assert user_name, "required"
+            assert user_name, "user_name required"
 
             request = {"username": user_name, "resource_path": resource_path}
             if steward:
                 roles = 'requestor_reader_role,requestor_updater_role'
 
-            if roles is not None:
-                roles = roles.split(',')
+            assert roles, "roles required"
+            roles = roles.split(',')
             for role in roles:
                 request.update({"role_ids": [role]})
                 print(request)

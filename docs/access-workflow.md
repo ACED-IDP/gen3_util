@@ -64,9 +64,8 @@ g3t --profile local-steward utilities access sign
 ```shell
 # As an admin, in order to delegate approvals for the 'create project' and 'add user' use cases, I need to give permissions to users.
 
-## As an admin, add the requester reader and updater role on a particular program to an un privileged user
-g3t utilities access add data_steward_example@<institution>.edu --resource_path /programs/<institution>/projects  --roles requestor_updater_role
-g3t utilities access add data_steward_example@<institution>.edu --resource_path /programs/<institution>/projects  --roles requestor_reader_role
+## As an admin, I need to grant data steward privileges add the requester reader and updater role on a program to an un privileged user
+g3t utilities access add data_steward_example@<institution>.edu --resource_path /programs/<program_name>/projects  --steward
 # As an admin, approve that request
 g3t utilities access sign
 
