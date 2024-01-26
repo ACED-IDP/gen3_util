@@ -8,7 +8,9 @@ from gen3_util.meta.skeleton import transform_manifest_to_indexd_keys
 from gen3_util.files.lister import ls
 
 
-def files_ls_wr(config: Config, object_id: str, project_id: str, specimen: str, patient: str, observation: str, task: str, md5: str, is_metadata: bool, is_snapshot: bool, long: bool):
+def files_ls_driver(config: Config, object_id: str, project_id: str, specimen: str, patient: str, observation: str, task: str, md5: str, is_metadata: bool, is_snapshot: bool, long: bool):
+    "List uploaded files in a project bucket."
+
     if not project_id:
         project_id = config.gen3.project_id
     with (CLIOutput(config=config) as output):

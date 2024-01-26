@@ -31,7 +31,7 @@ from gen3_util.meta.cli import meta_group
 from gen3_util.projects.cli import project_group
 from gen3_util.projects.remover import rm
 from gen3_util.users.cli import users_group
-from gen3_util.files.middleware import files_ls_wr
+from gen3_util.files.middleware import files_ls_driver
 
 
 @click.group(cls=StdNaturalOrderGroup, invoke_without_command=True)
@@ -43,6 +43,11 @@ def cli(ctx, output_format, profile, version):
         click.echo(_)
         ctx.exit()
 
+    # If no arguments are given, g3t should return the help menu
+    if len(click.get_os_args()) == 0:
+        click.echo(ctx.get_help())
+        ctx.exit()
+
     config__ = gen3_util.config.default()
     logging.basicConfig(format=config__.log.format, level=config__.log.level, stream=sys.stderr)
 
@@ -51,6 +56,7 @@ def cli(ctx, output_format, profile, version):
 
     _profiles = gen3_client_profiles()
     is_help = '--help' in click.get_os_args()
+
     if profile:
         if profile not in _profiles:
             click.secho(f"Profile {profile} not found.", fg='red')
@@ -136,7 +142,7 @@ def init_cli(config, project_id: str):
             for _ in init(config, project_id):
                 logs.append(_)
 
-            click.secho(f"cloning {project_id}...", fg='green')
+            click.secho(f"Initializing {project_id}...", fg='green')
 
             # request the project get signed
             logs.extend(initialize_project_server_side(config, project_id))
@@ -263,7 +269,7 @@ def clone_cli(config: Config, project_id: str, data_type: str):
         try:
             assert config.gen3.profile, "Disconnected mode. Use --profile"
             _check_parameters(config, project_id)
-            print(f"Cloning {project_id}...", file=sys.stderr)
+            click.secho(f"Cloning {project_id}...", fg='green')
             logs = clone(config, project_id, data_type)
             output.update({'msg': f'Cloned repository {project_id}', 'logs': logs})
 
@@ -366,7 +372,7 @@ def project_rm(config: Config, project_id: str):
 @cli.command(name="log")
 @click.pass_obj
 def log_cli(config: Config):
-    files_ls_wr(config, object_id=None, project_id=None, specimen=None, patient=None, observation=None, task=None, is_metadata=True, md5=None, is_snapshot=False, long=False)
+    files_ls_driver(config, object_id=None, project_id=None, specimen=None, patient=None, observation=None, task=None, is_metadata=True, md5=None, is_snapshot=False, long=False)
 
 
 @cli.group(name='utilities', cls=NaturalOrderGroup)

@@ -11,7 +11,7 @@ from gen3_util.repo import CLIOutput, ENV_VARIABLE_PREFIX
 from gen3_util.repo import NaturalOrderGroup
 from gen3_util.common import PROJECT_DIR
 from gen3_util.config import Config
-from gen3_util.files.middleware import files_ls_wr
+from gen3_util.files.middleware import files_ls_driver
 from gen3_util.files.manifest import put as manifest_put, save as manifest_save, ls as manifest_ls, upload_indexd, \
     upload_files, rm as manifest_rm
 from gen3_util.files.remover import rm
@@ -49,8 +49,8 @@ def file_group(config):
 @click.option('-l', '--long', default=False, required=False, show_default=True, is_flag=True,
               help="long format")
 def files_ls(config: Config, object_id: str, project_id: str, specimen: str, patient: str, observation: str, task: str, md5: str, is_metadata: bool, is_snapshot: bool, long: bool):
-    """List uploaded files in a project bucket."""
-    files_ls_wr(config, object_id, project_id, specimen, patient, observation, task, md5, is_metadata, is_snapshot, long)
+    """Click wrapper function for listing uploaded files in a project bucket."""
+    files_ls_driver(config, object_id, project_id, specimen, patient, observation, task, md5, is_metadata, is_snapshot, long)
 
 
 @file_group.command(name="add")
