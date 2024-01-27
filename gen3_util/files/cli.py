@@ -49,7 +49,7 @@ def file_group(config):
 @click.option('-l', '--long', default=False, required=False, show_default=True, is_flag=True,
               help="long format")
 def files_ls(config: Config, object_id: str, project_id: str, specimen: str, patient: str, observation: str, task: str, md5: str, is_metadata: bool, is_snapshot: bool, long: bool):
-    """Click wrapper function for listing uploaded files in a project bucket."""
+    """List uploaded files in a project bucket."""
     files_ls_driver(config, object_id, project_id, specimen, patient, observation, task, md5, is_metadata, is_snapshot, long)
 
 
