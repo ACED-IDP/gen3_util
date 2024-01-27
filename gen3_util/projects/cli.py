@@ -16,15 +16,15 @@ def project_group(config: Config):
 
 
 @project_group.command(name="ls")
-@click.option('--full', default=False, show_default=True, is_flag=True,
+@click.option('--verbose', default=False, show_default=True, is_flag=True,
               help="List all project details")
 @click.pass_obj
-def project_ls(config: Config, full: bool):
+def project_ls(config: Config, verbose: bool):
     """List all projects user has access to."""
     with CLIOutput(config=config) as output:
         try:
             auth = ensure_auth(config=config)
-            output.update(ls(config, auth=auth, full=full))
+            output.update(ls(config, auth=auth, full=verbose))
         except Exception as e:
             output.update({'msg': str(e)})
             output.exit_code = 1

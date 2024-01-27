@@ -18,8 +18,10 @@ class ProjectSummaries(BaseModel):
     """Summary of projects, including messages."""
     endpoint: str
     """The commons url"""
-    projects: Union[dict[str, ProjectSummary], list[str]] = {}
-    """List of projects"""
+    incomplete: Union[dict[str, ProjectSummary], list[str]] = {}
+    """List of projects that require creation in sheepdog."""
+    complete: Union[dict[str, ProjectSummary], list[str]] = {}
+    """List of projects that exist in sheepdog."""
     messages: List[str] = []
     """List of messages"""
 

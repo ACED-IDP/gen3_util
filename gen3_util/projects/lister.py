@@ -15,28 +15,32 @@ def ls(config: Config, resource_filter: str = None, msgs: list[str] = [], auth: 
     projects = get_projects(auth, submission)
 
     if full:
-        project_messages = {}
+        project_messages = {'complete': {}, 'incomplete': {}}
         for _program in projects:
             for _project in projects[_program]:
                 if resource_filter and resource_filter != f"/programs/{_program}/projects/{_project}":
                     continue
-                project_messages[
+                _ = 'complete'
+                if not projects[_program][_project]['exists']:
+                    _ = 'incomplete'
+                project_messages[_][
                     f"/programs/{_program}/projects/{_project}"
                 ] = ProjectSummary(
                     in_sheepdog=projects[_program][_project]['exists'],
                     permissions=projects[_program][_project]['permissions'],
                 )
     else:
-        project_messages = []
+        project_messages = {'complete': [], 'incomplete': []}
         any_incomplete = False
         for _program in projects:
             for _project in projects[_program]:
                 if resource_filter and resource_filter != f"/programs/{_program}/projects/{_project}":
                     continue
-                indicator = 'OK' if projects[_program][_project]['exists'] else 'incomplete'
-                if indicator == 'incomplete':
+                if not projects[_program][_project]['exists']:
                     any_incomplete = True
-                project_messages.append(f"/programs/{_program}/projects/{_project} {indicator}")
+                    project_messages['incomplete'].append(f"/programs/{_program}/projects/{_project}")
+                else:
+                    project_messages['complete'].append(f"/programs/{_program}/projects/{_project}")
         if any_incomplete:
             msgs.append("incomplete projects are missing sheepdog records")
         else:
@@ -47,6 +51,7 @@ def ls(config: Config, resource_filter: str = None, msgs: list[str] = [], auth: 
 
     return ProjectSummaries(**{
         'endpoint': auth.endpoint,
-        'projects': project_messages,
+        'incomplete': project_messages['incomplete'],
+        'complete': project_messages['complete'],
         'messages': msgs
     })
