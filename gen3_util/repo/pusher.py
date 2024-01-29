@@ -46,20 +46,27 @@ def push(config: Config,
         )
         if not upload_path:
             upload_path = pathlib.Path.cwd()
-        completed_process = upload_files(
-            config=config,
-            project_id=config.gen3.project_id,
-            manifest_entries=manifest_entries,
-            profile=config.gen3.profile,
-            upload_path=upload_path,
-            overwrite_files=overwrite_files,
-            auth=auth
-        )
-        assert completed_process.returncode == 0, f"upload_files failed with {completed_process.returncode}"
-        print(
-            f"Upload {len(manifest_entries)} files",
-            file=sys.stderr
-        )
+        manifest_for_bucket = [_ for _ in manifest_entries if _.get('no_bucket', False) is False]
+        if len(manifest_for_bucket) > 0:
+            completed_process = upload_files(
+                config=config,
+                project_id=config.gen3.project_id,
+                manifest_entries=manifest_for_bucket,
+                profile=config.gen3.profile,
+                upload_path=upload_path,
+                overwrite_files=overwrite_files,
+                auth=auth
+            )
+            assert completed_process.returncode == 0, f"upload_files failed with {completed_process.returncode}"
+            print(
+                f"Upload {len(manifest_entries)} files",
+                file=sys.stderr
+            )
+        else:
+            print(
+                f"INFO No files to upload for {commit.commit_id}",
+                file=sys.stderr
+            )
         push_.commits.append(commit)
 
     published_job = publish_commits(

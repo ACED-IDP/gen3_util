@@ -19,7 +19,8 @@ def initialize_project_server_side(config, project_id, auth=None):
     logs = []
     program, project = project_id.split('-')
     projects = project_ls(config, auth=auth)
-    existing_project = [_ for _ in projects.projects if _.endswith(project)]
+    existing_project = [_ for _ in projects.complete if _.endswith(project)]
+    existing_project = [_ for _ in projects.complete if _.endswith(project)]
     policy_msgs = []
     if len(existing_project) > 0:
         submission_client = Gen3Submission(auth)

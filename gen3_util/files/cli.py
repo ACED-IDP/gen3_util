@@ -70,9 +70,12 @@ def files_ls(config: Config, object_id: str, project_id: str, specimen: str, pat
               help="fhir observation identifier", envvar=f'{ENV_VARIABLE_PREFIX}OBSERVATION')
 @click.option('--md5', default=None, required=False, show_default=True,
               help="MD5 sum, if not provided, will be calculated before upload")
+@click.option('--no-bucket', 'no_bucket', default=False, required=False, show_default=True, is_flag=True,
+              envvar=f'{ENV_VARIABLE_PREFIX}NO_BUCKET',
+              help="Do not upload to bucket, only add to index. Uses symlink or scp to download.")
 @click.pass_obj
 def manifest_put_cli(config: Config, local_path: str, project_id: str, md5: str,
-                     specimen: str, patient: str, observation: str, task: str):
+                     specimen: str, patient: str, observation: str, task: str, no_bucket: bool):
     """Add file to the index.
 
     \b
@@ -93,6 +96,7 @@ def manifest_put_cli(config: Config, local_path: str, project_id: str, md5: str,
             _['specimen_id'] = specimen
             _['task_id'] = task
             _['remote_path'] = None
+            _['no_bucket'] = no_bucket
             output.update(_)
             manifest_save(config, project_id, [_])
         except Exception as e:
@@ -150,7 +154,14 @@ def _manifest_upload(config: Config, project_id: str, overwrite: bool, upload_pa
             print(f"upload_indexd failed with {e}", file=sys.stderr)
             raise e
 
-        completed_process = upload_files(config=config, project_id=project_id, manifest_entries=manifest_entries, profile=config.gen3.profile, upload_path=upload_path, overwrite_files=False)
+        completed_process = upload_files(
+            config=config,
+            project_id=project_id,
+            manifest_entries=manifest_entries,
+            profile=config.gen3.profile,
+            upload_path=upload_path,
+            overwrite_files=False
+        )
         if completed_process.returncode != 0:
             click.secho(f"upload_files failed with {completed_process.returncode}", fg='red')
             exit(1)
