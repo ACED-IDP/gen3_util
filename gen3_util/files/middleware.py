@@ -25,6 +25,7 @@ def files_ls_driver(config: Config, object_id: str, project_id: str, specimen: s
                 specimen=specimen,
                 task=task)
             _ = transform_manifest_to_indexd_keys(_)
+            _['project_id'] = project_id
             results = ls(config, object_id=object_id, metadata=_)
             if not long:
                 results = {
