@@ -13,7 +13,8 @@ from pydantic import BaseModel
 from gen3_util import Config
 from gen3_util.common import read_ndjson_file, dict_md5, EmitterContextManager, Push, write_meta_index, read_meta_index
 from gen3_util.files.manifest import ls as manifest_ls
-from gen3_util.meta import directory_reader, ParseResult
+from gen3_util.meta import ParseResult
+from gen3_util.meta.validator import validate
 
 
 class CommitResult(BaseModel):
@@ -146,32 +147,29 @@ def commit(config: Config, metadata_path: pathlib.Path, files_path: pathlib.Path
     resource_counts = defaultdict(int)
     logs = []
 
-    # manifest = {_['object_id']: _ for _ in manifest_ls(config, project_id=config.gen3.project_id)}
+    result = validate(config=config, directory_path=metadata_path)
 
-    for parse_result in directory_reader(metadata_path, validate=True):
+    # TODO - validate DocumentReference attachments after they pass diff
+    # if parse_result.resource.resource_type == 'DocumentReference':
+    #     document_reference: DocumentReference = parse_result.resource
+    #     attachment_path = files_path / document_reference.content[0].attachment.url.replace('file:///', '')
+    #     if not attachment_path.exists():
+    #         relative_path = attachment_path.relative_to(pathlib.Path.cwd())
+    #         parse_result.exception = f"FileNotFoundError {relative_path}"
+    #         parse_result.resource = None
+    #         exceptions.append(parse_result)
+    #         continue
+    #     # check if document is in the current manifest
+    #     if document_reference.id not in manifest:
+    #         parse_result.exception = f"DocumentReference {document_reference.id} not in manifest"
+    #         parse_result.resource = None
+    #         exceptions.append(parse_result)
+    #         continue
 
-        if parse_result.exception:
-            exceptions.append(parse_result)
-        else:
-            # TODO - validate DocumentReference attachments after they pass diff
-            # if parse_result.resource.resource_type == 'DocumentReference':
-            #     document_reference: DocumentReference = parse_result.resource
-            #     attachment_path = files_path / document_reference.content[0].attachment.url.replace('file:///', '')
-            #     if not attachment_path.exists():
-            #         relative_path = attachment_path.relative_to(pathlib.Path.cwd())
-            #         parse_result.exception = f"FileNotFoundError {relative_path}"
-            #         parse_result.resource = None
-            #         exceptions.append(parse_result)
-            #         continue
-            #     # check if document is in the current manifest
-            #     if document_reference.id not in manifest:
-            #         parse_result.exception = f"DocumentReference {document_reference.id} not in manifest"
-            #         parse_result.resource = None
-            #         exceptions.append(parse_result)
-            #         continue
-            resource_counts[parse_result.resource.resource_type] += 1
-    if len(exceptions) > 0:
-        logs.append(f"Validation failed, {len(exceptions)} exceptions")
+    if len(result.exceptions) > 0:
+        logs.append(f"Validation failed, {len(result.exceptions)} exceptions")
+        for _ in result.exceptions:
+            logs.append(f"{_.exception}")
         commit_result = CommitResult(
             resource_counts=dict(resource_counts),
             exceptions=exceptions,
