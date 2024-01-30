@@ -286,7 +286,7 @@ def create_skeleton(metadata: dict, indexd_record: dict) -> list[Resource]:  # T
 
     # assign subject, specimen of observation
     if observation and specimen and not observation.specimen:
-        observation.specimen = {'reference': f"Patient/{specimen.id}"}
+        observation.specimen = {'reference': f"Specimen/{specimen.id}"}
     if observation and patient and not observation.subject:
         observation.subject = {'reference': f"Patient/{patient.id}"}
 
