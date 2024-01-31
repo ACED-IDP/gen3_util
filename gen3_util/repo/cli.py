@@ -148,7 +148,7 @@ def init_cli(config, project_id: str):
             logs.extend(initialize_project_server_side(config, project_id))
 
             output.update({'msg': 'Initialized empty repository', 'logs': logs})
-        except (AssertionError, requests.exceptions.HTTPError) as e:
+        except (AssertionError, ValueError, requests.exceptions.HTTPError) as e:
             output.update({'msg': str(e)})
             output.exit_code = 1
 
