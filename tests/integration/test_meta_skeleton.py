@@ -2,6 +2,17 @@
 import pytest
 from gen3_util.meta.skeleton import create_skeleton
 
+INDEXD_RECORD = {
+    'did': 'ca71e316-48e1-11ee-be56-0242ac120002',
+    'urls': ['s3://foo/bar/baz'],
+    'size': 1234,
+    'hashes': {'md5': '1234'},
+    'metadata': {'project_id': 'aced-foo'},
+    'authz': ['/programs/aced/projects/foo'],
+    'created_date': '2021-01-01T00:00:00',
+    'file_name': 'baz.txt',
+}
+
 
 def test_meta_skeleton_full(submission_client):
     """Ensure FHIR resources created from identifiers document reference -> observation, specimen, patient, task,research subject, research study"""
@@ -14,7 +25,7 @@ def test_meta_skeleton_full(submission_client):
             'observation_identifier': 'observation-1',
             'project_id': 'aced-foo'
         },
-        submission_client=submission_client
+        indexd_record=INDEXD_RECORD,
     )
 
     # check that we have the expected resources
@@ -81,7 +92,7 @@ def test_meta_skeleton_specimen(submission_client):
             'patient_identifier': 'patient-1',
             'project_id': 'aced-foo'
         },
-        submission_client=submission_client
+        indexd_record=INDEXD_RECORD,
     )
     # check that we have the expected resources
     assert len(resources) == 5, f"expected 5 resources, got {len(resources)}"
@@ -106,7 +117,7 @@ def test_meta_skeleton_patient(submission_client):
             'patient_identifier': 'patient-1',
             'project_id': 'aced-foo'
         },
-        submission_client=submission_client
+        indexd_record=INDEXD_RECORD,
     )
     # check that we have the expected resources
     assert len(resources) == 4, f"expected 4 resources, got {len(resources)}"
@@ -130,14 +141,14 @@ def test_meta_skeleton_bad_parameters(submission_client):
             'document_reference_id': 'ca71e316-48e1-11ee-be56-0242ac120002',
             'project_id': 'aced-foo'
         },
-        submission_client=submission_client
+        indexd_record=INDEXD_RECORD,
     )
 
     _ = create_skeleton(
         metadata={
             'project_id': 'aced-foo'
         },
-        submission_client=submission_client
+        indexd_record=INDEXD_RECORD,
     )
     assert _ == [], "Should have returned empty list"
 
@@ -146,7 +157,7 @@ def test_meta_skeleton_bad_parameters(submission_client):
             metadata={
                 'document_reference_id': 'ca71e316-48e1-11ee-be56-0242ac120002',
             },
-            submission_client=submission_client
+            indexd_record=INDEXD_RECORD,
         )
 
 
@@ -157,7 +168,7 @@ def test_meta_skeleton_minimal(submission_client):
             'document_reference_id': 'ca71e316-48e1-11ee-be56-0242ac120002',
             'project_id': 'aced-foo'
         },
-        submission_client=submission_client
+        indexd_record=INDEXD_RECORD
     )
 
     # check that we have the expected resources

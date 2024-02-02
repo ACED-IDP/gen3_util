@@ -1,19 +1,28 @@
 import csv
+import json
 import logging
 import os
 import pathlib
 import shutil
+import uuid
 import zipfile
-from typing import Mapping, Iterator, Dict, TextIO
+from datetime import datetime
+from hashlib import md5
+from typing import Mapping, Iterator, Dict, TextIO, Generator
 from urllib.parse import urlparse
 
 import orjson
 import yaml
+from fhir.resources.identifier import Identifier
+from pydantic import BaseModel
 from pydantic.json import pydantic_encoder
 
 import io
 import gzip
-from gen3_util import Config
+from gen3_util import Config, ACED_NAMESPACE
+
+PROJECT_DIR = '.g3t'
+PROJECT_DIRECTORIES = [PROJECT_DIR, 'META/']  # 'DATA/',
 
 
 def print_formatted(config: Config, output: Mapping) -> None:
@@ -185,6 +194,7 @@ def to_resource_path(project_id):
 
 def unzip_collapse(zip_file, extract_to):
     """Unzip a file, collapse the directory structure."""
+    c = 0
     with zipfile.ZipFile(zip_file, 'r') as zip_ref:
         for file_info in zip_ref.infolist():
             if file_info.is_dir():
@@ -193,3 +203,178 @@ def unzip_collapse(zip_file, extract_to):
             extracted_path = os.path.join(extract_to, filename)
             with zip_ref.open(file_info.filename) as source, open(extracted_path, 'wb') as target:
                 shutil.copyfileobj(source, target)
+            c += 1
+    assert c > 0, f"no files extracted from {zip_file}"
+
+
+def calc_md5(file_path, md5_hash):
+    """Calculate the md5 file, sort keys of json files."""
+    read_binary = False
+    with open(file_path, "r") as f:
+        if file_path.name.endswith('ndjson'):
+            for line in f.readlines():
+                line = orjson.loads(line)
+                md5_hash.update(orjson.dumps(line, option=orjson.OPT_SORT_KEYS))
+        elif file_path.name.endswith('json'):
+            data = orjson.load(f)
+            md5_hash.update(orjson.dumps(data, option=orjson.OPT_SORT_KEYS))
+        else:
+            read_binary = True
+    if read_binary:
+        with open(file_path, "rb") as f:
+            for line in f.readlines():
+                md5_hash.update(line)
+    return md5_hash
+
+
+def identifier_to_string(identifier: list[Identifier]) -> str:
+    """Return query parameter for identifier."""
+    if identifier and not isinstance(identifier, list):
+        identifier = [identifier]
+    assert identifier and len(identifier) > 0, "identifier required"
+    official = [_ for _ in identifier if _.use == 'official']
+    if len(official) > 0:
+        _ = official[0]
+    else:
+        _ = identifier[0]
+
+    if _.system:
+        return f"{_.system}|{_.value}"
+    return _.value
+
+
+def create_id(resource, project_id) -> str:
+    """Return id from identifier and project_id."""
+    assert resource, "resource required"
+    assert project_id, "project_id required"
+    identifier_string = identifier_to_string(resource.identifier)
+    return str(uuid.uuid5(ACED_NAMESPACE, f"{project_id}/{resource.resource_type}/{identifier_string}"))
+
+
+class Commit(BaseModel):
+    """A commit."""
+    commit_id: str = None
+    """The commit id."""
+    object_id: str = None
+    """The metadata file object_id."""
+    message: str = None
+    """The commit message."""
+    resource_counts: dict = None
+    """The resource counts of meta in this commit."""
+    exceptions: list = None
+    """The exceptions."""
+    logs: list = None
+    """The logs."""
+    path: pathlib.Path = None
+    """The path to the commit directory."""
+    manifest_sqlite_path: pathlib.Path = None
+    """The path to the manifest file."""
+    meta_path: pathlib.Path = None
+    """The path to the meta zip file."""
+
+
+class Push(BaseModel):
+    """A list of commits."""
+
+    config: Config
+    """The config."""
+
+    commits: list[Commit] = []
+    """A list of commits in this push."""
+
+    published_timestamp: datetime = None
+    """When the push was published."""
+
+    published_job: dict = None
+
+    def model_dump(self):
+        """Dump the model.
+
+         temporary until we switch to pydantic2
+        """
+        _ = self.json(exclude={'config'})
+        return json.loads(_)
+
+    def pending_commits(self):
+        """A list of commits yet to be pushed."""
+        pending = []
+        commits_dir = self.config.state_dir / self.config.gen3.project_id / 'commits'
+        pending_path = commits_dir / 'pending.ndjson'
+        if not pending_path.exists():
+            return pending
+        try:
+            for _ in read_ndjson_file(pending_path):
+                commit_dict = orjson.loads(open(commits_dir / _['commit_id'] / 'resource.json').read())
+                commit = Commit(**commit_dict)
+
+                commit.manifest_sqlite_path = commits_dir / _['commit_id'] / 'manifest.sqlite'
+                commit.meta_path = commits_dir / _['commit_id'] / 'meta.zip'
+
+                pending.append(commit)
+            return pending
+        except FileNotFoundError as e:
+            print(f"No pending commits found in {pending_path} {e}")
+
+    def pending_meta_index(self) -> list[dict]:
+        """Index of pending meta files {id: resourceType}."""
+        commits_dir = self.config.state_dir / self.config.gen3.project_id / 'commits'
+        pending_path = commits_dir / 'pending.ndjson'
+        pending = []
+        if not pending_path.exists():
+            return pending
+        for _ in read_ndjson_file(pending_path):
+            with open(commits_dir / _['commit_id'] / 'meta-index.ndjson') as fp:
+                for line in fp.readlines():
+                    pending.append(orjson.loads(line))
+        return pending
+
+
+def dict_md5(resource: dict) -> str:
+    """Return the md5 of the dict."""
+    return md5(orjson.dumps(resource, option=orjson.OPT_SORT_KEYS)).hexdigest()
+
+
+def write_meta_index(index_path: pathlib.Path, source_path: pathlib.Path) -> pathlib.Path:
+    """Write an index of ids and hashes from a path containing ndjson files.
+    """
+    index_path = index_path / 'meta-index.ndjson'
+    with open(index_path, 'w') as fp:
+        for _ in sorted(source_path.glob("*.ndjson")):
+            for resource in read_ndjson_file(_):
+                _ = {'id': resource['id'], 'resourceType': resource['resourceType'], 'md5': dict_md5(resource)}
+                fp.write(orjson.dumps(_).decode())
+                fp.write('\n')
+    return index_path
+
+
+def read_meta_index(index_path: pathlib.Path) -> Generator[dict, None, None]:
+    """Read an index of ids and hashes from a path containing ndjson files.
+    """
+    index_path = index_path / 'meta-index.ndjson'
+    if not index_path.exists():
+        return
+    with open(index_path, 'r') as fp:
+        for line in fp.readlines():
+            yield orjson.loads(line)
+
+
+def to_metadata_dict(project_id=None, is_metadata=None, is_snapshot=None, md5=None, observation=None, patient=None, specimen=None, task=None):
+    """Create metadata dict from parameters"""
+    _ = {}
+    if project_id:
+        _['project_id'] = project_id
+    if specimen:
+        _['specimen_id'] = specimen
+    if patient:
+        _['patient_id'] = patient
+    if task:
+        _['task_id'] = task
+    if observation:
+        _['observation_id'] = observation
+    if md5:
+        _['md5'] = md5
+    if is_metadata:
+        _['is_metadata'] = is_metadata
+    if is_snapshot:
+        _['is_snapshot'] = is_snapshot
+    return _

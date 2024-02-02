@@ -1,8 +1,11 @@
+import json
 import pathlib
 import uuid
 from typing import Union
 
+import pydantic
 from pydantic import BaseModel
+
 ACED_NAMESPACE = uuid.uuid3(uuid.NAMESPACE_DNS, 'aced-ipd.org')
 
 
@@ -50,16 +53,16 @@ class Gen3Config(BaseModel):
     profile: str = None
     """The name of the gen3-client profile in use. See https://bit.ly/3NbKGi4"""
 
-    profiles: list[str] = None
-    """The name of all the gen3-client profiles."""
-
     version: str = None
     """The version of gen3-client in use."""
+
+    project_id: str = None
+    """The program-project."""
 
 
 class Config(BaseModel):
     log: LogConfig = LogConfig(
-        format='%(asctime)s — %(name)s — %(levelname)s — %(funcName)s:%(lineno)d — %(message)s',
+        format='[%(asctime)s] — [%(levelname)s] — %(name)s — %(message)s',
         level='INFO'
     )
     """logging setup"""
@@ -67,9 +70,29 @@ class Config(BaseModel):
     """output setup"""
     gen3: Gen3Config = Gen3Config()
     """gen3 setup"""
-    state_dir: pathlib.Path = pathlib.Path('~/.gen3/gen3-util-state').expanduser()
+    state_dir: pathlib.Path = None
     """retry state for file transfer"""
+    no_config_found: bool = False
+    """Is this default config used because none found in cwd or parents?"""
+
+    def model_dump(self):
+        """Dump the config model.
+
+         temporary until we switch to pydantic2
+        """
+        _ = json.loads(self.json())
+        del _['no_config_found']
+        return _
+
+    def commit_dir(self):
+        """Return the path to the commits directory."""
+        return self.state_dir / self.gen3.project_id / 'commits'
 
 
 # main
 monkey_patch_url_validate()
+
+# default initializers for path
+pydantic.json.ENCODERS_BY_TYPE[pathlib.PosixPath] = str
+pydantic.json.ENCODERS_BY_TYPE[pathlib.WindowsPath] = str
+pydantic.json.ENCODERS_BY_TYPE[pathlib.Path] = str

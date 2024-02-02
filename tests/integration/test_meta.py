@@ -1,4 +1,5 @@
 import json
+import os
 import pathlib
 import subprocess
 import uuid
@@ -6,7 +7,22 @@ import uuid
 import pytest
 from click.testing import CliRunner
 
-from gen3_util.cli.cli import cli
+from gen3_util.repo.cli import cli
+
+CURRENT_DIR = pathlib.Path.cwd()
+
+
+def setup_module(module):
+    """Setup for module."""
+    print("setup_module      module:%s" % module.__name__)
+    global CURRENT_DIR
+    CURRENT_DIR = pathlib.Path.cwd()
+
+
+def teardown_module(module):
+    """Teardown for module."""
+    print(f"teardown_module   module:{module.__name__} cwd:{CURRENT_DIR}")
+    os.chdir(CURRENT_DIR)
 
 
 def import_from_directory(tmp_dir_name, project_id):
@@ -141,6 +157,7 @@ def ensure_files_uploaded(project_id) -> list[str]:
     result = runner.invoke(cli, ['--format', 'json', 'files', 'ls', '--project_id', project_id])
     assert result.exit_code == 0
     result_output = json.loads(result.output)
+    assert 'records' in result_output, f"Should have records {result_output}"
     file_names = [_["file_name"] for _ in result_output['records']]
     assert sorted(file_names) == ['tests/fixtures/dir_to_study/file-1.txt', 'tests/fixtures/dir_to_study/file-2.csv',
                                   'tests/fixtures/dir_to_study/sub-dir/file-3.pdf',
@@ -188,7 +205,19 @@ def rm_file(object_id, project_id, profile):
     assert result.exit_code == 0, result.output
 
 
-def test_incremental_workflow(program, profile):
+def clone_project(project_id, profile, tmp_path):
+    os.chdir(tmp_path)
+    runner = CliRunner()
+    result = runner.invoke(cli, f'--format json  --profile {profile} clone --project_id {project_id}'.split())
+    assert result.exit_code == 0, result.output
+    assert pathlib.Path(tmp_path, project_id).exists()
+    assert pathlib.Path(tmp_path, project_id, 'META').exists()
+    assert pathlib.Path(tmp_path, project_id, 'META', 'ResearchStudy.ndjson').exists()
+    assert pathlib.Path(tmp_path, project_id, 'META', 'DocumentReference.ndjson').exists()
+
+
+@pytest.mark.skip("deprecated")
+def test_incremental_workflow(program, profile, tmp_path):
     """Test the workflow to create a project in incremental steps."""
 
     guid = str(uuid.uuid4())
@@ -200,9 +229,12 @@ def test_incremental_workflow(program, profile):
 
     create_project_resource_in_arborist(project_id)
 
+    c = 0
     for file_name in pathlib.Path('tests/fixtures/dir_to_study/').glob('**/*'):
         if file_name.is_file():
             manifest_put("file:///" + str(file_name), project_id)
+            c += 1
+    assert c > 0, "No files found"
 
     upload_manifest(project_id, profile)
 
@@ -219,3 +251,6 @@ def test_incremental_workflow(program, profile):
     # should fail
     with pytest.raises(AssertionError):
         create_project_resource_in_arborist(project_id)
+
+    # test clone
+    clone_project(project_id, profile, tmp_path)

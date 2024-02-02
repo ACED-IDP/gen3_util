@@ -7,9 +7,11 @@ from datetime import datetime
 from urllib.parse import urlparse
 
 import requests
+from gen3.file import Gen3File
+from gen3.index import Gen3Index
 
 from gen3_util.buckets import get_program_bucket
-from gen3_util.config import Config, gen3_services
+from gen3_util.config import Config, ensure_auth
 from zipfile import ZipFile
 
 from gen3_util import ACED_NAMESPACE
@@ -67,17 +69,34 @@ def _validate_parameters(from_: str) -> pathlib.Path:
 
     assert len(urlparse(from_).scheme) == 0, f"{from_} appears to be an url. url to url cp not supported"
 
-    from_ = pathlib.Path(from_)
-    assert from_.is_dir(), f"{from_} is not a directory"
-
     return from_
 
 
-def cp(config: Config, from_: str, project_id: str, ignore_state: bool):
+def cp(config: Config,
+       from_: str,
+       project_id: str,
+       ignore_state: bool,
+       auth=None,
+       user=None,
+       object_name=None,
+       metadata: dict = {}
+       ):
     """Copy meta to bucket, used by etl_pod job"""
-    from_ = _validate_parameters(from_)
+    from_ = _validate_parameters(str(from_))
+    if not isinstance(from_, pathlib.Path):
+        from_ = pathlib.Path(from_)
 
-    file_client, index_client, user, auth = gen3_services(config=config)
+    if not auth:
+        auth = ensure_auth(config=config)
+
+    index_client = Gen3Index(auth_provider=auth)
+    file_client = Gen3File(auth_provider=auth)
+
+    metadata = dict({'submitter': None, 'metadata_version': '0.0.1', 'is_metadata': True} | metadata)
+    if not metadata['submitter']:
+        if not user:
+            user = auth.curl('/user/user').json()
+        metadata['submitter'] = user['name']
 
     program, project = project_id.split('-')
 
@@ -85,15 +104,21 @@ def cp(config: Config, from_: str, project_id: str, ignore_state: bool):
     assert bucket_name, f"could not find bucket for {program}"
 
     with tempfile.TemporaryDirectory() as temp_dir:
-        temp_dir = pathlib.Path(temp_dir)
-        # TODO - use a better name, add timestamp instead of random
-        now = datetime.now().strftime("%Y%m%d-%H%M%S")
-        object_name = f'_{project_id}-{now}_meta.zip'
+        if from_.is_dir():
+            temp_dir = pathlib.Path(temp_dir)
 
-        zipfile_path = temp_dir / object_name
-        with ZipFile(zipfile_path, 'w') as zip_object:
-            for _ in from_.glob("*.ndjson"):
-                zip_object.write(_)
+            if not object_name:
+                now = datetime.now().strftime("%Y%m%d-%H%M%S")
+                object_name = f'_{project_id}-{now}_meta.zip'
+
+            zipfile_path = temp_dir / object_name
+            with ZipFile(zipfile_path, 'w') as zip_object:
+                for _ in from_.glob("*.ndjson"):
+                    zip_object.write(_)
+        else:
+            zipfile_path = pathlib.Path(from_)
+            if not object_name:
+                object_name = str(zipfile_path)
 
         stat = zipfile_path.stat()
         md5_sum = md5sum(zipfile_path)
@@ -108,7 +133,7 @@ def cp(config: Config, from_: str, project_id: str, ignore_state: bool):
             object_name,
             program,
             project,
-            {'metadata_submitter': user['username'], 'metadata_version': '0.0.1', 'is_metadata': True},
+            metadata,
             stat.st_size
         )
 

@@ -1,14 +1,15 @@
 from click.testing import CliRunner
-from gen3_util.cli.cli import cli
+from gen3_util.repo.cli import cli
 
 
 def test_version():
     """Ensure it prints version"""
     runner = CliRunner()
-    result = runner.invoke(cli, ['version'])
+    result = runner.invoke(cli, ['--version'])
     assert result.exit_code == 0
-    assert 'version' in result.output
-    _, version = result.output.split(':')
+    # assert 'version' in result.output
+    # _, version = result.output.split(':')
+    version = result.output
     version = version.strip()
     major, minor, patch = version.split('.')
     assert int(major) >= 0

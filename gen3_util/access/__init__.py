@@ -9,7 +9,7 @@ def _ensure_auth(auth, config):
     """Create auth from config, if we don't have one already."""
     if not auth:
         assert config
-        auth = ensure_auth(profile=config.gen3.profile)
+        auth = ensure_auth(config=config)
     return auth
 
 
@@ -93,6 +93,7 @@ def update_request(config: Config = None, auth: Gen3Auth = None, request_id: str
     assert status, "required"
     auth = _ensure_auth(auth, config)
     request = {'status': status}
+
     response = requests.put(
         auth.endpoint + "/" + f'requestor/request/{request_id}', json=request, auth=auth
     )

@@ -1,4 +1,4 @@
-from typing import List, Any
+from typing import List, Any, Union
 from collections import defaultdict
 
 from gen3.auth import Gen3Auth
@@ -18,8 +18,10 @@ class ProjectSummaries(BaseModel):
     """Summary of projects, including messages."""
     endpoint: str
     """The commons url"""
-    projects: dict[str, ProjectSummary] | list[str] = {}
-    """List of projects"""
+    incomplete: Union[dict[str, ProjectSummary], list[str]] = {}
+    """List of projects that require creation in sheepdog."""
+    complete: Union[dict[str, ProjectSummary], list[str]] = {}
+    """List of projects that exist in sheepdog."""
     messages: List[str] = []
     """List of messages"""
 
@@ -28,7 +30,7 @@ def get_user(config: Config = None, auth: Gen3Auth = None) -> dict:
     """Fetch information about the user."""
     if not auth:
         assert config
-        auth = ensure_auth(profile=config.gen3.profile)
+        auth = ensure_auth(config=config)
     return auth.curl('/user/user').json()
 
 

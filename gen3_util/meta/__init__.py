@@ -28,6 +28,8 @@ class ParseResult(BaseModel):
     """Base 0 offset of line number(ndjson) or entry(bundle)."""
     resource_id: str = None
     """Resource id of resource"""
+    json_obj: dict = None
+    """Original json object"""
 
     @validator("resource")
     def validate_resource(cls, val):
@@ -64,11 +66,11 @@ def _entry_iterator(parse_result: ParseResult) -> Iterator[ParseResult]:
                 if _ is None:
                     break
                 if hasattr(_, 'resource'):  # BundleEntry
-                    yield ParseResult(path=_path, resource=_.resource, offset=offset, exception=None)
+                    yield ParseResult(path=_path, resource=_.resource, offset=offset, exception=None, json_obj=_.resource.dict())
                 elif hasattr(_, 'item'):  # ListEntry
-                    yield ParseResult(path=_path, resource=_.item, offset=offset, exception=None)
+                    yield ParseResult(path=_path, resource=_.item, offset=offset, exception=None, json_obj=_.item.dict())
                 else:
-                    yield ParseResult(path=_path, resource=_.item, offset=offset, exception=None)
+                    yield ParseResult(path=_path, resource=_.item, offset=offset, exception=None, json_obj=_.item.dict())
                 offset += 1
     pass
 
@@ -103,10 +105,15 @@ def directory_reader(directory_path: str,
         if recurse:
             input_files = [_ for _ in directory_path.glob('**/*.*') if is_json_extension(_.name)]
 
-    assert len(input_files) > 0, f"No files found in {directory_path.name}"
+    # assert len(input_files) > 0, f"No files found in {directory_path.name}"
 
     for input_file in input_files:
+        offset = 0
         for json_obj in read_json(input_file):
             parse_result = parse_obj(json_obj, validate=validate)
+            parse_result.path = input_file
+            parse_result.offset = offset
+            parse_result.json_obj = json_obj
+            offset += 1
             for _ in _entry_iterator(parse_result):
                 yield _

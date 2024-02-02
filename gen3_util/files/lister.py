@@ -1,13 +1,31 @@
+import json
 from functools import lru_cache
 
+from gen3.index import Gen3Index
 from gen3.submission import Gen3Submission
-
 from gen3_util.config import Config, gen3_services
 
 
-def ls(config: Config, object_id: str = None, metadata: dict = {}):
+def ls(config: Config, object_id: str = None, metadata: dict = {}, auth=None):
     """List files."""
-    file_client, index_client, user, auth = gen3_services(config=config)
+    if not auth:
+        file_client, index_client, user, auth = gen3_services(config=config)
+    else:
+        index_client = Gen3Index(auth_provider=auth)
+
+    negate_params = {'metadata': {}}
+    if metadata.get('is_metadata', False):
+        metadata['is_metadata'] = 'true'
+    # else:
+    #     negate_params['metadata']['is_metadata'] = 'true'
+
+    if metadata.get('is_snapshot', False):
+        metadata['is_snapshot'] = 'true'
+
+    if 'is_snapshot' not in metadata and 'is_metadata' not in metadata:
+        negate_params['metadata']['is_snapshot'] = 'true'
+        negate_params['metadata']['is_metadata'] = 'true'
+
     if object_id:
         if ',' in object_id:
             object_ids = object_id.split(',')
@@ -16,11 +34,16 @@ def ls(config: Config, object_id: str = None, metadata: dict = {}):
         records = index_client.client.bulk_request(dids=object_ids)
         return {'records': [_.to_json() for _ in records]}
 
-    params = {'metadata': metadata}
+    params = {}
     project_id = metadata.get('project_id', None)
-    if 'project_id' in metadata and len(metadata.keys()) == 1:
+    if 'project_id' in metadata:
         program, project = project_id.split('-')
         params = {'authz': f"/programs/{program}/projects/{project}"}
+        metadata.pop('project_id')
+    params['metadata'] = metadata
+
+    if len(negate_params['metadata']):
+        params['negate_params'] = json.dumps(negate_params)
 
     records = index_client.client.list_with_params(params=params)
 
@@ -30,6 +53,7 @@ def ls(config: Config, object_id: str = None, metadata: dict = {}):
         return record
 
     records = [_ensure_project_id(_.to_json()) for _ in records]
+
     return {
         'records': records,
         'msg': f"Project {project_id} has {len(records)} files."
@@ -37,7 +61,11 @@ def ls(config: Config, object_id: str = None, metadata: dict = {}):
 
 
 def meta_nodes(config: Config, project_id: str, auth, gen3_type: str = 'document_reference'):
-    """Retrieve all the nodes in a project."""
+    """Retrieve the id, type for all nodes in a project from the remote and local commits."""
+
+    if not auth:
+        # disconnected mode
+        return []
 
     offset = 0
     batch_size = 1000
@@ -46,9 +74,9 @@ def meta_nodes(config: Config, project_id: str, auth, gen3_type: str = 'document
     while True:
         query = """
         {
-          node(project_id: "PROJECT_ID", of_type: "document_reference", first: FIRST, offset: OFFSET) {
+          node(project_id: "PROJECT_ID", first: FIRST, offset: OFFSET) {
             id
-            __typename
+            type
           }
         }
         """.replace('PROJECT_ID', project_id).replace('FIRST', str(batch_size)).replace('OFFSET', str(offset))

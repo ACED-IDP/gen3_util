@@ -51,7 +51,8 @@ def format_policy(policy: dict, project_id: str, user_name: str) -> dict:
 def ls(config: Config, mine: bool, active: bool = False, username: str = None, auth: Gen3Auth = None) -> LogAccess:
     """List requests."""
     if not auth:
-        auth = ensure_auth(profile=config.gen3.profile)
+        auth = ensure_auth(config=config)
+    assert auth, "auth required"
     requests = get_requests(auth=auth, mine=mine, active=active, username=username)
     if not isinstance(requests, list):
         raise Exception(f"Unexpected response: {requests}")
@@ -63,7 +64,7 @@ def ls(config: Config, mine: bool, active: bool = False, username: str = None, a
 
 def cat(config: Config, request_id: str) -> dict:
     """Show a specific request requests."""
-    auth = ensure_auth(profile=config.gen3.profile)
+    auth = ensure_auth(config=config)
     request = get_request(auth=auth, request_id=request_id)
     return LogAccess(**{
         'endpoint': auth.endpoint,
@@ -75,7 +76,7 @@ def cp(config: Config, request: dict, revoke: bool = False, auth: Gen3Auth = Non
     """List requests."""
 
     if not auth:
-        auth = ensure_auth(profile=config.gen3.profile)
+        auth = ensure_auth(config=config)
 
     request = create_request(auth=auth, request=request, revoke=revoke)
     return LogAccess(**{
@@ -95,7 +96,7 @@ def update(config: Config, request_id: str, status: str, auth: Gen3Auth = None) 
     assert status in ALLOWED_REQUEST_STATUSES, f"{status} not in {ALLOWED_REQUEST_STATUSES}"
 
     if not auth:
-        auth = ensure_auth(profile=config.gen3.profile)
+        auth = ensure_auth(config=config)
 
     request = update_request(auth=auth, request_id=request_id, status=status)
     return LogAccess(**{
@@ -126,7 +127,7 @@ def add_user(config: Config, project_id: str, user_name: str, write: bool) -> Lo
         requests.append(cp(request=policy, config=config).request)
         request_ids.append(requests[-1]['request_id'])
 
-    commands = ["gen3_util access sign"]
+    commands = ["gen3_util utilities access sign"]
     msg = f"An authorized user must approve these requests to  add {user_name} to {project_id}"
 
     return LogAccess(**{
@@ -154,7 +155,7 @@ def rm_user(config: Config, project_id: str, user_name: str) -> LogAccess:
     for policy in policies_:
         policy = format_policy(policy, project_id, user_name)
         requests.append(cp(request=policy, config=config, revoke=True).request)
-    commands = [f"gen3_util access update {request_id} SIGNED" for request_id in request_ids]
+    commands = [f"gen3_util utilities access update {request_id} SIGNED" for request_id in request_ids]
     msg = f"Approve these requests to add {user_name} to {project_id}"
 
     return LogAccess(**{
@@ -183,7 +184,7 @@ def add_policies(config: Config, project_id: str, auth: Gen3Auth = None) -> LogA
         requests.append(cp(request=policy, config=config, auth=auth).request)
         request_ids.append(requests[-1]['request_id'])
 
-    commands = ["gen3_util access sign"]
+    commands = ["g3t utilities access sign"]
     msg = f"An authorized user must approve these requests to assign default policies to {project_id}"
     return LogAccess(**{
         'requests': requests,

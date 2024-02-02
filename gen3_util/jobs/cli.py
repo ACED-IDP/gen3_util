@@ -6,8 +6,8 @@ import click
 from gen3.jobs import Gen3Jobs
 from requests import HTTPError
 
-from gen3_util.cli import CLIOutput
-from gen3_util.cli import NaturalOrderGroup
+from gen3_util.repo import CLIOutput, ENV_VARIABLE_PREFIX
+from gen3_util.repo import NaturalOrderGroup
 from gen3_util.config import Config, ensure_auth
 from gen3_util.jobs.lister import ls
 
@@ -29,7 +29,7 @@ def project_ls(config: Config):
 
 @job_group.command('import')
 @click.option('--project_id', default=None, show_default=True,
-              help="Gen3 program-project", envvar='PROJECT_ID')
+              help="Gen3 program-project", envvar=f"{ENV_VARIABLE_PREFIX}PROJECT_ID")
 @click.argument('object_id')
 @click.pass_obj
 def import_meta(config: Config, project_id: str, object_id: str):
@@ -38,7 +38,7 @@ def import_meta(config: Config, project_id: str, object_id: str):
     \b
     OBJECT_ID: indexd record id of uploaded metadata
     """
-    auth = ensure_auth(profile=config.gen3.profile)
+    auth = ensure_auth(config=config)
     # delivered to sower job in env['ACCESS_TOKEN']
     jobs_client = Gen3Jobs(auth_provider=auth)
     # delivered to sower job in env['INPUT_DATA']
@@ -64,32 +64,28 @@ def get(config: Config, job_id):
     """
     status = {'output': None}
 
-    auth = ensure_auth(profile=config.gen3.profile)
+    auth = ensure_auth(config=config)
     jobs_client = Gen3Jobs(auth_provider=auth)
     try:
         status = jobs_client.get_status(job_id)
     except HTTPError as e:
         status['msg'] = str(e)
 
-    completed = True
     if 'status' not in status:
         status['msg'] = "Job not found"
-        completed = False
     else:
         if status['status'].lower() != 'completed':
             status['msg'] = f"Job {job_id} is not complete, status: {status['status']}"
-            completed = False
 
-    if completed:
-        _ = jobs_client.get_output(job_id)
+    _ = jobs_client.get_output(job_id)
 
-        if 'output' not in _:
-            status['msg'] = f"Job output not found  (raw): {_}"
-        else:
-            try:
-                status['output'] = json.loads(_['output'])
-            except JSONDecodeError:
-                status['output'] = _['output']
+    if 'output' not in _:
+        status['msg'] = f"Job output not found  (raw): {_}"
+    else:
+        try:
+            status['output'] = json.loads(_['output'])
+        except JSONDecodeError:
+            status['output'] = _['output']
 
     with CLIOutput(config=config) as output:
         output.update(status)

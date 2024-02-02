@@ -10,7 +10,7 @@ def ensure_program_project(config: Config, project_id: str, auth: Gen3Auth = Non
     """Ensure program and project exist in sheepdog.
     """
     if not auth:
-        auth = ensure_auth(profile=config.gen3.profile)
+        auth = ensure_auth(config=config)
     program, project = project_id.split('-')
     submission = Gen3Submission(auth)
     msgs = []

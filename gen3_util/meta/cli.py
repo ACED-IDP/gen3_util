@@ -8,9 +8,10 @@ from json import JSONDecodeError
 import click
 from gen3.jobs import Gen3Jobs
 
-from gen3_util.cli import NaturalOrderGroup, CLIOutput
+from gen3_util.repo import NaturalOrderGroup, CLIOutput, ENV_VARIABLE_PREFIX
 from gen3_util.common import unzip_collapse
 from gen3_util.config import Config, ensure_auth
+from gen3_util.meta.bundler import meta_to_bundle
 from gen3_util.meta.delta import get as delta_get
 from gen3_util.meta.downloader import cp as cp_download
 from gen3_util.meta.importer import import_indexd
@@ -34,71 +35,77 @@ meta_group.add_command(import_indexd)
 @meta_group.command(name="pull")
 @click.argument('meta_data_path')
 @click.option('--project_id', default=None, show_default=True,
-              help="Gen3 program-project", envvar='PROJECT_ID')
+              help="Gen3 program-project", envvar=f"{ENV_VARIABLE_PREFIX}PROJECT_ID")
 @click.option('--force', '-f', default=False, show_default=True, is_flag=True,
               help="Overwrite existing files")
 @click.pass_obj
-def meta_pull(config: Config, meta_data_path: str,  project_id: str, force: bool):
+def _meta_pull(config: Config, meta_data_path: str,  project_id: str, force: bool):
     """Retrieve all FHIR meta data from portal
 
     \b
     meta_data_path: meta_data directory"""
 
     if not project_id:
-        click.secho("--project_id is required", fg='red')
-        exit(1)
+        project_id = config.gen3.project_id
 
     if not project_id.count('-') == 1:
         click.secho("--project_id must be of the form program-project", fg='red')
         exit(1)
 
-    auth = ensure_auth(profile=config.gen3.profile)
+    auth = ensure_auth(config=config)
 
+    try:
+
+        _ = meta_pull(auth, config, force, meta_data_path, project_id)
+
+    except JSONDecodeError:
+        print("jobs_client.async_run_job_and_wait() (raw):", _)
+
+
+def meta_pull(auth, config, force, meta_data_path, project_id) -> dict:
+    """Retrieve all FHIR meta data from portal"""
     # delivered to sower job in env['ACCESS_TOKEN']
     jobs_client = Gen3Jobs(auth_provider=auth)
     # delivered to sower job in env['INPUT_DATA']
     args = {'project_id': project_id, 'method': 'get'}
-
     _ = asyncio.run(jobs_client.async_run_job_and_wait('fhir_import_export', args))
+    output = json.loads(_['output'])
     try:
-        output = json.loads(_['output'])
+        object_id = output['object_id']
+        assert object_id, "object_id not found in output"
+        zip_file_name = None
+        for line in output['logs']:
+            if not line.startswith('Uploaded'):
+                continue
+            zip_file_name = pathlib.Path(line.split()[1]).name
 
-        with CLIOutput(config=config) as console_output:
-            object_id = output['object_id']
+        cmd = f"gen3-client download-single --profile {config.gen3.profile} --guid {object_id} " \
+              f"--download-path {meta_data_path}".split()
 
-            zip_file_name = None
-            for line in output['logs']:
-                if not line.startswith('Uploaded'):
-                    continue
-                zip_file_name = pathlib.Path(line.split()[1]).name
+        if force:
+            cmd.append('--no-prompt')
 
-            cmd = f"gen3-client download-single --profile {config.gen3.profile} --guid {object_id} " \
-                  f"--download-path {meta_data_path}".split()
+        download_results = subprocess.run(cmd)
 
-            if force:
-                cmd.append('--no-prompt')
+        if download_results.returncode != 0:
+            click.secho(f"gen3-client download-single failed {download_results}", fg='red')
+            exit(1)
 
-            download_results = subprocess.run(cmd)
+        output['logs'].append(f"Downloaded {object_id} to {meta_data_path}/{zip_file_name}")
 
-            if download_results.returncode != 0:
-                click.secho(f"gen3-client download-single failed {download_results}", fg='red')
-                exit(1)
+        unzip_collapse(zip_file=f"{meta_data_path}/{zip_file_name}", extract_to=meta_data_path)
+        output['logs'].append(f"Unzipped {meta_data_path}/{zip_file_name} to {meta_data_path}")
 
-            output['logs'].append(f"Downloaded {object_id} to {meta_data_path}/{zip_file_name}")
+        os.remove(f"{meta_data_path}/{zip_file_name}")
+        output['logs'].append(f"Removed {meta_data_path}/{zip_file_name}")
 
-            unzip_collapse(zip_file=f"{meta_data_path}/{zip_file_name}", extract_to=meta_data_path)
-            output['logs'].append(f"Unzipped {meta_data_path}/{zip_file_name} to {meta_data_path}")
+        if 'user' in output:
+            del output['user']
 
-            os.remove(f"{meta_data_path}/{zip_file_name}")
-            output['logs'].append(f"Removed {meta_data_path}/{zip_file_name}")
+    except Exception as e:
+        output['logs'].append(f"Error: {str(e)}")
 
-            if 'user' in output:
-                del output['user']
-
-            console_output.update(output)
-
-    except JSONDecodeError:
-        print("jobs_client.async_run_job_and_wait() (raw):", _)
+    return output
 
 
 @meta_group.command(name="to_tabular")
@@ -148,12 +155,28 @@ def meta_from_tabular(config: Config, meta_data_path: str, tabular_data_path: st
 
 
 @meta_group.command(name="validate")
-@click.argument('directory')
+@click.argument('directory', type=click.Path(exists=True), default='META')
 @click.pass_obj
 def meta_validate(config: Config, directory):
     """Validate FHIR data"""
     with CLIOutput(config) as output:
-        output.update(validate(config, directory))
+        result = validate(config, directory)
+        output.update(result.model_dump())
+
+
+@meta_group.command(name="bundle")
+@click.argument('directory', type=click.Path(exists=True))
+@click.argument('gz_file_path', type=click.Path(file_okay=True, dir_okay=False, writable=True))
+@click.pass_obj
+def meta_bundle(config: Config, directory, gz_file_path):
+    """Bundle FHIR data into zip file
+
+    \b
+    directory: meta_data directory
+    output_file: zip file
+    """
+    with CLIOutput(config) as output:
+        output.update(meta_to_bundle(config, config.gen3.project_id, pathlib.Path(directory), pathlib.Path(gz_file_path)))
 
 
 @meta_group.command(name="push")
@@ -161,7 +184,7 @@ def meta_validate(config: Config, directory):
 @click.option('--ignore_state', default=False, is_flag=True, show_default=True,
               help="Upload file, even if already uploaded")
 @click.option('--project_id', default=None, show_default=True,
-              help="Gen3 program-project", envvar='PROJECT_ID')
+              help="Gen3 program-project", envvar=f"{ENV_VARIABLE_PREFIX}PROJECT_ID")
 @click.pass_obj
 def meta_push(config: Config, meta_data_path: str,  project_id: str, ignore_state: bool):
     """Publish FHIR meta data on the portal
@@ -187,7 +210,7 @@ def meta_push(config: Config, meta_data_path: str,  project_id: str, ignore_stat
 @click.option('--ignore_state', default=False, is_flag=True, show_default=True,
               help="Upload file, even if already uploaded")
 @click.option('--project_id', default=None, show_default=True,
-              help="Gen3 program-project", envvar='PROJECT_ID')
+              help="Gen3 program-project", envvar=f"{ENV_VARIABLE_PREFIX}PROJECT_ID")
 @click.pass_obj
 def meta_cp(config: Config, from_: str, to_: str, project_id: str, ignore_state: bool):
     """Copy meta to/from the project bucket.
@@ -216,7 +239,7 @@ def meta_ls(config: Config):
 
 @meta_group.command(name="node", hidden=True)
 @click.option('--project_id', default=None, show_default=True,
-              help="Gen3 program-project", envvar='PROJECT_ID')
+              help="Gen3 program-project", envvar=f"{ENV_VARIABLE_PREFIX}PROJECT_ID")
 @click.option('--node_id', default=None, show_default=True,
               help="Gen3 node id")
 @click.pass_obj

@@ -1,8 +1,12 @@
 import os
+import pathlib
 
 import pytest
 from gen3.submission import Gen3Submission
 
+import gen3_util
+from gen3_util import Config
+from gen3_util.repo import ENV_VARIABLE_PREFIX
 from gen3_util.config import ensure_auth
 
 
@@ -15,9 +19,10 @@ def dependency() -> str:
 @pytest.fixture
 def profile() -> str:
     """gen3-client profile to use for testing."""
-    if 'GEN3_UTIL_PROFILE' in os.environ:
-        return os.environ['GEN3_UTIL_PROFILE']
-    print("GEN3_UTIL_PROFILE not set, using profile 'local'")
+    env_var = f"{ENV_VARIABLE_PREFIX}PROFILE"
+    if env_var in os.environ:
+        return os.environ[env_var]
+    print(f"{env_var} not set, using profile 'local'")
     return "local"
 
 
@@ -28,7 +33,16 @@ def program() -> str:
 
 
 @pytest.fixture
-def submission_client() -> str:
+def config(profile, tmp_path) -> Config:
+    """A config"""
+    _ = gen3_util.config.default()
+    _.gen3.profile = profile
+    _.state_dir = pathlib.Path(tmp_path) / 'state'
+    return _
+
+
+@pytest.fixture
+def submission_client(config) -> str:
     """Gen3Submission client"""
-    auth = ensure_auth(profile='development')
+    auth = ensure_auth(config=config)
     return Gen3Submission(auth_provider=auth)

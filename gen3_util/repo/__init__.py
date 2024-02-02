@@ -6,41 +6,33 @@ from gen3_util.common import print_formatted
 
 import click
 
-ENV_VARIABLE_PREFIX = 'GEN3_UTIL'
+ENV_VARIABLE_PREFIX = 'G3T_'
 
 
 def _common_options(self):
     """Insert common commands into Group or Command."""
     assert len(self.params) == 0
+
     self.params.insert(0,
-                       click.core.Option(('--config',),
-                                         envvar=f"{ENV_VARIABLE_PREFIX}_CONFIG",
-                                         default=None,
-                                         required=False,
-                                         show_default=True,
-                                         help=f'Path to config file. {ENV_VARIABLE_PREFIX}_CONFIG'))
-    self.params.insert(1,
                        click.core.Option(('--format', 'output_format'),
-                                         envvar=f"{ENV_VARIABLE_PREFIX}_FORMAT",
+                                         envvar=f"{ENV_VARIABLE_PREFIX}FORMAT",
                                          default='yaml',
                                          show_default=True,
                                          type=click.Choice(['yaml', 'json', 'text'], case_sensitive=False),
-                                         help=f'Result format. {ENV_VARIABLE_PREFIX}_FORMAT'))
+                                         help=f'Result format. {ENV_VARIABLE_PREFIX}FORMAT'))
 
     # use 'cred', the same name as used in gen3-client data utility
-    self.params.insert(2,
+    self.params.insert(1,
                        click.core.Option(('--profile', 'profile'),
-                                         envvar=f"{ENV_VARIABLE_PREFIX}_PROFILE",
+                                         envvar=f"{ENV_VARIABLE_PREFIX}PROFILE",
                                          default=None,
                                          show_default=True,
-                                         help=f'Connection name. {ENV_VARIABLE_PREFIX}_PROFILE See https://bit.ly/3NbKGi4'))
+                                         help=f'Connection name. {ENV_VARIABLE_PREFIX}PROFILE See https://bit.ly/3NbKGi4'))
 
-    self.params.insert(3,
-                       click.core.Option(('--state_dir', ),
-                                         envvar=f"{ENV_VARIABLE_PREFIX}_STATE_DIR",
-                                         default='~/.gen3/gen3_util',
-                                         show_default=True,
-                                         help=f'Directory for file transfer state {ENV_VARIABLE_PREFIX}_STATE_DIR'))
+    self.params.insert(2,
+                       click.core.Option(('--version', 'version'),
+                                         is_flag=True
+                                         ))
 
 
 class StdCommand(click.Command):
@@ -110,6 +102,8 @@ class CLIOutput:
                 _ = self.output.obj
             elif isinstance(self.output.obj, int):
                 _ = {'count': self.output.obj}
+            elif hasattr(self.output.obj, 'model_dump'):
+                _.update(self.output.obj.model_dump())
             else:
                 _.update(self.output.obj.dict())
         rc = self.output.exit_code

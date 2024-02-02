@@ -3,7 +3,7 @@ import subprocess
 import click
 
 from gen3_util import Config
-from gen3_util.cli import NaturalOrderGroup, CLIOutput
+from gen3_util.repo import NaturalOrderGroup, CLIOutput
 
 
 @click.group(name='config', cls=NaturalOrderGroup)
@@ -20,11 +20,7 @@ def config_ls(config: Config):
     with CLIOutput(config) as output:
         # decorate config with some extra info
         config.gen3.version = _gen3_client_version()
-        # cast state dir to string, so it prints out nicely
-        _ = config.dict()
-        _['state_dir'] = str(config.state_dir)
-        output.update(_)
-        # print(_access_token_info(config))
+        output.update({'config': config.model_dump()})
 
 
 def _gen3_client_version() -> str:

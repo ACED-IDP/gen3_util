@@ -1,10 +1,11 @@
 import click
 
+from gen3_util.access import create_request
 from gen3_util.access.requestor import ls, cat, update, LogAccess
-from gen3_util.access.submitter import ensure_program_project
-from gen3_util.cli import CLIOutput
-from gen3_util.cli import NaturalOrderGroup
+from gen3_util.common import validate_email
 from gen3_util.config import Config, ensure_auth
+from gen3_util.repo import CLIOutput
+from gen3_util.repo import NaturalOrderGroup
 
 
 @click.group(name='access', cls=NaturalOrderGroup)
@@ -12,6 +13,43 @@ from gen3_util.config import Config, ensure_auth
 def access_group(config: Config):
     """Manage access requests."""
     pass
+
+
+@access_group.command(name="add")
+@click.argument('user_name')
+@click.option('--resource_path', default=None, required=False, show_default=True,
+              help="Gen3 authz /programs/<program>")
+@click.option('--roles', show_default=True, default=None, help='Add comma-delimited role permissions to the access request, ex: --roles "storage_writer,file_uploader"')
+@click.option('--steward', show_default=True, is_flag=True, default=False, help='Add steward role to the program')
+@click.pass_obj
+def access_touch(config: Config,  resource_path: str, user_name: str, roles: str, steward: bool):
+    """Create a request a specific role.
+
+    \b
+    USER_NAME (str): user's email
+
+    """
+    with CLIOutput(config=config) as output:
+        try:
+
+            msgs = validate_email(user_name)
+            assert msgs == [], f"Invalid email address: {user_name} {msgs}"
+
+            assert user_name, "user_name required"
+
+            request = {"username": user_name, "resource_path": resource_path}
+            if steward:
+                roles = 'requestor_reader_role,requestor_updater_role'
+
+            assert roles, "roles required"
+            roles = roles.split(',')
+            for role in roles:
+                request.update({"role_ids": [role]})
+                print(request)
+                output.update(create_request(config=config, request=request))
+        except Exception as e:
+            output.update({'msg': str(e)})
+            output.exit_code = 1
 
 
 @access_group.command(name="sign")
@@ -22,7 +60,7 @@ def sign(config: Config, username: str):
     \b
     """
     with CLIOutput(config=config) as output:
-        auth = ensure_auth(profile=config.gen3.profile)
+        auth = ensure_auth(config=config)
         access = ls(config, mine=False, username=username, active=True, auth=auth)
         unsigned_requests = [_ for _ in access.requests if _['status'] != 'SIGNED']
 
@@ -34,26 +72,16 @@ def sign(config: Config, username: str):
             msg = f"Signing {len(unsigned_requests)} requests."
 
             signed_requests = []
+            click.secho("signing requests...", fg='green')
             for request in unsigned_requests:
-                signed_requests.append(update(config, request_id=request['request_id'], status='SIGNED', auth=auth).request)
-
-            msg = f"Signed {len(unsigned_requests)} requests."
-            distinct_policy_ids = sorted(
-                set(
-                    [
-                        _['policy_id'].replace('_reader', '').replace('_writer', '')
-                        for _ in unsigned_requests if _['policy_id'].startswith('programs.')
-                    ]
+                signed_requests.append(
+                    update(config, request_id=request['request_id'], status='SIGNED', auth=auth).request
                 )
-            )
-            submitter_msgs = []
-            for policy_id in distinct_policy_ids:
-                _ = policy_id.split('.')
-                project_id = f"{_[1]}-{_[3]}"
-                submitter_msgs.append(ensure_program_project(config, project_id, auth=auth))
+
+            msg = f"Signed {len(unsigned_requests)} requests.  System administrators will create new projects."
 
             output.update(LogAccess(**{
-                'msg': msg + ' ' + ' '.join(submitter_msgs),
+                'msg': msg,
                 'requests': signed_requests,
             }))
 
@@ -66,7 +94,15 @@ def sign(config: Config, username: str):
 def access_ls(config: Config, mine: bool, active: bool, username: str):
     """List current user's requests."""
     with CLIOutput(config=config) as output:
-        output.update(ls(config, mine, active, username))
+        try:
+            msg = 'OK'
+            access = ls(config, mine, active, username)
+            if not access.requests or len(access.requests) == 0:
+                msg = 'No unsigned requests'
+            output.update({'requests': access.requests, 'msg': msg})
+        except Exception as e:
+            output.update({'msg': str(e)})
+            output.exit_code = 1
 
 
 @access_group.command(name="cat")

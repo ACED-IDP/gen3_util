@@ -2,7 +2,9 @@ import logging
 import os
 import pathlib
 import sys
+from configparser import ConfigParser
 from datetime import datetime, timezone, timedelta
+from typing import Generator
 
 import click
 import jwt
@@ -15,7 +17,7 @@ from gen3.index import Gen3Index
 
 import gen3_util
 from gen3_util import Config
-from gen3_util.common import read_yaml
+from gen3_util.common import read_yaml, PROJECT_DIRECTORIES, PROJECT_DIR
 
 
 def gen_client_ini_path() -> pathlib.Path:
@@ -71,31 +73,41 @@ def key_expired_msg(api_key, expiration_threshold_days, key_name):
     return msg
 
 
+def _get_gen3_client_default_profile(path: pathlib.Path = None, gen3_util_ini: ConfigParser = None) -> str:
+    """Read gen3-client ini file, return default (only) profile."""
+    if gen3_util_ini is None:
+        assert path, "path is required"
+        gen3_util_ini = read_ini(path)
+    if len(gen3_util_ini.sections()) == 1:
+        # default to first section if only one section
+        profile = gen3_util_ini.sections()[0]
+        return profile
+    return None
+
+
 def _get_gen3_client_key(path: pathlib.Path, profile: str = None) -> str:
     """Read gen3-client ini file, return api_key for profile."""
 
     gen3_util_ini = read_ini(path)
 
-    if not profile and len(gen3_util_ini.sections()) == 1:
-        # default to first section if only one section
-        profile = gen3_util_ini.sections()[0]
-    if not profile:
-        # default to default section if no profile specified
-        profile = gen3_util_ini.default_section
-    for section in gen3_util_ini.sections():
-        if section == profile:
-            return gen3_util_ini[section]['api_key']
-    click.secho(f"no profile '{profile}' found in {path}, specify one of {gen3_util_ini.sections()}, optionally set environmental variable: GEN3_UTIL_PROFILE", fg='red', err=True)
-    exit(1)
+    if profile:
+        for section in gen3_util_ini.sections():
+            if section == profile:
+                return gen3_util_ini[section]['api_key']
+    else:
+        profile = _get_gen3_client_default_profile(gen3_util_ini=gen3_util_ini)
+        if profile:
+            return gen3_util_ini[profile]['api_key']
+    click.secho(f"no profile '{profile}' found in {path}, specify one of {gen3_util_ini.sections()}, optionally set environmental variable: GEN3_UTIL_PROFILE", fg='yellow')
 
 
-def ensure_auth(refresh_file: [pathlib.Path, str] = None, validate: bool = False, profile: str = None) -> Gen3Auth:
+def ensure_auth(refresh_file: [pathlib.Path, str] = None, validate: bool = False, config: Config = None) -> Gen3Auth:
     """Confirm connection to Gen3 using their conventions.
 
     Args:
         refresh_file (pathlib.Path): The file containing the downloaded JSON web token.
         validate: check the connection by getting a new token
-        profile: gen3-client profile
+        config: Config
 
     """
 
@@ -107,6 +119,12 @@ def ensure_auth(refresh_file: [pathlib.Path, str] = None, validate: bool = False
         elif 'ACCESS_TOKEN' in os.environ:
             auth = Gen3Auth(refresh_file=f"accesstoken:///{os.getenv('ACCESS_TOKEN')}")
         elif gen_client_ini_path().exists():
+            profile = config.gen3.profile
+            if not profile:
+                # in disconnected mode, or not in project dir
+                if config.no_config_found:
+                    print("INFO: No config file found in current directory or parents.", file=sys.stderr)
+                return None
             # https://github.com/uc-cdis/gen3sdk-python/blob/master/gen3/auth.py#L190-L191
             key = _get_gen3_client_key(gen_client_ini_path(), profile=profile)
             msg = key_expired_msg(key, key_name=profile, expiration_threshold_days=10)
@@ -138,20 +156,66 @@ def ensure_auth(refresh_file: [pathlib.Path, str] = None, validate: bool = False
 
 def gen3_services(config: Config) -> tuple[Gen3File, Gen3Index, dict, Gen3Auth]:
     """Create Gen3 Services."""
-    auth = ensure_auth(profile=config.gen3.profile)
+    auth = ensure_auth(config=config)
+    assert auth, f"Failed to set auth {config.gen3.profile}"
     file_client = Gen3File(auth_provider=auth)
     index_client = Gen3Index(auth_provider=auth)
     user = auth.curl('/user/user').json()
     return file_client, index_client, user, auth
 
 
+def search_upwards_for_file(filename):
+    """Search in the current directory and all directories above it
+    for a file of a particular name.
+
+    Arguments:
+    ---------
+    filename :: string, the filename to look for.
+
+    Returns
+    -------
+    pathlib.Path, the location of the first file found or
+    None, if none was found
+    """
+    d = pathlib.Path.cwd()
+    root = pathlib.Path(d.root)
+
+    while d != root:
+        attempt = d / filename
+        if attempt.exists():
+            return attempt
+        d = d.parent
+
+    return None
+
+
 def default():
-    """Load config from installed package."""
+    """Load config from directory or installed package."""
+
+    # in current dir?
+    _ = pathlib.Path(PROJECT_DIR) / 'config.yaml'
+    if _.exists():
+        return Config(**read_yaml(_))
+
+    # look in parents
+    parent_dir = search_upwards_for_file(PROJECT_DIR)
+    if parent_dir:
+        _ = parent_dir / 'config.yaml'
+        if _.exists():
+            return Config(**read_yaml(_))
+
+    # use default
+
+    # different pkg_resources open for 3.9
     if sys.version_info[:3] <= (3, 9):
-        return Config(**yaml.safe_load(pkg_resources.open_text(gen3_util, 'config.yaml').read()))
+        _config = Config(**yaml.safe_load(pkg_resources.open_text(gen3_util, 'config.yaml').read()))
     else:
         # https://docs.python.org/3.11/library/importlib.resources.html#importlib.resources.open_text
-        return Config(**yaml.safe_load(pkg_resources.files(gen3_util).joinpath('config.yaml').open().read()))
+        _config = Config(**yaml.safe_load(pkg_resources.files(gen3_util).joinpath('config.yaml').open().read()))
+
+    # No config file found in directory or parents.
+    _config.no_config_found = True
+    return _config
 
 
 def custom(path: [str, pathlib.Path]):
@@ -160,3 +224,39 @@ def custom(path: [str, pathlib.Path]):
         path = pathlib.Path(path)
 
     return Config(**read_yaml(path))
+
+
+def init(config: Config, project_id: str) -> Generator[str, None, None]:
+    """Create an empty repository, adjust and write config file"""
+
+    assert project_id, "project_id is missing"
+    assert project_id.count('-') == 1, f"{project_id} should have a single '-' delimiter."
+
+    existing_dirs = []
+    for _ in PROJECT_DIRECTORIES:
+        if pathlib.Path(_).exists():
+            existing_dirs.append(_)
+        pathlib.Path(_).mkdir(exist_ok=True)
+
+    if existing_dirs:
+        yield f"Directory already exists {existing_dirs}"
+    else:
+        yield f"Created project directories {PROJECT_DIRECTORIES}"
+
+    config.gen3.project_id = project_id
+    config.state_dir = pathlib.Path(PROJECT_DIR) / 'state'
+    config.state_dir.mkdir(parents=True, exist_ok=True)
+
+    config_file = pathlib.Path(PROJECT_DIR) / 'config.yaml'
+    if not config_file.exists():
+        with open(config_file, 'w') as f:
+            yaml.dump(config.model_dump(), f)
+        yield f"Created project configuration file={config_file} project_id={config.gen3.project_id} profile={config.gen3.profile}"
+    else:
+        updated_config = yaml.load(open(config_file), Loader=yaml.SafeLoader)
+        updated_config = Config(**updated_config)
+        updated_config.gen3.project_id = project_id
+        updated_config.gen3.profile = config.gen3.profile
+        with open(config_file, 'w') as f:
+            yaml.dump(updated_config.model_dump(), f)
+        yield f"Updated project configuration file={config_file} project_id={config.gen3.project_id} profile={config.gen3.profile}"

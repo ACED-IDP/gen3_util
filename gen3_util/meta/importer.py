@@ -6,7 +6,7 @@ import click
 import unicodedata
 
 from gen3_util import ACED_NAMESPACE
-from gen3_util.cli import CLIOutput
+from gen3_util.repo import CLIOutput, ENV_VARIABLE_PREFIX
 from gen3_util.config import Config
 
 logger = logging.getLogger(__name__)
@@ -36,24 +36,33 @@ def md5sum(file_name):
     return md5_hash.hexdigest()
 
 
-@click.command('create')
-@click.argument('output_path')
-@click.option('--project_id', required=True,
+@click.command("create")
+@click.argument('metadata_path', type=click.Path(exists=True), default='META')
+@click.option('--project_id',
               default=None,
               show_default=True,
               help='Gen3 program-project',
-              envvar='PROJECT_ID'
+              envvar=f"{ENV_VARIABLE_PREFIX}PROJECT_ID",
+              hidden=True
               )
 @click.option("--overwrite", is_flag=True, show_default=True, default=False, help="Ignore existing records.")
 @click.option('--source',
               type=click.Choice(['manifest', 'indexd'], case_sensitive=False), show_default=True, default='manifest', help="Query manifest or indexd.")
 @click.pass_obj
-def import_indexd(config: Config, output_path, project_id, overwrite, source):
-    """Create minimal study metadata from uploaded files
+def import_indexd(config: Config, metadata_path, project_id, overwrite, source):
+    """Create minimal study metadata from uploaded files.
+
+    \b
+    METADATA_PATH: directory containing metadata files to be updated. [default: ./META]
     """
 
     from gen3_util.meta.skeleton import study_metadata
 
+    if not project_id:
+        project_id = config.gen3.project_id
+    else:
+        config.gen3.project_id = project_id
+
     with CLIOutput(config=config) as output:
-        output.update(study_metadata(config=config, project_id=project_id, output_path=output_path,
+        output.update(study_metadata(config=config, project_id=project_id, output_path=metadata_path,
                                      overwrite=overwrite, source=source))
