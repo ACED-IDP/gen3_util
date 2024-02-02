@@ -239,17 +239,26 @@ def push_cli(config: Config, restricted_project_id: str, overwrite: bool):
 @click.pass_obj
 def status_cli(config: Config):
     """Show the working tree status."""
+    last_job_status = None
     with CLIOutput(config=config) as output:
         try:
             assert config.gen3.project_id, "Not in an initialed project directory."
             project_id = config.gen3.project_id
             _check_parameters(config, project_id)
-            click.secho("retrieving status...", fg='green')
-            output.update(status(config))
+            click.secho("retrieving status...", fg='green', file=sys.stderr)
+            _status = status(config)
+
+            for _commit in _status.get('local', {}).get('pushed_commits', []):
+                last_job_status = _commit.get('published_job', {}).get('output', {}).get('status', None)
+
+            output.update(_status)
 
         except Exception as e:
             output.update({'msg': str(e)})
             output.exit_code = 1
+    if last_job_status:
+        fg = 'green' if last_job_status == 'Completed' else 'yellow'
+        click.secho(f"Last job status: {last_job_status}", fg=fg, file=sys.stderr)
 
 
 @cli.command(name='clone')
