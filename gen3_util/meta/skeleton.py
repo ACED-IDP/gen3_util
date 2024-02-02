@@ -143,10 +143,13 @@ def transform_manifest_to_indexd_keys(metadata: dict):
     new_keys = {}
     for k, v in metadata.items():
         if k in ['object_id', 'project_id']:
+            new_keys[k] = v
             continue
         if k.endswith('_id'):
             new_key = k.replace('_id', '_identifier')
             new_keys[new_key] = v
+        else:
+            new_keys[k] = v
 
     return new_keys
 
