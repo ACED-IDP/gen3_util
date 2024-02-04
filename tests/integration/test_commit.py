@@ -1,36 +1,45 @@
+import json
 import os
 import pathlib
 import string
 import uuid
 import random
+from time import sleep
 
+from click.testing import CliRunner
 from fhir.resources.bundle import Bundle, BundleEntry
 
 import gen3_util.files.manifest
-from gen3_util.repo.initializer import initialize_project_server_side
-from gen3_util.common import create_id
-from gen3_util.config import ensure_auth, init
+from gen3_util.common import create_id, read_ndjson_file
+from gen3_util.config import init
 from gen3_util.meta import directory_reader
 from gen3_util.meta.skeleton import study_metadata
 
 from nested_lookup import nested_lookup
+from gen3_util.repo.cli import cli
 
 
-def test_init_project(config, program, tmp_path):
+def test_init_project(config, program, tmp_path, profile):
     """Test commit bundle."""
 
     # navigate to tmp_path
     os.chdir(tmp_path)
 
-    auth = ensure_auth(config=config)
-
     # create project
     guid = str(uuid.uuid4())
-    project_id = f'{program}-TEST_COMMIT_{guid.replace("-", "_")}'
-    config.gen3.project_id = project_id
-    logs = initialize_project_server_side(project_id=project_id, config=config, auth=auth)
+    project = f'TEST_COMMIT_{guid.replace("-", "_")}'
+    project_id = f'{program}-{project}'
 
-    print(logs)
+    runner = CliRunner()
+
+    result = runner.invoke(cli, f'--format json --profile {profile} init {project_id}'.split())
+    assert result.exit_code == 0, result.output
+
+    result = runner.invoke(cli, f'--format json --profile {profile} utilities access sign'.split())
+    assert result.exit_code == 0, result.output
+
+    result = runner.invoke(cli, f"--format json --profile {profile} utilities projects create /programs/{program}/projects/{project}".split())
+    assert result.exit_code == 0, result.output
 
     # add a file, associated with a patient
     file_size = 1024
@@ -39,17 +48,58 @@ def test_init_project(config, program, tmp_path):
     with open(local_path, 'w') as fp:
         fp.write(''.join(random.choices(string.ascii_letters, k=file_size)))
 
-    _ = gen3_util.files.manifest.put(config, str(local_path), project_id=project_id, md5=None)
-    _['patient_id'] = "P1"
-    gen3_util.files.manifest.save(config, project_id, [_])
+    result = runner.invoke(cli, f"--format json --profile {profile} add {str(local_path)} --patient P1".split())
+    assert result.exit_code == 0, result.output
 
     # generate FHIR
+    result = runner.invoke(cli, f"--format json --profile {profile} utilities meta create".split())
+    assert result.exit_code == 0, result.output
+
     metadata_path = pathlib.Path(tmp_path) / 'META'
-    study_metadata(config=config, project_id=project_id, output_path=metadata_path,
-                   overwrite=False, source='manifest', auth=auth)
     metadata_ls = sorted(str(_.relative_to(tmp_path)) for _ in metadata_path.glob('**/*.*'))
     expected_metadata_ls = ['META/DocumentReference.ndjson', 'META/Patient.ndjson', 'META/ResearchStudy.ndjson', 'META/ResearchSubject.ndjson']
     assert metadata_ls == expected_metadata_ls, f"expected metadata files not found {metadata_ls}"
+
+    result = runner.invoke(cli, f'--format json  --profile {profile} commit -m "test-commit"'.split())
+    assert result.exit_code == 0, result.output
+
+    result = runner.invoke(cli, f'--format json  --profile {profile} push'.split())
+    assert result.exit_code == 0, result.output
+
+    push = None
+    for line in read_ndjson_file(pathlib.Path('.g3t/state') / project_id / 'commits' / 'completed.ndjson'):
+        push = line
+
+    published_job_uid = push['published_job']['output']['uid']
+    print("published_job_uid", published_job_uid)
+
+    sleep(5)
+    while True:
+        result = runner.invoke(cli, f'--format json  --profile {profile} utilities jobs get {published_job_uid}'.split())
+        assert result.exit_code == 0, result.output
+        output = json.loads(result.output)
+        if output['status'] not in ['Completed', 'Unknown']:
+            break
+        sleep(5)
+
+    result = runner.invoke(cli, f'--format json  --profile {profile} push --re-run'.split())
+    assert result.exit_code == 0, result.output
+
+    push = None
+    for line in read_ndjson_file(pathlib.Path('.g3t/state') / project_id / 'commits' / 'completed.ndjson'):
+        push = line
+
+    re_run_published_job_uid = push['published_job']['output']['uid']
+    assert re_run_published_job_uid != published_job_uid, "re-run job should have a different uid"
+
+    sleep(5)
+    while True:
+        result = runner.invoke(cli, f'--format json  --profile {profile} utilities jobs get {re_run_published_job_uid}'.split())
+        assert result.exit_code == 0, result.output
+        output = json.loads(result.output)
+        if output['status'] not in ['Completed', 'Unknown']:
+            break
+        sleep(5)
 
 
 def test_bundle(config, program, tmp_path):

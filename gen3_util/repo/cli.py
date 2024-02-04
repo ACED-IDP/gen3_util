@@ -1,9 +1,8 @@
 
 import logging
-import sys
-
 import pathlib
 import subprocess
+import sys
 from datetime import datetime
 from importlib.metadata import version as pkg_version
 
@@ -14,24 +13,24 @@ from gen3.auth import Gen3AuthError
 import gen3_util
 from gen3_util.access.cli import access_group
 from gen3_util.buckets.cli import bucket_group
+from gen3_util.common import write_meta_index, PROJECT_DIR, to_metadata_dict
+from gen3_util.config import Config, ensure_auth, gen3_client_profiles, init
+from gen3_util.config.cli import config_group
+from gen3_util.files.cli import file_group, manifest_put_cli
+from gen3_util.files.middleware import files_ls_driver
+from gen3_util.jobs.cli import job_group
+from gen3_util.meta.cli import meta_group
 from gen3_util.meta.skeleton import transform_manifest_to_indexd_keys
+from gen3_util.projects.cli import project_group
+from gen3_util.projects.remover import rm
 from gen3_util.repo import StdNaturalOrderGroup, CLIOutput, NaturalOrderGroup, ENV_VARIABLE_PREFIX
 from gen3_util.repo.cloner import clone, download_unzip_snapshot_meta, find_latest_snapshot
 from gen3_util.repo.committer import commit, diff
 from gen3_util.repo.initializer import initialize_project_server_side
 from gen3_util.repo.puller import pull_files
-from gen3_util.repo.pusher import push
+from gen3_util.repo.pusher import push, re_push
 from gen3_util.repo.status import status
-from gen3_util.common import write_meta_index, PROJECT_DIR, to_metadata_dict
-from gen3_util.config import Config, ensure_auth, gen3_client_profiles, init
-from gen3_util.config.cli import config_group
-from gen3_util.files.cli import file_group, manifest_put_cli
-from gen3_util.jobs.cli import job_group
-from gen3_util.meta.cli import meta_group
-from gen3_util.projects.cli import project_group
-from gen3_util.projects.remover import rm
 from gen3_util.users.cli import users_group
-from gen3_util.files.middleware import files_ls_driver
 
 
 @click.group(cls=StdNaturalOrderGroup, invoke_without_command=True)
@@ -220,16 +219,24 @@ def diff_cli(config: Config, metadata_path: str):
               help="overwrite files records in index")
 @click.option('--restricted_project_id', default=None, required=False, show_default=True,
               help="adds additional access control")
+@click.option('--re-run', 're_run', default=False, required=False, show_default=True, is_flag=True,
+              help="Re-publish the last commit")
 @click.pass_obj
-def push_cli(config: Config, restricted_project_id: str, overwrite: bool):
+def push_cli(config: Config, restricted_project_id: str, overwrite: bool, re_run: bool):
     """Submit committed changes to commons."""
     with CLIOutput(config=config) as output:
         try:
-            overwrite_files = overwrite_index = overwrite
-            output.update(
-                push(config, restricted_project_id=restricted_project_id, overwrite_index=overwrite_index,
-                     overwrite_files=overwrite_files)
-            )
+            if not re_run:
+                overwrite_files = overwrite_index = overwrite
+                output.update(
+                    push(config, restricted_project_id=restricted_project_id, overwrite_index=overwrite_index,
+                         overwrite_files=overwrite_files)
+                )
+            else:
+                # read the last push from the state
+                published_job = re_push(config)
+                output.update(published_job)
+
         except Exception as e:
             output.update({'msg': str(e)})
             output.exit_code = 1
