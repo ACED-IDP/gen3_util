@@ -3,7 +3,7 @@ import click
 from gen3_util.access.submitter import ensure_program_project
 from gen3_util.config import Config, ensure_auth
 from gen3_util.projects.lister import ls
-from gen3_util.projects.remover import rm
+from gen3_util.projects.remover import rm, empty
 from gen3_util.repo import CLIOutput, ENV_VARIABLE_PREFIX
 from gen3_util.repo import NaturalOrderGroup
 
@@ -72,12 +72,31 @@ def project_create(config: Config, all_projects: bool, resource: str):
             output.exit_code = 1
 
 
+@project_group.command(name="empty")
+@click.option('--project_id', default=None, show_default=True,
+              help="Gen3 program-project", envvar=f"{ENV_VARIABLE_PREFIX}PROJECT_ID")
+@click.pass_obj
+def project_empty(config: Config, project_id: str):
+    """Empty all metadata (graph, flat) for a project."""
+    with CLIOutput(config=config) as output:
+        try:
+            _ = empty(config, project_id)
+            _['msg'] = f"Emptied {project_id}"
+            output.update(_)
+        except Exception as e:
+            output.update({'msg': str(e)})
+            output.exit_code = 1
+
+
 @project_group.command(name="rm")
 @click.option('--project_id', default=None, show_default=True,
               help="Gen3 program-project", envvar=f"{ENV_VARIABLE_PREFIX}PROJECT_ID")
 @click.pass_obj
 def project_rm(config: Config, project_id: str):
-    """Remove project.
-    """
+    """Remove empty project."""
     with CLIOutput(config=config) as output:
-        output.update(rm(config, project_id))
+        try:
+            output.update(rm(config, project_id))
+        except Exception as e:
+            output.update({'msg': str(e)})
+            output.exit_code = 1
