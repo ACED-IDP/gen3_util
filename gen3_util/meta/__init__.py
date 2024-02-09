@@ -1,12 +1,12 @@
 import importlib
 import logging
 import pathlib
-from typing import Iterator, Any
+from typing import Iterator, Any, Optional
 
 # TODO fix me, make configurable
 from fhir.resources import FHIRAbstractModel
-from pydantic import ValidationError, BaseModel, validator
-
+from pydantic.v1 import ValidationError, validator
+from pydantic import BaseModel, ConfigDict
 from gen3_util.common import is_json_extension, read_json
 
 FHIR_CLASSES = importlib.import_module('fhir.resources')
@@ -15,14 +15,13 @@ logger = logging.getLogger(__name__)
 
 
 class ParseResult(BaseModel):
-    class Config:
-        arbitrary_types_allowed = True
+    model_config = ConfigDict(arbitrary_types_allowed=True)
     """Results of FHIR validation of dict."""
     resource: Any = None
     """If valid, the FHIR resource."""
-    exception: Exception = None
+    exception: Optional[Exception] = None
     """If invalid, the exception."""
-    path: pathlib.Path = None
+    path: Optional[pathlib.Path] = None
     """Source file, if available."""
     offset: int = 0
     """Base 0 offset of line number(ndjson) or entry(bundle)."""

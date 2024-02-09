@@ -5,7 +5,7 @@ import sys
 import click
 
 from gen3_util import Config
-from gen3_util.common import Push, write_meta_index, read_ndjson_file
+from gen3_util.common import Push, write_meta_index, read_ndjson_file, Commit
 from gen3_util.config import ensure_auth
 from gen3_util.files.manifest import upload_files, upload_commit_to_indexd
 from gen3_util.meta.publisher import publish_commits, re_publish_commits
@@ -80,7 +80,7 @@ def push(config: Config,
     push_.published_timestamp = datetime.datetime.now()
     push_.published_job = published_job
     with open(completed_path, "a") as fp:
-        fp.write(push_.json())
+        fp.write(push_.model_dump_json())
         fp.write("\n")
     print(
         f"Updated {completed_path}",
@@ -111,14 +111,14 @@ def re_push(config: Config):
     for _ in read_ndjson_file(completed_path):
         last_push = _
     assert last_push, f"No completed job found in {completed_path}"
-    push_.commits = last_push['commits']
+    push_.commits = [Commit(**_) for _ in last_push['commits']]
     for _commit in push_.commits:
-        click.secho(f"Re-publishing {_commit['commit_id']} {_commit['message']} ", fg='yellow')
+        click.secho(f"Re-publishing {_commit.commit_id} {_commit.message} ", fg='yellow')
     published_job = re_publish_commits(config, push=push_, wait=False)
     push_.published_timestamp = datetime.datetime.now()
     push_.published_job = published_job
     with open(completed_path, "a") as fp:
-        fp.write(push_.json())
+        fp.write(push_.model_dump_json())
         fp.write("\n")
     click.secho(
         f"Updated {completed_path}",

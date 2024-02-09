@@ -11,7 +11,8 @@ from fhir.resources.fhirresourcemodel import FHIRResourceModel
 from flatten_json import flatten, unflatten_list
 from deepmerge import Merger
 
-from pydantic import BaseModel, ValidationError
+from pydantic import BaseModel
+from pydantic.v1 import ValidationError
 
 FHIR_CLASSES = importlib.import_module('fhir.resources')
 

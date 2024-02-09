@@ -32,7 +32,7 @@ def meta_to_bundle(config, project_id: str, metadata_path: pathlib.Path, gz_file
     # write bundle tp zip
     gz_file_path.parent.mkdir(parents=True, exist_ok=True)
     with gzip.open(gz_file_path, 'wb') as gz_file:
-        gz_file.write(bundle.json().encode('utf-8'))
+        gz_file.write(bundle.model_dump_json().encode('utf-8'))
     logs = [f"wrote {gz_file_path}"]
     return {
         'msg': f"created bundle {gz_file_path}",

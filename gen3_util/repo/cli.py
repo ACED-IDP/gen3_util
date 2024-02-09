@@ -240,6 +240,7 @@ def push_cli(config: Config, restricted_project_id: str, overwrite: bool, re_run
         except Exception as e:
             output.update({'msg': str(e)})
             output.exit_code = 1
+            raise e
 
 
 @cli.command(name="status")

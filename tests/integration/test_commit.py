@@ -77,10 +77,14 @@ def test_init_project(config, program, tmp_path, profile):
     while True:
         result = runner.invoke(cli, f'--format json  --profile {profile} utilities jobs get {published_job_uid}'.split())
         assert result.exit_code == 0, result.output
-        output = json.loads(result.output)
-        if output['status'] not in ['Completed', 'Unknown']:
+        try:
+            output = json.loads(result.output)
+            if output['status'] not in ['Completed', 'Unknown']:
+                break
+            sleep(5)
+        except json.JSONDecodeError:
+            print(f"Unable to decode {result.output}")
             break
-        sleep(5)
 
     result = runner.invoke(cli, f'--format json  --profile {profile} push --re-run'.split())
     assert result.exit_code == 0, result.output

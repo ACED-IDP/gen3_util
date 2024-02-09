@@ -1,7 +1,7 @@
 import json
 import pathlib
 import uuid
-from typing import Union
+from typing import Union, Optional
 
 import pydantic
 from pydantic import BaseModel
@@ -22,7 +22,9 @@ def monkey_patch_url_validate():
         bugfix: addresses issue introduced with `fhir.resources`==7.0.1
         """
         if value.startswith("file:"):
-            return FileUrl.validate(value, field, config)
+            _ = FileUrl(value)
+            return value
+            # return FileUrl.validate(value, field, config)
         value = original_url_validate(value, field, config)
         return value
 
@@ -53,7 +55,7 @@ class Gen3Config(BaseModel):
     profile: str = None
     """The name of the gen3-client profile in use. See https://bit.ly/3NbKGi4"""
 
-    version: str = None
+    version: Optional[str] = None
     """The version of gen3-client in use."""
 
     project_id: str = None
@@ -80,7 +82,7 @@ class Config(BaseModel):
 
          temporary until we switch to pydantic2
         """
-        _ = json.loads(self.json())
+        _ = json.loads(self.model_dump_json())
         del _['no_config_found']
         return _
 
@@ -93,6 +95,6 @@ class Config(BaseModel):
 monkey_patch_url_validate()
 
 # default initializers for path
-pydantic.json.ENCODERS_BY_TYPE[pathlib.PosixPath] = str
-pydantic.json.ENCODERS_BY_TYPE[pathlib.WindowsPath] = str
-pydantic.json.ENCODERS_BY_TYPE[pathlib.Path] = str
+pydantic.v1.json.ENCODERS_BY_TYPE[pathlib.PosixPath] = str
+pydantic.v1.json.ENCODERS_BY_TYPE[pathlib.WindowsPath] = str
+pydantic.v1.json.ENCODERS_BY_TYPE[pathlib.Path] = str

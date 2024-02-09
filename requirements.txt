@@ -1,7 +1,6 @@
 # Gen3 SDK
 gen3==4.22.2
 
-
 # CLI processor
 click
 # faster json
@@ -27,7 +26,7 @@ PyYAML>=6.0.1
 diskcache
 
 # FHIR Model
-fhir.resources==7.0.2
+fhir.resources==7.1.0
 
 # json web token
 PyJWT==2.8.0
@@ -41,4 +40,3 @@ nested_lookup
 
 # file paths
 wcmatch
-
