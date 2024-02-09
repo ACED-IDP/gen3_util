@@ -30,18 +30,18 @@ setup(
     # package, this name will be registered for you. It will determine how
     # users can install this project, e.g.:
     #
-    # $ pip install gen3_util
+    # $ pip install gen3_tracker
     #
-    # And where it will live on PyPI: https://pypi.org/project/drs_downloader/
+    # And where it will live on PyPI: https://pypi.org/project/gen3_tracker/
     #
     # There are some restrictions on what makes a valid project name
     # specification here:
     # https://packaging.python.org/specifications/core-metadata/#name
-    name='gen3_util',  # Required
+    name='gen3_tracker',  # Required
 
     # Versions should comply with PEP 440:
     # https://packaging.python.org/en/latest/single_source_version.html
-    version='0.0.16',  # Required
+    version='0.0.1',  # Required
 
     # This is a one-line description or tagline of what your project does. This
     # corresponds to the "Summary" metadata field:
@@ -70,7 +70,7 @@ setup(
         #   3 - Alpha
         #   4 - Beta
         #   5 - Production/Stable
-        'Development Status :: 3 - Alpha',
+        'Development Status :: 4 - Beta',
 
         'Intended Audience :: Developers',
         'Topic :: Software Development :: Build Tools',
@@ -78,7 +78,7 @@ setup(
         'License :: OSI Approved :: MIT License',
 
         # Specify the Python versions you support here.
-        'Programming Language :: Python :: 3.9',
+        'Programming Language :: Python :: 3.10',
     ],
 
     # This field adds keywords for your project which will appear on the
@@ -121,9 +121,7 @@ setup(
 
     entry_points={
         'console_scripts': [
-            'gen3_util = gen3_util.repo.cli:cli',
             'g3t = gen3_util.repo.cli:cli',
-            'gen3-tracker = gen3_util.repo.cli:cli',
         ],
     },
 
