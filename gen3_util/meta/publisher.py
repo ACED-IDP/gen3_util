@@ -67,3 +67,22 @@ def publish_commits(config: Config, push: Push, wait: bool = True, auth=None) ->
         _ = {'output': _}
 
     return _
+
+
+def re_publish_commits(config: Config, push: Push, wait: bool = True, auth=None) -> dict:
+    """Re-publish commits to the portal."""
+    if not auth:
+        auth = ensure_auth(config=config)
+
+    jobs_client = Gen3Jobs(auth_provider=auth)
+
+    args = {'push': push.model_dump(), 'project_id': config.gen3.project_id, 'method': 'put'}
+
+    if wait:
+        _ = asyncio.run(jobs_client.async_run_job_and_wait('fhir_import_export', args))
+        _ = {'output': _}
+    else:
+        _ = jobs_client.create_job('fhir_import_export', args)
+        _ = {'output': _}
+
+    return _
