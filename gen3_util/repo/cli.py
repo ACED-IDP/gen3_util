@@ -386,12 +386,6 @@ def project_rm(config: Config, project_id: str):
         output.update(rm(config, project_id))
 
 
-@cli.command(name="log")
-@click.pass_obj
-def log_cli(config: Config):
-    files_ls_driver(config, object_id=None, project_id=None, specimen=None, patient=None, observation=None, task=None, is_metadata=True, md5=None, is_snapshot=False, long=False)
-
-
 @cli.group(name='utilities', cls=NaturalOrderGroup)
 @click.pass_obj
 def utilities_group(config):
@@ -407,6 +401,13 @@ utilities_group.add_command(access_group)
 utilities_group.add_command(config_group)
 utilities_group.add_command(job_group)
 utilities_group.add_command(users_group)
+
+
+@utilities_group.command(name="log")
+@click.pass_obj
+def log_cli(config: Config):
+    """List metadata files"""
+    files_ls_driver(config, object_id=None, project_id=None, specimen=None, patient=None, observation=None, task=None, is_metadata=True, md5=None, is_snapshot=False, long=False)
 
 
 if __name__ == '__main__':
