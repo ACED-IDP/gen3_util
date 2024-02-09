@@ -292,7 +292,7 @@ class Push(BaseModel):
 
          temporary until we switch to pydantic2
         """
-        _ = self.json(exclude={'config'})
+        _ = self.model_dump_json(exclude={'config'})
         return json.loads(_)
 
     def pending_commits(self):

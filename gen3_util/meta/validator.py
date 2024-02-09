@@ -8,15 +8,14 @@ from fhir.resources.coding import Coding
 from fhir.resources.identifier import Identifier
 from fhir.resources.reference import Reference
 from nested_lookup import nested_lookup
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 from gen3_util.config import Config
 from gen3_util.meta import directory_reader, ParseResult
 
 
 class ValidateDirectoryResult(BaseModel):
-    class Config:
-        arbitrary_types_allowed = True
+    model_config = ConfigDict(arbitrary_types_allowed=True)
     """Results of FHIR validation of directory."""
     resources: dict
     exceptions: List[ParseResult]
@@ -29,7 +28,7 @@ class ValidateDirectoryResult(BaseModel):
         for _ in self.exceptions:
             _.exception = str(_.exception)
             _.path = str(_.path)
-        return orjson.loads(self.json())
+        return orjson.loads(self.model_dump_json())
 
 
 def _check_coding(self: Coding, *args, **kwargs):

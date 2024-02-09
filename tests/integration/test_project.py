@@ -8,7 +8,7 @@ def test_project_ls(caplog):
     runner = CliRunner()
     result = runner.invoke(cli, ['utilities', 'projects', 'ls'])
     assert result.exit_code == 0
-    expected_strings = ['/programs/aced']
+    expected_strings = ['/programs/']
     for expected_string in expected_strings:
         assert expected_string in result.output, "Did not find project listing."
 

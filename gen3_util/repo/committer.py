@@ -35,7 +35,7 @@ class CommitResult(BaseModel):
         for _ in self.exceptions:
             _.exception = str(_.exception)
             _.path = str(_.path)
-        return orjson.loads(self.json())
+        return orjson.loads(self.model_dump_json())
 
 
 def diff(config, metadata_path) -> Generator[dict, None, None]:

@@ -215,7 +215,7 @@ Options:
 #g3t init
 unset G3T_PROJECT_ID
 unset G3T_PROFILE
-g3t --profile local init ohsu-test001b
+g3t --profile local init test-test001b
 
 # Use case: As a institution data steward, I need to approve the project before it can be shared.
 g3t utilities access sign
@@ -228,9 +228,15 @@ g3t utilities projects create
 
 # Use case: As a data submitter, I will need to add files to the project and associate them with a subject(patient).
 g3t add tests/fixtures/dir_to_study/file-1.txt  --patient P1
+g3t add tests/fixtures/dir_to_study/file-2.csv  --patient P2
+g3t add tests/fixtures/dir_to_study/sub-dir/file-3.pdf --patient P3 --specimen S3
+
 g3t utilities meta create
 ## test meta generation:  META should have 4 files
 g3t commit  -m "commit-1"
+
+g3t push
+
 ## test that the commit: g3t status should return commit info - was message added?
 #  resource_counts:
 #      DocumentReference: 1
