@@ -15,7 +15,7 @@ from fhir.resources.task import Task, TaskOutput, TaskInput
 from orjson import orjson
 
 from gen3_util import Config
-from gen3_util.common import EmitterContextManager, create_id, Push
+from gen3_util.common import EmitterContextManager, create_id, Push, read_meta_index
 from gen3_util.config import ensure_auth
 from gen3_util.files.lister import ls
 from gen3_util.files.manifest import ls as manifest_ls
@@ -109,7 +109,7 @@ def study_metadata(config: Config, project_id: str, output_path: str, overwrite:
         new_record_count = 0
         existing_record_count = 0
         for _ in records:
-            resources = create_skeleton(metadata=_['metadata'], indexd_record=_)
+            resources = create_skeleton(config=config, metadata=_['metadata'], indexd_record=_)
             for resource in resources:
 
                 # check document references
@@ -194,7 +194,7 @@ def _get_system(identifier: str, project_id: str):
     return f"https://aced-idp.org/{project_id}"
 
 
-def create_skeleton(metadata: dict, indexd_record: dict) -> list[Resource]:  # TODO fix caller auth
+def create_skeleton(metadata: dict, indexd_record: dict, config: Config = None) -> list[Resource]:  # TODO fix caller auth
     """
     Create a skeleton graph for document and ancestors from a set of identifiers.
     """
@@ -216,6 +216,13 @@ def create_skeleton(metadata: dict, indexd_record: dict) -> list[Resource]:  # T
     assert project_id, "project_id required"
     assert project_id.count('-') == 1, "project_id must be of the form program-project"
     program, project = project_id.split('-')
+
+    already_created = set()
+    if config:
+        existing_meta_index = {_['id']: _['md5'] for _ in read_meta_index(config.state_dir)}
+        pending_meta_index = {_['id']: _['md5'] for _ in Push(config=config).pending_meta_index()}
+        already_created = set(existing_meta_index.keys())
+        already_created.update(pending_meta_index.keys())
 
     # create entities
     research_study = research_subject = observation = specimen = patient = task = None
@@ -271,11 +278,15 @@ def create_skeleton(metadata: dict, indexd_record: dict) -> list[Resource]:  # T
         # _existing_specimen = meta_resource(submission_client=submission_client, identifier=specimen_identifier, project_id=project_id, gen3_type='specimen')
         _existing_specimen = None
         if not _existing_specimen:
-            assert patient, "patient required for specimen"
             specimen = Specimen()
             specimen.identifier = [Identifier(value=specimen_identifier, system=_get_system(specimen_identifier, project_id=project_id), use='official')]
-            specimen.subject = {'reference': f"Patient/{patient.id}"}
             specimen.id = create_id(specimen, project_id)
+            if specimen.id in already_created:
+                # no need to create another one
+                specimen = None
+            else:
+                assert patient, "patient required for specimen"
+                specimen.subject = {'reference': f"Patient/{patient.id}"}
 
     if task_identifier:
         # _existing_task = meta_resource(submission_client=submission_client, identifier=task_identifier, project_id=project_id, gen3_type='task')
