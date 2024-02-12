@@ -274,6 +274,7 @@ def create_skeleton(metadata: dict, indexd_record: dict, config: Config = None) 
             observation.subject = {'reference': f"Patient/{patient.id}"}
             observation.id = create_id(observation, project_id)
 
+    discard_specimen = False
     if specimen_identifier:
         # _existing_specimen = meta_resource(submission_client=submission_client, identifier=specimen_identifier, project_id=project_id, gen3_type='specimen')
         _existing_specimen = None
@@ -283,7 +284,7 @@ def create_skeleton(metadata: dict, indexd_record: dict, config: Config = None) 
             specimen.id = create_id(specimen, project_id)
             if specimen.id in already_created:
                 # no need to create another one
-                specimen = None
+                discard_specimen = True
             else:
                 assert patient, "patient required for specimen"
                 specimen.subject = {'reference': f"Patient/{patient.id}"}
@@ -336,4 +337,6 @@ def create_skeleton(metadata: dict, indexd_record: dict, config: Config = None) 
     if not document_reference.subject:
         document_reference.subject = {'reference': f"ResearchStudy/{research_study.id}"}
 
+    if discard_specimen:
+        specimen = None
     return [_ for _ in [research_study, research_subject, patient, observation, specimen, task, document_reference] if _]
