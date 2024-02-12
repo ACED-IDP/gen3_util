@@ -50,6 +50,26 @@ def test_default_columns_observation(observation):
         f"Should return expected columns for Observation, got {column_names}"
 
 
+def test_default_columns_observation_1000(observation):
+    """Check specific columns for Observation"""
+    column_names = default_columns([observation] * 1000)
+    expected_observation_column_names = [
+        # all should start with resourceType, id
+        'resourceType', 'id',
+        # then scalars
+        'effectiveDateTime', 'issued', 'status',
+        # then nested
+        'category_0_coding_0_code', 'category_0_coding_0_display', 'category_0_coding_0_system',
+        'code_coding_0_code', 'code_coding_0_display', 'code_coding_0_system', 'code_text',
+        'valueQuantity_code', 'valueQuantity_system', 'valueQuantity_unit', 'valueQuantity_value',
+        # then references
+        'encounter_reference', 'subject_reference'
+    ]
+
+    assert column_names == expected_observation_column_names, \
+        f"Should return expected columns for Observation, got {column_names}"
+
+
 def test_default_columns_specimen(specimen):
     """Check specific columns for Specimen"""
     column_names = default_columns(specimen)
