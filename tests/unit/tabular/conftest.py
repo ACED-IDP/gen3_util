@@ -376,6 +376,117 @@ def observation() -> dict:
 
 
 @pytest.fixture()
+def blood_group_observation() -> dict:
+    return {
+        "resourceType": "Observation",
+        "id": "bloodgroup",
+        "status": "final",
+        "category": [{
+            "coding": [{
+                "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+                "code": "laboratory",
+                "display": "Laboratory"
+            }],
+            "text": "Laboratory"
+        }],
+        "code": {
+            "coding": [{
+                "system": "http://loinc.org",
+                "code": "883-9",
+                "display": "ABO group [Type] in Blood"
+            }],
+            "text": "Blood Group"
+        },
+        "subject": {
+            "reference": "Patient/infant"
+        },
+        "effectiveDateTime": "2018-03-11T16:07:54+00:00",
+        "valueCodeableConcept": {
+            "coding": [{
+                "system": "http://snomed.info/sct",
+                "code": "112144000",
+                "display": "Blood group A (finding)"
+            }],
+            "text": "A"
+        }
+    }
+
+
+@pytest.fixture()
+def eye_color_observation() -> dict:
+    return {
+        "resourceType": "Observation",
+        "id": "eye-color",
+        "status": "final",
+        "code": {
+            "text": "eye color"
+        },
+        "subject": {
+            "reference": "Patient/example"
+        },
+        "effectiveDateTime": "2016-05-18",
+        "valueString": "blue"
+    }
+
+
+@pytest.fixture()
+def lab_observation() -> dict:
+    return {
+      "resourceType": "Observation",
+      "id": "4b2fc805-39a6-5b96-810a-953253cdcd8c",
+      "identifier": [
+        {
+          "use": "official",
+          "system": "https://aced-idp.org/test-stavrinides",
+          "value": "123-123_0_A-mccl"
+        }
+      ],
+      "status": "final",
+      "category": [
+        {
+          "coding": [
+            {
+              "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+              "code": "laboratory",
+              "display": "Laboratory"
+            }
+          ],
+          "text": "Laboratory"
+        }
+      ],
+      "code": {
+        "coding": [
+          {
+            "system": "https://aced-idp.org/test-stavrinides",
+            "code": "mccl",
+            "display": "Maximum Cancer Core Length in mm"
+          }
+        ],
+        "text": "Maximum Cancer Core Length in mm"
+      },
+      "subject": {
+        "reference": "Patient/59e48475-a853-5511-8718-ef18e833bfef"
+      },
+      "focus": [
+        {
+          "reference": "Specimen/8863f692-b818-5e23-8513-f974e6c45efa"
+        }
+      ],
+      "valueInteger": 12
+    }
+
+
+@pytest.fixture()
+def mixed_observations(observation, blood_group_observation, eye_color_observation, lab_observation) -> list[dict]:
+    return [
+        observation,
+        blood_group_observation,
+        eye_color_observation,
+        lab_observation
+    ]
+
+
+@pytest.fixture()
 def specimen_fields() -> list[str]:
     return [
         'text_div',

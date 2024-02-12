@@ -98,7 +98,7 @@ def to_tabular(resource: dict, config: Config, project_id: str = None) -> dict:
 
     flattened = flatten(resource)
 
-    return {k: flattened[k] for k in keep if k in flattened}
+    return {k: flattened.get(k, None) for k in keep}
 
 
 def from_tabular(tabular: dict, config: Config, project_id: str, resource: dict) -> dict:
