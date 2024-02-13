@@ -6,7 +6,7 @@ from typing import Union, Optional
 import pydantic
 from pydantic import BaseModel
 
-ACED_NAMESPACE = uuid.uuid3(uuid.NAMESPACE_DNS, 'aced-ipd.org')
+ACED_NAMESPACE = uuid.uuid3(uuid.NAMESPACE_DNS, 'aced-idp.org')
 
 
 def monkey_patch_url_validate():
