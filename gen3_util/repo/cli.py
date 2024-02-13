@@ -43,7 +43,7 @@ def cli(ctx, output_format, profile, version):
         ctx.exit()
 
     # If no arguments are given, g3t should return the help menu
-    if len(click.get_os_args()) == 0:
+    if len(sys.argv[1:]) == 0:
         click.echo(ctx.get_help())
         ctx.exit()
 
@@ -54,7 +54,7 @@ def cli(ctx, output_format, profile, version):
         config__.output.format = output_format
 
     _profiles = gen3_client_profiles()
-    is_help = '--help' in click.get_os_args()
+    is_help = '--help' in sys.argv[1:]
 
     if profile:
         if profile not in _profiles:
