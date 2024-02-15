@@ -19,11 +19,12 @@ def users_group(config: Config):
 @click.option('--username', default=None, show_default=True,
               help="Email of user", required=True)
 @click.option('--write/--no-write', '-w', help='Give user write privileges', is_flag=True, default=False, show_default=True)
+@click.option('--delete/--no-delete', '-d', help='Give user delete privileges', is_flag=True, default=False, show_default=True)
 @click.pass_obj
-def project_add_user(config: Config, username: str, project_id: str, write: bool):
+def project_add_user(config: Config, username: str, project_id: str, write: bool, delete: bool):
     """Add user to project."""
     with CLIOutput(config=config) as output:
-        output.update(add_user(config, project_id, username, write))
+        output.update(add_user(config, project_id, username, write, delete))
 
 
 @users_group.command(name="rm")

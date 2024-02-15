@@ -8,3 +8,7 @@ policies:
   - reader
   resource_paths:
   - /programs/PROGRAM/projects/PROJECT
+- role_ids:
+  - deleter
+  resource_paths:
+  - /programs/PROGRAM/projects/PROJECT

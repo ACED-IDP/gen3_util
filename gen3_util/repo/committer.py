@@ -2,6 +2,7 @@ import json
 import pathlib
 import shutil
 import tempfile
+import os
 from collections import defaultdict
 from hashlib import md5
 from typing import Generator
@@ -138,6 +139,18 @@ def save_commit_object(config, commit_id, commit_object: dict, commit_path: path
     """Serialize the commit object to a file."""
     with open(commit_path / "resource.json", "w") as f:
         f.write(orjson.dumps(commit_object, option=orjson.OPT_SORT_KEYS | orjson.OPT_APPEND_NEWLINE).decode())
+
+
+def delete_all_commits(path):
+    """Deletes a directory and all its contents, recursively using os.unlink and os.rmdir. """
+    for item in os.listdir(path):
+        item_path = os.path.join(path, item)
+        if os.path.isfile(item_path):
+            os.unlink(item_path)
+        else:
+            delete_all_commits(item_path)
+
+    os.rmdir(path)
 
 
 def commit(config: Config, metadata_path: pathlib.Path, files_path: pathlib.Path, commit_message: str) -> CommitResult:

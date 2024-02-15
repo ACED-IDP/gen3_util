@@ -22,10 +22,10 @@ from gen3_util.jobs.cli import job_group
 from gen3_util.meta.cli import meta_group
 from gen3_util.meta.skeleton import transform_manifest_to_indexd_keys
 from gen3_util.projects.cli import project_group
-from gen3_util.projects.remover import rm
+from gen3_util.projects.remover import rm, empty
 from gen3_util.repo import StdNaturalOrderGroup, CLIOutput, NaturalOrderGroup, ENV_VARIABLE_PREFIX
 from gen3_util.repo.cloner import clone, download_unzip_snapshot_meta, find_latest_snapshot
-from gen3_util.repo.committer import commit, diff
+from gen3_util.repo.committer import commit, diff, delete_all_commits
 from gen3_util.repo.initializer import initialize_project_server_side
 from gen3_util.repo.puller import pull_files
 from gen3_util.repo.pusher import push, re_push
@@ -384,6 +384,24 @@ def project_rm(config: Config, project_id: str):
     """
     with CLIOutput(config=config) as output:
         output.update(rm(config, project_id))
+
+
+@cli.command(name="reset")
+@click.pass_obj
+def project_empty(config: Config):
+    """Empty all metadata (graph, flat) for a project."""
+    with CLIOutput(config=config) as output:
+        try:
+            assert config.gen3.project_id, "Not in an initialized project directory."
+            project_id = config.gen3.project_id
+            _check_parameters(config, project_id)
+            delete_all_commits(config.state_dir)
+            _ = empty(config, project_id)
+            _['msg'] = f"Emptied {project_id}"
+            output.update(_)
+        except Exception as e:
+            output.update({'msg': str(e)})
+            output.exit_code = 1
 
 
 @cli.group(name='utilities', cls=NaturalOrderGroup)

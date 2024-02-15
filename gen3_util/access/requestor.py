@@ -105,7 +105,7 @@ def update(config: Config, request_id: str, status: str, auth: Gen3Auth = None) 
     })
 
 
-def add_user(config: Config, project_id: str, user_name: str, write: bool) -> LogAccess:
+def add_user(config: Config, project_id: str, user_name: str, write: bool, delete: bool) -> LogAccess:
     """Add user to project by assigning them policies."""
 
     # implement read from resource_path
@@ -113,6 +113,8 @@ def add_user(config: Config, project_id: str, user_name: str, write: bool) -> Lo
     file_names = ['add-user-read.yaml']
     if write:
         file_names.append('add-user-write.yaml')
+    if delete:
+        file_names.append('add-user-delete.yaml')
 
     for file_name in file_names:
         source = files(policies).joinpath(file_name)
@@ -142,7 +144,7 @@ def rm_user(config: Config, project_id: str, user_name: str) -> LogAccess:
 
     # implement read from resource_path
     policies_ = []
-    file_names = ['add-user-read.yaml', 'add-user-write.yaml']
+    file_names = ['add-user-read.yaml', 'add-user-write.yaml', 'add-user-delete.yaml']
 
     for file_name in file_names:
         source = files(policies).joinpath(file_name)
