@@ -418,14 +418,6 @@ def project_empty(config: Config):
                 file=sys.stderr
             )
 
-            if os.path.isfile(push_.config.commit_dir() / "compeleted.ndjson"):
-                completed_path = push_.config.commit_dir() / "compeleted.ndjson"
-                completed_path.unlink(missing_ok=False)
-                print(
-                    f"Cleared {completed_path}",
-                    file=sys.stderr
-                )
-
         except Exception as e:
             output.update({'msg': str(e)})
             output.exit_code = 1
