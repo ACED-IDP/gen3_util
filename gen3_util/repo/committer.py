@@ -150,7 +150,8 @@ def delete_all_commits(path):
         else:
             delete_all_commits(item_path)
 
-    os.rmdir(path)
+    if not str(path).endswith("commits"):
+        os.rmdir(path)
 
 
 def commit(config: Config, metadata_path: pathlib.Path, files_path: pathlib.Path, commit_message: str) -> CommitResult:

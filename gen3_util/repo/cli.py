@@ -3,6 +3,7 @@ import logging
 import pathlib
 import subprocess
 import sys
+import os
 from datetime import datetime
 from importlib.metadata import version as pkg_version
 
@@ -13,7 +14,7 @@ from gen3.auth import Gen3AuthError
 import gen3_util
 from gen3_util.access.cli import access_group
 from gen3_util.buckets.cli import bucket_group
-from gen3_util.common import write_meta_index, PROJECT_DIR, to_metadata_dict
+from gen3_util.common import write_meta_index, PROJECT_DIR, to_metadata_dict, Push
 from gen3_util.config import Config, ensure_auth, gen3_client_profiles, init
 from gen3_util.config.cli import config_group
 from gen3_util.files.cli import file_group, manifest_put_cli
@@ -395,10 +396,36 @@ def project_empty(config: Config):
             assert config.gen3.project_id, "Not in an initialized project directory."
             project_id = config.gen3.project_id
             _check_parameters(config, project_id)
-            delete_all_commits(config.state_dir)
             _ = empty(config, project_id)
             _['msg'] = f"Emptied {project_id}"
             output.update(_)
+
+            delete_all_commits(config.commit_dir())
+            for file in [".g3t/state/manifest.sqlite", ".g3t/state/meta-index.ndjson"]:
+                if os.path.isfile(file):
+                    os.unlink(file)
+
+            push_ = Push(config=config)
+            push_.published_job = _
+            completed_path = push_.config.commit_dir() / "emptied.ndjson"
+            push_.published_timestamp = datetime.now()
+
+            with open(completed_path, "w") as fp:
+                fp.write(push_.model_dump_json())
+                fp.write("\n")
+            print(
+                f"Updated {completed_path}",
+                file=sys.stderr
+            )
+
+            if os.path.isfile(push_.config.commit_dir() / "compeleted.ndjson"):
+                completed_path = push_.config.commit_dir() / "compeleted.ndjson"
+                completed_path.unlink(missing_ok=False)
+                print(
+                    f"Cleared {completed_path}",
+                    file=sys.stderr
+                )
+
         except Exception as e:
             output.update({'msg': str(e)})
             output.exit_code = 1
