@@ -8,3 +8,5 @@ policies:
 # jobs writer
 - policy_id: sower
   username:
+- policy_id: mds_gateway
+  username:
