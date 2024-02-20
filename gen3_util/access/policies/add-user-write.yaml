@@ -6,7 +6,5 @@ policies:
 - policy_id: data_upload
   username:
 # jobs writer
-- policy_id: sower
-  username:
 - policy_id: mds_gateway
   username:

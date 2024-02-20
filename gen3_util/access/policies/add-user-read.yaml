@@ -1,6 +1,3 @@
 policies:
 - policy_id: programs.PROGRAM.projects.PROJECT_reader
   username:
-  # sower access
-- policy_id: sower
-  username:
