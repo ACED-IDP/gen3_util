@@ -38,7 +38,7 @@ from gen3_util.users.cli import users_group
 def cli(ctx, output_format, profile, version):
     """Gen3 Tracker: manage FHIR metadata and files."""
     if version:
-        _ = pkg_version('gen3-util')
+        _ = pkg_version('gen3-tracker')
         click.echo(_)
         ctx.exit()
 
