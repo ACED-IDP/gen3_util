@@ -3,6 +3,7 @@ import logging
 import pathlib
 import subprocess
 import sys
+import os
 from datetime import datetime
 from importlib.metadata import version as pkg_version
 
@@ -13,7 +14,7 @@ from gen3.auth import Gen3AuthError
 import gen3_util
 from gen3_util.access.cli import access_group
 from gen3_util.buckets.cli import bucket_group
-from gen3_util.common import write_meta_index, PROJECT_DIR, to_metadata_dict
+from gen3_util.common import write_meta_index, PROJECT_DIR, to_metadata_dict, Push
 from gen3_util.config import Config, ensure_auth, gen3_client_profiles, init
 from gen3_util.config.cli import config_group
 from gen3_util.files.cli import file_group, manifest_put_cli
@@ -22,10 +23,10 @@ from gen3_util.jobs.cli import job_group
 from gen3_util.meta.cli import meta_group
 from gen3_util.meta.skeleton import transform_manifest_to_indexd_keys
 from gen3_util.projects.cli import project_group
-from gen3_util.projects.remover import rm
+from gen3_util.projects.remover import rm, empty
 from gen3_util.repo import StdNaturalOrderGroup, CLIOutput, NaturalOrderGroup, ENV_VARIABLE_PREFIX
 from gen3_util.repo.cloner import clone, download_unzip_snapshot_meta, find_latest_snapshot
-from gen3_util.repo.committer import commit, diff
+from gen3_util.repo.committer import commit, diff, delete_all_commits
 from gen3_util.repo.initializer import initialize_project_server_side
 from gen3_util.repo.puller import pull_files
 from gen3_util.repo.pusher import push, re_push
@@ -43,7 +44,7 @@ def cli(ctx, output_format, profile, version):
         ctx.exit()
 
     # If no arguments are given, g3t should return the help menu
-    if len(click.get_os_args()) == 0:
+    if len(sys.argv[1:]) == 0:
         click.echo(ctx.get_help())
         ctx.exit()
 
@@ -54,7 +55,7 @@ def cli(ctx, output_format, profile, version):
         config__.output.format = output_format
 
     _profiles = gen3_client_profiles()
-    is_help = '--help' in click.get_os_args()
+    is_help = '--help' in sys.argv[1:]
 
     if profile:
         if profile not in _profiles:
@@ -386,10 +387,40 @@ def project_rm(config: Config, project_id: str):
         output.update(rm(config, project_id))
 
 
-@cli.command(name="log")
+@cli.command(name="reset")
 @click.pass_obj
-def log_cli(config: Config):
-    files_ls_driver(config, object_id=None, project_id=None, specimen=None, patient=None, observation=None, task=None, is_metadata=True, md5=None, is_snapshot=False, long=False)
+def project_empty(config: Config):
+    """Empty all metadata (graph, flat) for a project."""
+    with CLIOutput(config=config) as output:
+        try:
+            assert config.gen3.project_id, "Not in an initialized project directory."
+            project_id = config.gen3.project_id
+            _check_parameters(config, project_id)
+            _ = empty(config, project_id)
+            _['msg'] = f"Emptied {project_id}"
+            output.update(_)
+
+            delete_all_commits(config.commit_dir())
+            for file in [".g3t/state/manifest.sqlite", ".g3t/state/meta-index.ndjson"]:
+                if os.path.isfile(file):
+                    os.unlink(file)
+
+            push_ = Push(config=config)
+            push_.published_job = _
+            completed_path = push_.config.commit_dir() / "emptied.ndjson"
+            push_.published_timestamp = datetime.now()
+
+            with open(completed_path, "w") as fp:
+                fp.write(push_.model_dump_json())
+                fp.write("\n")
+            print(
+                f"Updated {completed_path}",
+                file=sys.stderr
+            )
+
+        except Exception as e:
+            output.update({'msg': str(e)})
+            output.exit_code = 1
 
 
 @cli.group(name='utilities', cls=NaturalOrderGroup)
@@ -407,6 +438,13 @@ utilities_group.add_command(access_group)
 utilities_group.add_command(config_group)
 utilities_group.add_command(job_group)
 utilities_group.add_command(users_group)
+
+
+@utilities_group.command(name="log")
+@click.pass_obj
+def log_cli(config: Config):
+    """List metadata files"""
+    files_ls_driver(config, object_id=None, project_id=None, specimen=None, patient=None, observation=None, task=None, is_metadata=True, md5=None, is_snapshot=False, long=False)
 
 
 if __name__ == '__main__':

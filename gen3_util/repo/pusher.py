@@ -1,7 +1,7 @@
 import datetime
 import pathlib
 import sys
-
+import os
 import click
 
 from gen3_util import Config
@@ -93,6 +93,14 @@ def push(config: Config,
         f"Cleared {pending_path}",
         file=sys.stderr
     )
+
+    if os.path.isfile(push_.config.commit_dir() / "emptied.ndjson"):
+        pending_path = push_.config.commit_dir() / "emptied.ndjson"
+        pending_path.unlink(missing_ok=False)
+        print(
+            f"Cleared {pending_path}",
+            file=sys.stderr
+        )
 
     # index the cloned metadata
     write_meta_index(

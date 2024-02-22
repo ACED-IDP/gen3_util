@@ -17,17 +17,17 @@ logger = logging.getLogger(__name__)
 class ParseResult(BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True)
     """Results of FHIR validation of dict."""
-    resource: Any = None
+    resource: Optional[Any] = None
     """If valid, the FHIR resource."""
     exception: Optional[Exception] = None
     """If invalid, the exception."""
     path: Optional[pathlib.Path] = None
     """Source file, if available."""
-    offset: int = 0
+    offset: Optional[int] = 0
     """Base 0 offset of line number(ndjson) or entry(bundle)."""
-    resource_id: str = None
+    resource_id: Optional[str] = None
     """Resource id of resource"""
-    json_obj: dict = None
+    json_obj: Optional[dict] = None
     """Original json object"""
 
     @validator("resource")

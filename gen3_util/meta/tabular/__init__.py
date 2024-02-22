@@ -3,7 +3,7 @@ import json
 import pathlib
 from copy import deepcopy
 from dataclasses import dataclass
-from random import random
+from random import random, randint
 from typing import Optional, Iterator, Generator
 
 import pandas as pd
@@ -98,7 +98,7 @@ def to_tabular(resource: dict, config: Config, project_id: str = None) -> dict:
 
     flattened = flatten(resource)
 
-    return {k: flattened[k] for k in keep if k in flattened}
+    return {k: flattened.get(k, None) for k in keep}
 
 
 def from_tabular(tabular: dict, config: Config, project_id: str, resource: dict) -> dict:
@@ -171,8 +171,8 @@ def default_columns(resource: [Iterator[dict] or dict], sample: bool = True, sam
         else:
             if i < sample_size:
                 sampled.append(line)
-            elif i >= sample_size and random.random() < sample_size / float(i + 1):
-                replace = random.randint(0, len(sampled) - 1)
+            elif i >= sample_size and random() < sample_size / float(i + 1):
+                replace = randint(0, len(sampled) - 1)
                 sampled[replace] = line
 
     if sampled:
