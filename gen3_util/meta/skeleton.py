@@ -103,7 +103,7 @@ def study_metadata(config: Config, project_id: str, output_path: str, overwrite:
     else:
         raise ValueError(f"source must be 'indexd' or 'manifest' not {source}")
 
-    with EmitterContextManager(output_path, file_mode="a") as emitter:
+    with EmitterContextManager(output_path, file_mode="a+") as emitter:
         if len(records) == 0:
             print(f"No records found for project_id:{project_id}", file=sys.stderr)
         new_record_count = 0

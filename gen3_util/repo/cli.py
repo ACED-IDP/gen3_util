@@ -400,11 +400,16 @@ def project_empty(config: Config):
             _['msg'] = f"Emptied {project_id}"
             output.update(_)
 
+            """Delete all previous commits and manifests, but keep the project config file."""
             delete_all_commits(config.commit_dir())
             for file in [".g3t/state/manifest.sqlite", ".g3t/state/meta-index.ndjson"]:
                 if os.path.isfile(file):
                     os.unlink(file)
 
+            """
+            Create a new push file titled 'emptied.ndjson' that contains
+            the job metadata from the empty function called above.
+            """
             push_ = Push(config=config)
             push_.published_job = _
             completed_path = push_.config.commit_dir() / "emptied.ndjson"
@@ -413,10 +418,9 @@ def project_empty(config: Config):
             with open(completed_path, "w") as fp:
                 fp.write(push_.model_dump_json())
                 fp.write("\n")
-            print(
+            click.secho(
                 f"Updated {completed_path}",
-                file=sys.stderr
-            )
+                file=sys.stderr, fg='green')
 
         except Exception as e:
             output.update({'msg': str(e)})
