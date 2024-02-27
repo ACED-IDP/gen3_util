@@ -1,6 +1,7 @@
 import json
 import logging
 import pathlib
+import socket
 import sqlite3
 import subprocess
 import sys
@@ -63,6 +64,8 @@ def put(config: Config, file_name: str, project_id: str, md5: str):
         "modified": datetime.fromtimestamp(stat.st_mtime),
         "md5": md5,
         "mime_type": mime,
+        "is_symlink": file.is_symlink(),
+        "realpath": file.resolve(),
     }
 
 
@@ -141,9 +144,17 @@ def _write_indexd(index_client,
     # strip any file:/// prefix
     manifest_item['file_name'] = urlparse(manifest_item['file_name']).path
 
+    if 'realpath' in manifest_item:
+        metadata['realpath'] = urlparse(manifest_item['realpath']).path
+
     if not existing_record:
         try:
             file_name = manifest_item['remote_path'] or manifest_item['file_name']
+            urls = [f"s3://{bucket_name}/{manifest_item['object_id']}/{file_name}"]
+            if manifest_item.get('no_bucket', False):
+                hostname = socket.gethostname()
+                _ = f"{hostname}/{metadata['realpath']}".replace('//', '/')
+                urls = [f"scp://{_}"]
             response = index_client.create_record(
                 did=manifest_item["object_id"],
                 hashes=hashes,
@@ -151,7 +162,7 @@ def _write_indexd(index_client,
                 authz=authz,
                 file_name=file_name,
                 metadata=metadata,
-                urls=[f"s3://{bucket_name}/{manifest_item['object_id']}/{file_name}"]
+                urls=urls
             )
             assert response, "Expected response from indexd create_record"
         except (requests.exceptions.HTTPError, AssertionError) as e:
@@ -171,6 +182,7 @@ def create_hashes_metadata(manifest_item, program, project):
             'task_identifier': manifest_item.get('task_id', None),
             'observation_identifier': manifest_item.get('observation_id', None),
             'project_id': f'{program}-{project}',
+            'no_bucket': manifest_item.get('no_bucket', False),
         },
         **hashes}
     return hashes, metadata

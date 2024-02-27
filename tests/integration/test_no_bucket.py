@@ -1,0 +1,70 @@
+import json
+import os
+import pathlib
+import uuid
+
+from click.testing import CliRunner
+from gen3_util.repo.cli import cli
+from gen3_util.common import PROJECT_DIRECTORIES, PROJECT_DIR
+
+CURRENT_DIR = pathlib.Path.cwd()
+
+
+def setup_module(module):
+    """Setup for module."""
+    print("setup_module      module:%s" % module.__name__)
+    global CURRENT_DIR
+    CURRENT_DIR = pathlib.Path.cwd()
+
+
+def teardown_module(module):
+    """Teardown for module."""
+    print(f"teardown_module   module:{module.__name__} cwd:{CURRENT_DIR}")
+    os.chdir(CURRENT_DIR)
+
+
+def test_no_bucket(tmp_path, program, profile):
+    """Test adding file with no bucket."""
+
+    os.chdir(tmp_path)
+    runner = CliRunner()
+
+    guid = str(uuid.uuid4())
+    project = f'TEST_INCREMENTAL_{guid.replace("-", "_")}'
+    project_id = f'{program}-{project}'
+
+    result = runner.invoke(cli, ['--format', 'json', '--profile', profile, 'init', project_id])
+    assert result.exit_code == 0, f"cmd failed with {result.output}"
+    result_output = result.output
+    print(result_output)
+    print(tmp_path)
+    for _ in PROJECT_DIRECTORIES:
+        assert pathlib.Path(tmp_path, _).exists(), f"{_} not found in {tmp_path}"
+
+    result = runner.invoke(cli, ['--format', 'json', 'utilities', 'config', 'ls'])
+    assert result.exit_code == 0, f"cmd failed with {result.output}"
+    _ = json.loads(result.output)
+    print(_)
+    assert _['config']['gen3']['project_id'] == project_id
+    assert _['config']['gen3']['profile'] == profile
+    assert _['config']['state_dir'] == str(pathlib.Path(PROJECT_DIR) / 'state')
+
+    result = runner.invoke(cli, ['--format', 'json', 'utilities', 'access', 'ls', '--all'])
+    assert result.exit_code == 0, f"cmd failed with {result.output}"
+    _ = ', '.join([_['policy_id'] for _ in json.loads(result.output)['requests']])
+    print(_)
+    program, project = project_id.split('-')
+    policy_id_prefix = f"programs.{program}.projects.{project}"
+    assert policy_id_prefix in _, f"policy_id_prefix {policy_id_prefix} not found in requests"
+
+    result = runner.invoke(cli, '--format json utilities access sign'.split())
+    _, project = project_id.split('-')
+    print(result.output)
+    assert result.exit_code == 0
+    assert project in result.output, result.output
+
+    result = runner.invoke(cli, f'--format json utilities projects create /programs/{program}/projects/{project}'.split())
+    _, project = project_id.split('-')
+    print(result.output)
+    assert result.exit_code == 0
+    assert project in result.output, result.output
