@@ -17,7 +17,7 @@ from gen3.index import Gen3Index
 
 import gen3_util
 from gen3_util import Config
-from gen3_util.common import read_yaml, PROJECT_DIRECTORIES, PROJECT_DIR
+from gen3_util.common import read_yaml, PROJECT_DIRECTORIES, PROJECT_DIR, PROJECT_README
 
 
 def gen_client_ini_path() -> pathlib.Path:
@@ -246,6 +246,21 @@ def init(config: Config, project_id: str) -> Generator[str, None, None]:
     config.gen3.project_id = project_id
     config.state_dir = pathlib.Path(PROJECT_DIR) / 'state'
     config.state_dir.mkdir(parents=True, exist_ok=True)
+
+    state_dir_git_ignore = config.state_dir / ".gitignore"
+    if not pathlib.Path(state_dir_git_ignore).exists():
+        with open(state_dir_git_ignore, 'w') as f:
+            f.write("*\n!README.md")
+
+    meta_dir_git_ignore = "META/.gitignore"
+    if not pathlib.Path(meta_dir_git_ignore).exists():
+        with open(meta_dir_git_ignore, 'w') as f:
+            f.write("*\n!README.md")
+
+    project_readme = PROJECT_DIR + '/README.md'
+    if not pathlib.Path(project_readme).exists():
+        with open(project_readme, 'w') as f:
+            f.write(PROJECT_README)
 
     config_file = pathlib.Path(PROJECT_DIR) / 'config.yaml'
     if not config_file.exists():
