@@ -48,6 +48,10 @@ def test_init(tmp_path, program, profile):
     assert _['config']['gen3']['profile'] == profile
     assert _['config']['state_dir'] == str(pathlib.Path(PROJECT_DIR) / 'state')
 
+    assert os.path.isfile(PROJECT_DIR + '/README.md')
+    assert os.path.isfile("META/.gitignore")
+    assert os.path.isfile(".g3t/state/.gitignore")
+
     result = runner.invoke(cli, ['--format', 'json', 'utilities', 'access', 'ls', '--all'])
     assert result.exit_code == 0, f"cmd failed with {result.output}"
     _ = ', '.join([_['policy_id'] for _ in json.loads(result.output)['requests']])

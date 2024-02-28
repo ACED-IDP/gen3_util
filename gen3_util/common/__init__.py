@@ -41,9 +41,6 @@ Some files in this directory are considered protected and contain sensitive info
 
 3. **Security Awareness:** Be aware of the sensitivity of the data stored here and take necessary precautions to protect it from unauthorized access.
 
-## How to Obtain Access:
-
-If you need access to these files, please contact the project administrator for access to idp.cbds.ohsu.edu
 
 Thank you for your cooperation in maintaining the security and confidentiality of our data.
 """
