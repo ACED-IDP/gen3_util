@@ -49,6 +49,7 @@ def test_init(tmp_path, program, profile):
     assert _['config']['state_dir'] == str(pathlib.Path(PROJECT_DIR) / 'state')
 
     assert os.path.isfile(PROJECT_DIR + '/README.md')
+    assert os.path.isfile("META/README.md")
     assert os.path.isfile("META/.gitignore")
     assert os.path.isfile(".g3t/state/.gitignore")
 

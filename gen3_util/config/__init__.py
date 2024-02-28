@@ -257,10 +257,11 @@ def init(config: Config, project_id: str) -> Generator[str, None, None]:
         with open(meta_dir_git_ignore, 'w') as f:
             f.write("*\n!README.md")
 
-    project_readme = PROJECT_DIR + '/README.md'
-    if not pathlib.Path(project_readme).exists():
-        with open(project_readme, 'w') as f:
-            f.write(PROJECT_README)
+    for readme in [PROJECT_DIR + '/README.md', "META/README.md"]:
+        if not pathlib.Path(readme).exists():
+            path = pathlib.Path(readme)
+            with open(path, 'w') as f:
+                f.write(PROJECT_README)
 
     config_file = pathlib.Path(PROJECT_DIR) / 'config.yaml'
     if not config_file.exists():
