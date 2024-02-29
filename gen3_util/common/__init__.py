@@ -30,7 +30,11 @@ Welcome to the data directory! This repository contains important data files for
 
 ## Important Note: Do Not Check in Protected Files
 
-Some files in this directory are considered protected and contain sensitive information. **DO NOT** check in or commit these protected files to the version control system (e.g., Git). This is crucial to prevent unauthorized access and to comply with security and privacy policies.
+Some files in this directory are considered protected and contain sensitive information.
+
+**DO NOT** check in or commit these protected files to the version control system (e.g., Git).
+
+This is crucial to prevent unauthorized access and to comply with security and privacy policies.
 
 
 ## Usage Guidelines:
