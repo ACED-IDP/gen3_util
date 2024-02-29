@@ -124,6 +124,7 @@ def add_commit_push(runner: CliRunner, tmp_path, profile, project_id):
     metadata_path = pathlib.Path(tmp_path) / 'META'
     metadata_ls = sorted(str(_.relative_to(tmp_path)) for _ in metadata_path.glob('**/*.*'))
     expected_metadata_ls = sorted(['META/.gitignore', 'META/README.md',  'META/DocumentReference.ndjson', 'META/Patient.ndjson', 'META/ResearchStudy.ndjson', 'META/ResearchSubject.ndjson'])
+
     assert metadata_ls == expected_metadata_ls, f"expected metadata files not found {metadata_ls}"
 
     result = runner.invoke(cli, f'--format json  --profile {profile} commit -m "test-commit"'.split())
