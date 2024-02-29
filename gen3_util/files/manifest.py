@@ -158,7 +158,7 @@ def _write_indexd(index_client,
             assert response, "Expected response from indexd create_record"
         except (requests.exceptions.HTTPError, AssertionError) as e:
             if 'already exists' in str(e):
-                logger.error(f"indexd record already exists, consider using --overwrite. {manifest_item['object_id']} {str(e)}")
+                logger.error(f"\n \n Record already exists in Gen3. Consider adding --overwrite to your g3t push command. {manifest_item['object_id']} {str(e)}")
             return False
     return True
 
@@ -197,7 +197,7 @@ def upload_commit_to_indexd(config: Config, commit: Commit, overwrite_index: boo
     assert bucket_name, f"could not find bucket for {program}"
     index_client = Gen3Index(auth_provider=auth)
     _generator = ls(config, project_id=config.gen3.project_id, commit_id=commit.commit_id)
-    # see if there are existing records
+    # See if there are existing records
     dids = [_['object_id'] for _ in _generator]
     if len(dids) == 0:
         # print(f"INFO No files to upload for {commit.commit_id}", file=sys.stderr)
@@ -217,7 +217,7 @@ def upload_commit_to_indexd(config: Config, commit: Commit, overwrite_index: boo
             restricted_project_id=restricted_project_id,
             existing_records=existing_records
         )
-        assert _, "Expected a result from _write_indexd"
+        assert _, "_write_indexd function errored"
         manifest_entries.append(manifest_item)
     return manifest_entries
 
@@ -247,22 +247,7 @@ def upload_indexd(config: Config, project_id: str, object_id: str = None, duplic
     else:
         _generator = ls(config, project_id=project_id, object_id=object_id)
 
-    # with Pool(processes=worker_count()) as pool:
-    # start = datetime.now()
-    # logger.info(f"{start} Writing {len(_generator)} records to indexd...")
     for manifest_item in tqdm(_generator):
-        # multiprocessing takes too much overhead to start up, so we're not using it
-        # _ = pool.apply(
-        #     func=_write_indexd,
-        #     args=(
-        #         index_client,
-        #         project_id,
-        #         manifest_item,
-        #         bucket_name,
-        #         duplicate_check,
-        #         restricted_project_id
-        #     )
-        # )
         _ = _write_indexd(
             index_client,
             project_id,
@@ -271,7 +256,7 @@ def upload_indexd(config: Config, project_id: str, object_id: str = None, duplic
             duplicate_check,
             restricted_project_id
         )
-        assert _, "Expected a result from _write_indexd"
+        assert _, "_write_indexd function errored"
         manifest_entries.append(manifest_item)
     # end = datetime.now()
     # logger.info(f"{end} Wrote {len(manifest_entries)} records to indexd in {(end - start).total_seconds()} seconds")

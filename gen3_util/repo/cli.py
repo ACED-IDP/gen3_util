@@ -409,21 +409,23 @@ def project_rm(config: Config, project_id: str, verbose: bool):
 
 
 @cli.command(name="reset")
+@click.argument('commit_id', default=None, required=False)
 @click.option('--all', default=False, show_default=True,
               help="Remove all commits locally and remotely, on the gen3 servers", required=False, is_flag=True)
-@click.option('--commit_id', default=False, show_default=True,
-              help="The commit id that you want to revert to", required=False)
+@click.option('--project_id', default=None, show_default=True, required=False,
+              help="Gen3 program-project", envvar=f"{ENV_VARIABLE_PREFIX}PROJECT_ID")
 @click.option('--verbose', default=False, required=False, is_flag=True, show_default=True, help="Show all output")
 @click.pass_obj
-def project_empty(config: Config, all: bool, commit_id: str, verbose: bool):
+def project_empty(config: Config, commit_id: str,  all: bool, project_id: str, verbose: bool):
     """Empty all metadata (graph, flat) for a project."""
     with CLIOutput(config=config) as output:
         try:
-            assert all or commit_id is not None, "either --all flag or --commit_id option need to be set"
+            project_id = project_id or config.gen3.project_id
+            assert all or (commit_id is not None), "either --all flag or --commit_id option need to be set"
             if all:
-                empty_all(config)
+                output.update(empty_all(config, output, project_id))
             elif commit_id is not None:
-                reset_to_commit_id(config, commit_id)
+                output.update(reset_to_commit_id(config, commit_id, project_id))
 
         except (AssertionError, Exception) as e:
             output.update({'msg': str(e)})

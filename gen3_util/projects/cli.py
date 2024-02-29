@@ -3,7 +3,7 @@ import click
 from gen3_util.access.submitter import ensure_program_project
 from gen3_util.config import Config, ensure_auth
 from gen3_util.projects.lister import ls
-from gen3_util.projects.remover import rm, empty
+from gen3_util.projects.remover import rm, empty_all
 from gen3_util.repo import CLIOutput, ENV_VARIABLE_PREFIX
 from gen3_util.repo import NaturalOrderGroup
 
@@ -84,12 +84,11 @@ def project_create(config: Config, all_projects: bool, resource: str, verbose: b
 @click.pass_obj
 def project_empty(config: Config, project_id: str, verbose: bool):
     """Empty all metadata (graph, flat) for a project."""
+    project_id = project_id or config.gen3.project_id
     with CLIOutput(config=config) as output:
         try:
-            _ = empty(config, project_id)
-            _['msg'] = f"Emptied {project_id}"
-            output.update(_)
-        except (AssertionError, ValueError, Exception) as e:
+            output = empty_all(config, output, project_id)
+        except (AssertionError, Exception) as e:
             output.update({'msg': str(e)})
             output.exit_code = 1
             if verbose:
