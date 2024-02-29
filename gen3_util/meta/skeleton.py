@@ -1,5 +1,6 @@
 import pathlib
 import sys
+import click
 
 from fhir.resources.attachment import Attachment
 from fhir.resources.documentreference import DocumentReference
@@ -81,14 +82,14 @@ def study_metadata(config: Config, project_id: str, output_path: str, overwrite:
         # print(f"Checking remote for existing records for project_id:{project_id}...", file=sys.stderr)
         # nodes = meta_nodes(config, project_id, auth=auth)  # fetches all nodes by default
         nodes = []
-        print(f"Retrieved {len(nodes)} from remote.", file=sys.stderr)
+        click.secho(f"Retrieved {len(nodes)} from remote.", file=sys.stderr)
         len_nodes = len(nodes)
-        print(f"Checking {output_path} and pending commits...", file=sys.stderr)
+        click.secho(f"Checking {output_path} and pending commits...", file=sys.stderr)
         nodes.extend(Push(config=config).pending_meta_index())
         for parse_result in directory_reader(output_path):
             nodes.append({'id': parse_result.resource.id, 'type': parse_result.resource.resource_type})
         len_nodes = len(nodes) - len_nodes
-        print(f"Retrieved {len_nodes} locally.", file=sys.stderr)
+        click.secho(f"Retrieved {len_nodes} locally.", file=sys.stderr)
         existing_resource_ids = set([_['id'] for _ in nodes])
 
     # get file client
@@ -105,7 +106,7 @@ def study_metadata(config: Config, project_id: str, output_path: str, overwrite:
 
     with EmitterContextManager(output_path, file_mode="a") as emitter:
         if len(records) == 0:
-            print(f"No records found for project_id:{project_id}", file=sys.stderr)
+            click.secho(f"No records found for project_id:{project_id}", file=sys.stderr)
         new_record_count = 0
         existing_record_count = 0
         for _ in records:

@@ -79,10 +79,7 @@ def create_request(config: Config = None, auth: Gen3Auth = None, request: dict =
     try:
         response.raise_for_status()
     except HTTPError as e:
-        print(e)
-        print(request)
-        print(response.text)
-        raise e
+        raise HTTPError(str(e))
 
     return response.json()
 
@@ -97,5 +94,10 @@ def update_request(config: Config = None, auth: Gen3Auth = None, request_id: str
     response = requests.put(
         auth.endpoint + "/" + f'requestor/request/{request_id}', json=request, auth=auth
     )
-    response.raise_for_status()
+
+    try:
+        response.raise_for_status()
+    except HTTPError as e:
+        raise HTTPError(str(e))
+
     return response.json()

@@ -2,6 +2,7 @@ import asyncio
 import json
 import pathlib
 import sys
+import click
 
 from gen3.jobs import Gen3Jobs
 
@@ -51,7 +52,7 @@ def publish_commits(config: Config, push: Push, wait: bool = True, auth=None) ->
             metadata={'message': commit.message, 'is_commit': True}
         )
         commit.object_id = upload_result['object_id']
-        print(
+        click.echo(
             upload_result['msg'],
             file=sys.stderr
         )

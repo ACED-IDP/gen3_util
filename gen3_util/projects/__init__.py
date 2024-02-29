@@ -50,7 +50,6 @@ def get_projects(auth, submission) -> dict:
     sheepdog_projects = recursive_defaultdict()
     # add projects to it
     for program in programs:
-        # print(program)
         project_links.extend(submission.get_projects(program)['links'])
         sheepdog_projects[program]['in_sheepdog'] = True
         sheepdog_projects[program]['projects'] = {}

@@ -1,4 +1,5 @@
 import click
+from requests import HTTPError
 
 from gen3_util.access import create_request
 from gen3_util.access.requestor import ls, cat, update, LogAccess
@@ -21,8 +22,9 @@ def access_group(config: Config):
               help="Gen3 authz /programs/<program>")
 @click.option('--roles', show_default=True, default=None, help='Add comma-delimited role permissions to the access request, ex: --roles "storage_writer,file_uploader"')
 @click.option('--steward', show_default=True, is_flag=True, default=False, help='Add steward role to the program')
+@click.option('--verbose', default=False, required=False, is_flag=True, show_default=True, help="Show all output")
 @click.pass_obj
-def access_touch(config: Config,  resource_path: str, user_name: str, roles: str, steward: bool):
+def access_touch(config: Config,  resource_path: str, user_name: str, roles: str, steward: bool, verbose: bool):
     """Create a request a specific role.
 
     \b
@@ -45,11 +47,13 @@ def access_touch(config: Config,  resource_path: str, user_name: str, roles: str
             roles = roles.split(',')
             for role in roles:
                 request.update({"role_ids": [role]})
-                print(request)
+                click.secho(request)
                 output.update(create_request(config=config, request=request))
-        except Exception as e:
+        except (AssertionError, HTTPError, Exception) as e:
             output.update({'msg': str(e)})
             output.exit_code = 1
+            if verbose:
+                raise e
 
 
 @access_group.command(name="sign")

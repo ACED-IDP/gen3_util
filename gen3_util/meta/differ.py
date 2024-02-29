@@ -1,7 +1,7 @@
 import pathlib
 import os
 from hashlib import md5
-
+import click
 import deepdiff
 import orjson
 
@@ -43,7 +43,7 @@ def find_file_difference(mine, theirs):
                 # Use DeepDiff to find the difference
                 diff = deepdiff.DeepDiff(my_content, their_content)
                 # Print or process the differences
-                print(f"Differences between the two files on line {line}:", diff)
+                click.echo(f"Differences between the two files on line {line}:", diff)
 
 
 def diff_dir(theirs: pathlib.Path, mine: pathlib.Path, ignore: list[str] = ['.DS_Store']):
@@ -52,13 +52,13 @@ def diff_dir(theirs: pathlib.Path, mine: pathlib.Path, ignore: list[str] = ['.DS
     my_files = walk_dir(mine, ignore)
     deep_diff = deepdiff.DeepDiff(their_files, my_files)
     if 'values_changed' in deep_diff:
-        print(deep_diff['values_changed'])
+        click.echo(deep_diff['values_changed'])
         for value_change in deep_diff['values_changed'].values():
             new_value = value_change.pop('new_value').split('?')[0]
             old_value = value_change.pop('old_value').split('?')[0]
             my_path = mine.joinpath(new_value)
             their_path = theirs.joinpath(old_value)
-            print(my_path, their_path)
+            click.echo(my_path, their_path)
             find_file_difference(my_path, their_path)
     return deep_diff
 
@@ -68,5 +68,5 @@ if __name__ == "__main__":
     def _main():
         mine = pathlib.Path('tests2')
         theirs = pathlib.Path('tests')
-        print(diff_dir(theirs, mine))
+        click.echo(diff_dir(theirs, mine))
     _main()

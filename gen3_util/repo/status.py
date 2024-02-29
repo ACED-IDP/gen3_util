@@ -1,4 +1,5 @@
 import sys
+import click
 
 from gen3.jobs import Gen3Jobs
 
@@ -54,7 +55,7 @@ def status(config: Config, auth=None) -> list[str]:
                             if job and 'status' in job and job['status'] not in INCOMPLETE_STATUSES:
                                 cache.set(push.published_job['output']['uid'], job)
                         except Exception as e:
-                            print(f"Warning: {e}", file=sys.stderr)
+                            click.echo(f"Warning: {e}", file=sys.stderr)
 
                 if job and 'status' in job:
                     push.published_job['output']['status'] = job['status']

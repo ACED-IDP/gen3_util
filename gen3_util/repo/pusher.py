@@ -28,7 +28,7 @@ def push(config: Config,
 
     # first publish files to indexd and copy to bucket
     for commit in push_.pending_commits():
-        print(
+        click.echo(
             f"Pushing commit:{commit.commit_id} '{commit.message}' to {config.gen3.profile} {config.gen3.project_id}",
             file=sys.stderr
         )
@@ -40,9 +40,9 @@ def push(config: Config,
             auth=auth
         )
         # if len(manifest_entries) == 0:
-        #     print(f"INFO No files to upload for {commit.commit_id}", file=sys.stderr)
+        #     click.echo(f"INFO No files to upload for {commit.commit_id}", file=sys.stderr)
 
-        print(
+        click.echo(
             f"Indexed {len(manifest_entries)} files",
             file=sys.stderr
         )
@@ -58,7 +58,7 @@ def push(config: Config,
             auth=auth
         )
         assert completed_process.returncode == 0, f"upload_files failed with {completed_process.returncode}"
-        print(
+        click.echo(
             f"Upload {len(manifest_entries)} files",
             file=sys.stderr
         )
@@ -71,7 +71,7 @@ def push(config: Config,
         auth=auth
     )
 
-    print(
+    click.echo(
         f"Published {len(push_.commits)} commits",
         file=sys.stderr
     )
@@ -82,14 +82,14 @@ def push(config: Config,
     with open(completed_path, "a") as fp:
         fp.write(push_.model_dump_json())
         fp.write("\n")
-    print(
+    click.echo(
         f"Updated {completed_path}",
         file=sys.stderr
     )
 
     pending_path = push_.config.commit_dir() / "pending.ndjson"
     pending_path.unlink(missing_ok=False)
-    print(
+    click.echo(
         f"Cleared {pending_path}",
         file=sys.stderr
     )
@@ -97,7 +97,7 @@ def push(config: Config,
     if os.path.isfile(push_.config.commit_dir() / "emptied.ndjson"):
         pending_path = push_.config.commit_dir() / "emptied.ndjson"
         pending_path.unlink(missing_ok=False)
-        print(
+        click.echo(
             f"Cleared {pending_path}",
             file=sys.stderr
         )

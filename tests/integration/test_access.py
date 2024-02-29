@@ -5,10 +5,17 @@ from gen3_util.repo.cli import cli
 
 
 def test_access_ls(caplog):
-    """Ensure we can ls access."""
+    """Ensure we can ls access.
+
+    For these tests to pass global env needs to be set
+    ex: export G3T_PROFILE="local"
+    """
     runner = CliRunner()
 
-    cmds = [['utilities', 'access', 'ls'], ['utilities', 'access', 'ls', '--username', 'bob@example.com'], ['utilities', 'access', 'ls', '--mine'], ['utilities', 'access', 'ls', '--all']]
+    cmds = [['utilities', 'access', 'ls'],
+            ['utilities', 'access', 'ls', '--username', 'bob@example.com'],
+            ['utilities', 'access', 'ls', '--mine'],
+            ['utilities', 'access', 'ls', '--all']]
     for cmd in cmds:
         result = runner.invoke(cli, cmd)
         result_output = result.output

@@ -51,7 +51,7 @@ def import_meta(config: Config, project_id: str, object_id: str):
             output.update(_)
 
     except JSONDecodeError:
-        print("jobs_client.async_run_job_and_wait() (raw):", _)
+        click.echo("jobs_client.async_run_job_and_wait() (raw):", _)
 
 
 @job_group.command('get')

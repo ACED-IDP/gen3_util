@@ -3,7 +3,6 @@ import logging
 import pathlib
 import subprocess
 import sys
-import os
 from datetime import datetime
 from importlib.metadata import version as pkg_version
 
@@ -14,7 +13,7 @@ from gen3.auth import Gen3AuthError
 import gen3_util
 from gen3_util.access.cli import access_group
 from gen3_util.buckets.cli import bucket_group
-from gen3_util.common import write_meta_index, PROJECT_DIR, to_metadata_dict, Push
+from gen3_util.common import write_meta_index, PROJECT_DIR, to_metadata_dict, _check_parameters
 from gen3_util.config import Config, ensure_auth, gen3_client_profiles, init
 from gen3_util.config.cli import config_group
 from gen3_util.files.cli import file_group, manifest_put_cli
@@ -23,10 +22,10 @@ from gen3_util.jobs.cli import job_group
 from gen3_util.meta.cli import meta_group
 from gen3_util.meta.skeleton import transform_manifest_to_indexd_keys
 from gen3_util.projects.cli import project_group
-from gen3_util.projects.remover import rm, empty
+from gen3_util.projects.remover import rm, empty_all, reset_to_commit_id
 from gen3_util.repo import StdNaturalOrderGroup, CLIOutput, NaturalOrderGroup, ENV_VARIABLE_PREFIX
 from gen3_util.repo.cloner import clone, download_unzip_snapshot_meta, find_latest_snapshot
-from gen3_util.repo.committer import commit, diff, delete_all_commits
+from gen3_util.repo.committer import commit, diff
 from gen3_util.repo.initializer import initialize_project_server_side
 from gen3_util.repo.puller import pull_files
 from gen3_util.repo.pusher import push, re_push
@@ -127,8 +126,9 @@ def ping(config: Config):
 
 @cli.command(name='init')
 @click.argument('project_id', default=None, required=False, envvar=f"{ENV_VARIABLE_PREFIX}PROJECT_ID")
+@click.option('--verbose', default=False, required=False, is_flag=True, show_default=True, help="Show all output")
 @click.pass_obj
-def init_cli(config, project_id: str):
+def init_cli(config, project_id: str, verbose: bool):
     """Create project, both locally and on remote.
 
     \b
@@ -151,16 +151,8 @@ def init_cli(config, project_id: str):
         except (AssertionError, ValueError, requests.exceptions.HTTPError) as e:
             output.update({'msg': str(e)})
             output.exit_code = 1
-
-
-def _check_parameters(config, project_id):
-    """Common parameter checks."""
-    if not project_id:
-        raise AssertionError("project_id is required")
-    if not project_id.count('-') == 1:
-        raise AssertionError("project_id must be of the form program-project")
-    if not config.gen3.profile:
-        click.secho("No profile set. Continuing in disconnected mode. Use `set profile <profile>`", fg='yellow')
+            if verbose:
+                raise e
 
 
 cli.add_command(manifest_put_cli)
@@ -170,8 +162,9 @@ cli.add_command(manifest_put_cli)
 @click.argument('metadata_path', type=click.Path(exists=True), default='META', required=False)
 @click.option('--message', '-m', default=None, required=True, show_default=True,
               help="Use the given <msg> as the commit message.")
+@click.option('--verbose', default=False, required=False, is_flag=True, show_default=True, help="Show all output")
 @click.pass_obj
-def commit_cli(config: Config, metadata_path: str, message: str):
+def commit_cli(config: Config, metadata_path: str, message: str, verbose: bool):
     """Record changes to the project.
 
     \b
@@ -193,12 +186,15 @@ def commit_cli(config: Config, metadata_path: str, message: str):
         except AssertionError as e:
             output.update({'msg': str(e)})
             output.exit_code = 1
+            if verbose:
+                raise e
 
 
 @cli.command(name='diff')
 @click.argument('metadata_path', type=click.Path(exists=True), default='META', required=False)
+@click.option('--verbose', default=False, required=False, is_flag=True, show_default=True, help="Show all output")
 @click.pass_obj
-def diff_cli(config: Config, metadata_path: str):
+def diff_cli(config: Config, metadata_path: str, verbose: bool):
     """Show new/changed metadata since last commit.
 
     \b
@@ -213,6 +209,8 @@ def diff_cli(config: Config, metadata_path: str):
         except AssertionError as e:
             output.update({'msg': str(e)})
             output.exit_code = 1
+            if verbose:
+                raise e
 
 
 @cli.command(name='push')
@@ -222,8 +220,9 @@ def diff_cli(config: Config, metadata_path: str):
               help="adds additional access control")
 @click.option('--re-run', 're_run', default=False, required=False, show_default=True, is_flag=True,
               help="Re-publish the last commit")
+@click.option('--verbose', default=False, required=False, is_flag=True, show_default=True, help="Show all output")
 @click.pass_obj
-def push_cli(config: Config, restricted_project_id: str, overwrite: bool, re_run: bool):
+def push_cli(config: Config, restricted_project_id: str, overwrite: bool, re_run: bool, verbose: bool):
     """Submit committed changes to commons."""
     with CLIOutput(config=config) as output:
         try:
@@ -238,15 +237,17 @@ def push_cli(config: Config, restricted_project_id: str, overwrite: bool, re_run
                 published_job = re_push(config)
                 output.update(published_job)
 
-        except Exception as e:
+        except (AssertionError, Exception) as e:
             output.update({'msg': str(e)})
             output.exit_code = 1
-            raise e
+            if verbose:
+                raise e
 
 
 @cli.command(name="status")
+@click.option('--verbose', default=False, required=False, is_flag=True, show_default=True, help="Show all output")
 @click.pass_obj
-def status_cli(config: Config):
+def status_cli(config: Config, verbose: bool):
     """Show the working tree status."""
     last_job_status = None
     with CLIOutput(config=config) as output:
@@ -262,9 +263,12 @@ def status_cli(config: Config):
 
             output.update(_status)
 
-        except Exception as e:
+        except (AssertionError, Exception) as e:
             output.update({'msg': str(e)})
             output.exit_code = 1
+            if verbose:
+                raise e
+
     if last_job_status:
         fg = 'green' if last_job_status == 'Completed' else 'yellow'
         click.secho(f"Last job status: {last_job_status}", fg=fg, file=sys.stderr)
@@ -279,8 +283,9 @@ def status_cli(config: Config):
     required=False, show_default=True,
     help="Clone meta and/or files from remote."
 )
+@click.option('--verbose', default=False, required=False, is_flag=True, show_default=True, help="Show all output")
 @click.pass_obj
-def clone_cli(config: Config, project_id: str, data_type: str):
+def clone_cli(config: Config, project_id: str, data_type: str, verbose: bool):
     """Clone meta and files from remote."""
 
     with CLIOutput(config=config) as output:
@@ -294,6 +299,8 @@ def clone_cli(config: Config, project_id: str, data_type: str):
         except AssertionError as e:
             output.update({'msg': str(e)})
             output.exit_code = 1
+            if verbose:
+                raise e
 
 
 @cli.command(name="pull")
@@ -310,8 +317,9 @@ def clone_cli(config: Config, project_id: str, data_type: str):
               help="file's md5")
 @click.option('--meta', default=True, required=False, show_default=True,
               help="update meta", is_flag=True)
+@click.option('--verbose', default=False, required=False, is_flag=True, show_default=True, help="Show all output")
 @click.pass_obj
-def pull_cli(config: Config, meta: bool, specimen: str, patient: str, task: str, observation: str, md5: str, path_filter: str):
+def pull_cli(config: Config, meta: bool, specimen: str, patient: str, task: str, observation: str, md5: str, path_filter: str, verbose: bool):
     """Download latest meta and data files.
 
     \b
@@ -357,11 +365,14 @@ def pull_cli(config: Config, meta: bool, specimen: str, patient: str, task: str,
         except AssertionError as e:
             output.update({'msg': str(e)})
             output.exit_code = 1
+            if verbose:
+                raise e
 
 
 @cli.command(name="update-index")
+@click.option('--verbose', default=False, required=False, is_flag=True, show_default=True, help="Show all output")
 @click.pass_obj
-def update_index_cli(config: Config):
+def update_index_cli(config: Config, verbose: bool):
     """Update the index from the META directory."""
     assert pathlib.Path(PROJECT_DIR).exists(), "Please run from the project root directory."
     with CLIOutput(config=config) as output:
@@ -374,53 +385,51 @@ def update_index_cli(config: Config):
         except AssertionError as e:
             output.update({'msg': str(e)})
             output.exit_code = 1
+            if verbose:
+                raise e
 
 
 @cli.command(name="rm")
 @click.option('--project_id', default=None, show_default=True,
               help="Gen3 program-project", envvar=f"{ENV_VARIABLE_PREFIX}PROJECT_ID")
+@click.option('--verbose', default=False, required=False, is_flag=True, show_default=True, help="Show all output")
 @click.pass_obj
-def project_rm(config: Config, project_id: str):
-    """Remove project.
-    """
-    with CLIOutput(config=config) as output:
-        output.update(rm(config, project_id))
+def project_rm(config: Config, project_id: str, verbose: bool):
+    """Remove project."""
+    try:
+        _check_parameters(config, project_id)
+        with CLIOutput(config=config) as output:
+            output.update(rm(config, project_id))
+
+    except AssertionError as e:
+        output.update({'mesg': str(e)})
+        output.exit_code = 1
+        if verbose:
+            raise e
 
 
 @cli.command(name="reset")
+@click.option('--all', default=False, show_default=True,
+              help="Remove all commits locally and remotely, on the gen3 servers", required=False, is_flag=True)
+@click.option('--commit_id', default=False, show_default=True,
+              help="The commit id that you want to revert to", required=False)
+@click.option('--verbose', default=False, required=False, is_flag=True, show_default=True, help="Show all output")
 @click.pass_obj
-def project_empty(config: Config):
+def project_empty(config: Config, all: bool, commit_id: str, verbose: bool):
     """Empty all metadata (graph, flat) for a project."""
     with CLIOutput(config=config) as output:
         try:
-            assert config.gen3.project_id, "Not in an initialized project directory."
-            project_id = config.gen3.project_id
-            _check_parameters(config, project_id)
-            _ = empty(config, project_id)
-            _['msg'] = f"Emptied {project_id}"
-            output.update(_)
+            assert all or commit_id is not None, "either --all flag or --commit_id option need to be set"
+            if all:
+                empty_all(config)
+            elif commit_id is not None:
+                reset_to_commit_id(config, commit_id)
 
-            delete_all_commits(config.commit_dir())
-            for file in [".g3t/state/manifest.sqlite", ".g3t/state/meta-index.ndjson"]:
-                if os.path.isfile(file):
-                    os.unlink(file)
-
-            push_ = Push(config=config)
-            push_.published_job = _
-            completed_path = push_.config.commit_dir() / "emptied.ndjson"
-            push_.published_timestamp = datetime.now()
-
-            with open(completed_path, "w") as fp:
-                fp.write(push_.model_dump_json())
-                fp.write("\n")
-            print(
-                f"Updated {completed_path}",
-                file=sys.stderr
-            )
-
-        except Exception as e:
+        except (AssertionError, Exception) as e:
             output.update({'msg': str(e)})
             output.exit_code = 1
+            if verbose:
+                raise e
 
 
 @cli.group(name='utilities', cls=NaturalOrderGroup)
