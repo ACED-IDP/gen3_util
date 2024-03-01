@@ -28,7 +28,6 @@ def pull_files(config, auth, manifest_name, original_path, path, extra_metadata=
     # download files using the manifest created above
     manifest = [{'object_id': _['did']} for _ in records if 'is_metadata' not in _['metadata'] and not _['metadata'].get('no_bucket', False)]
     data_path = pathlib.Path(path)
-    data_path = pathlib.Path(path)
     if len(manifest) > 0:
         manifest_file = config.state_dir / manifest_name
         with manifest_file.open('w') as fp:
@@ -65,6 +64,7 @@ def pull_files(config, auth, manifest_name, original_path, path, extra_metadata=
                 logs.append(cmd)
                 # download_results = subprocess.run(cmd.split(), capture_output=False, stdout=sys.stderr)
                 # assert download_results.returncode == 0, f"SCP failed {download_results}"
+            logs.append(f"There are {len(files_for_scp)} files available for scp")
         # print(f"Symlink files {files_for_symlink}", file=sys.stderr)
         for _ in files_for_symlink:
             for url in _['urls']:
@@ -72,9 +72,9 @@ def pull_files(config, auth, manifest_name, original_path, path, extra_metadata=
                     continue
                 pathlib.Path(_['file_name']).parent.mkdir(parents=True, exist_ok=True)
                 os.symlink(urlparse(url).path, _['file_name'])
-            logs.append(f"Symlinked {len(files_for_symlink)} files")
+            logs.append(f"Symlinked {len(files_for_symlink)} files.")
     else:
-        logs.append(f"No files to download for {config.gen3.project_id}")
+        logs.append(f"No files to symlink or scp for {config.gen3.project_id}")
 
     # logs.append(f"Downloaded {len(manifest)} files to {data_path.relative_to(original_path)}")
     return logs
