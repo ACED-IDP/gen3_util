@@ -352,7 +352,8 @@ def pull_cli(config: Config, meta: bool, specimen: str, patient: str, task: str,
                     original_path=original_path,
                     extract_to=path
                 )
-                output.update(logs)
+
+            output.update({'logs': logs})
 
         except AssertionError as e:
             output.update({'msg': str(e)})
