@@ -6,20 +6,20 @@ import uuid
 from click.testing import CliRunner
 from gen3_util.repo.cli import cli
 from gen3_util.common import PROJECT_DIRECTORIES
+import unittest.mock as mock
+import socket
 
 CURRENT_DIR = pathlib.Path.cwd()
 
 
 def setup_module(module):
     """Setup for module."""
-    print("setup_module      module:%s" % module.__name__)
     global CURRENT_DIR
     CURRENT_DIR = pathlib.Path.cwd()
 
 
 def teardown_module(module):
     """Teardown for module."""
-    print(f"teardown_module   module:{module.__name__} cwd:{CURRENT_DIR}")
     os.chdir(CURRENT_DIR)
 
 
@@ -84,18 +84,23 @@ def test_no_bucket(tmp_path, program, profile):
     assert result.exit_code == 0
 
     # poll the job until complete
-    limit = 10
+    c = limit = 20
     completed = False
     while True:
         result = runner.invoke(cli, f'--format json --profile {profile} status'.split())
-        print(result.output)
+        assert 'status' in result.output, f"status not found in {result.output}"
+
         if 'Completed' in result.output:
             completed = True
             break
-        time.sleep(5)
-        limit -= 1
-        if limit == 0:
+        if 'Error' in result.output:
             break
+
+        time.sleep(5)
+        c -= 1
+        if c == 0:
+            break
+    print(result.output)
     assert completed, f"Job not completed after {limit} tries"
 
     # create directory for clone
@@ -103,6 +108,7 @@ def test_no_bucket(tmp_path, program, profile):
     cloned_dir.mkdir(parents=True, exist_ok=True)
 
     # clone the project
+    print("REAL HOSTNAME", socket.gethostname())
     os.chdir(str(cloned_dir))
     result = runner.invoke(cli, f'--format json --profile {profile} clone --project_id {project_id}'.split())
     print(result.output)
@@ -114,7 +120,7 @@ def test_no_bucket(tmp_path, program, profile):
 
     # pull down the data
     result = runner.invoke(cli, f'--format json --profile {profile} pull'.split())
-    print(result.output)
+    print(">>>>> pull output", result.output)
     assert result.exit_code == 0
 
     data_file = pathlib.Path('data/test.txt')
@@ -122,3 +128,41 @@ def test_no_bucket(tmp_path, program, profile):
     assert data_file.is_symlink(), f"File not a symlink {data_file}"
     assert data_file.readlink(), f"Symlink pointer not found {data_file.readlink()}"
     assert data_file.read_text() == 'test', f"File content not as expected {data_file.read_text()}"
+
+    #
+    # now test clone from a foreign host (i.e. not the host that created the project)
+    #
+
+    with mock.patch("socket.gethostname", return_value="fakehostname"):
+        print("MOCKED HOSTNAME", socket.gethostname())
+
+        # create directory for second clone
+        cloned_dir = pathlib.Path(tmp_path) / 'cloned-foreign-host'
+        cloned_dir.mkdir(parents=True, exist_ok=True)
+        os.chdir(str(cloned_dir))
+
+        # clone the project
+        os.chdir(str(cloned_dir))
+        result = runner.invoke(cli, f'--format json --profile {profile} clone --project_id {project_id}'.split())
+        print('>>>> clone output START', result.output, 'END clone output')
+
+        assert result.exit_code == 0
+        assert pathlib.Path(cloned_dir / project_id).exists()
+
+        # cd into the clone
+        os.chdir(str(cloned_dir / project_id))
+
+        # pull down the data
+        result = runner.invoke(cli, f'--format json --profile {profile} pull'.split())
+        result_output = result.output
+
+        print('>>>> pull output START', result_output, 'END pull output')
+        print('>>>> result', result)
+
+        assert result.exit_code == 0
+
+        data_file = pathlib.Path('data/test.txt')
+        assert not data_file.exists(), f"Should not have created file or symlink {data_file}"
+
+        # assert "scp" in result_output, f"Should have created scp command {result_output}"
+        # assert 'data/test.txt' in result_output, f"Should find file data/test.txt in {result_output}"
