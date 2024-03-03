@@ -389,39 +389,45 @@ def project_rm(config: Config, project_id: str):
 
 
 @cli.command(name="reset")
+@click.argument('project_id', default=None, required=False, envvar=f"{ENV_VARIABLE_PREFIX}PROJECT_ID")
 @click.pass_obj
-def project_empty(config: Config):
+def project_empty(config: Config, project_id: str):
     """Empty all metadata (graph, flat) for a project."""
     with CLIOutput(config=config) as output:
         try:
-            assert config.gen3.project_id, "Not in an initialized project directory."
-            project_id = config.gen3.project_id
+            in_project = False
+            if not project_id:
+                assert config.gen3.project_id, "Not in an initialized project directory."
+                project_id = config.gen3.project_id
+                in_project = True
+
             _check_parameters(config, project_id)
             _ = empty(config, project_id)
             _['msg'] = f"Emptied {project_id}"
             output.update(_)
 
-            """Delete all previous commits and manifests, but keep the project config file."""
-            delete_all_commits(config.commit_dir())
-            for file in [".g3t/state/manifest.sqlite", ".g3t/state/meta-index.ndjson"]:
-                if os.path.isfile(file):
-                    os.unlink(file)
+            if in_project:
+                """Delete all previous commits and manifests, but keep the project config file."""
+                delete_all_commits(config.commit_dir())
+                for file in [".g3t/state/manifest.sqlite", ".g3t/state/meta-index.ndjson"]:
+                    if os.path.isfile(file):
+                        os.unlink(file)
 
-            """
-            Create a new push file titled 'emptied.ndjson' that contains
-            the job metadata from the empty function called above.
-            """
-            push_ = Push(config=config)
-            push_.published_job = _
-            completed_path = push_.config.commit_dir() / "emptied.ndjson"
-            push_.published_timestamp = datetime.now()
+                """
+                Create a new push file titled 'emptied.ndjson' that contains
+                the job metadata from the empty function called above.
+                """
+                push_ = Push(config=config)
+                push_.published_job = _
+                completed_path = push_.config.commit_dir() / "emptied.ndjson"
+                push_.published_timestamp = datetime.now()
 
-            with open(completed_path, "w") as fp:
-                fp.write(push_.model_dump_json())
-                fp.write("\n")
-            click.secho(
-                f"Updated {completed_path}",
-                file=sys.stderr, fg='green')
+                with open(completed_path, "w") as fp:
+                    fp.write(push_.model_dump_json())
+                    fp.write("\n")
+                click.secho(
+                    f"Updated {completed_path}",
+                    file=sys.stderr, fg='green')
 
         except Exception as e:
             output.update({'msg': str(e)})

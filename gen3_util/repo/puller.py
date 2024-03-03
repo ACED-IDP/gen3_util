@@ -24,9 +24,9 @@ def pull_files(config, auth, manifest_name, original_path, path, extra_metadata=
     # create a manifest
     if path_filter:
         records = [_ for _ in records if glob.globmatch(_['file_name'], path_filter, flags=glob.G)]
-
     # download files using the manifest created above
-    manifest = [{'object_id': _['did']} for _ in records if 'is_metadata' not in _['metadata'] and not _['metadata'].get('no_bucket', False)]
+    manifest = [{'object_id': _['did']} for _ in records if 'is_metadata' not in _['metadata'] and not _['metadata'].get('no_bucket', False) == 'true']
+
     data_path = pathlib.Path(path)
     if len(manifest) > 0:
         manifest_file = config.state_dir / manifest_name

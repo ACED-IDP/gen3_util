@@ -1,6 +1,7 @@
 import json
 import os
 import sys
+from datetime import datetime
 from json import JSONDecodeError
 from pathlib import Path
 
@@ -17,6 +18,7 @@ from gen3_util.files.manifest import put as manifest_put, save as manifest_save,
 from gen3_util.files.remover import rm
 from gen3_util.meta.publisher import publish_meta_data
 from gen3_util.meta.skeleton import study_metadata
+from urllib.parse import urlparse
 
 
 @click.group(name='files', cls=NaturalOrderGroup)
@@ -54,7 +56,7 @@ def files_ls(config: Config, object_id: str, project_id: str, specimen: str, pat
 
 
 @file_group.command(name="add")
-@click.argument('local_path', type=click.Path(exists=True, dir_okay=False))
+@click.argument('path')
 # @click.argument('remote_path', required=False, default=None)
 @click.option('--project_id', default=None, required=False, show_default=True,
               help="Gen3 program-project", envvar=f"{ENV_VARIABLE_PREFIX}PROJECT_ID", hidden=True)
@@ -69,13 +71,17 @@ def files_ls(config: Config, object_id: str, project_id: str, specimen: str, pat
 @click.option('--observation', default=None, required=False, show_default=True,
               help="fhir observation identifier", envvar=f'{ENV_VARIABLE_PREFIX}OBSERVATION')
 @click.option('--md5', default=None, required=False, show_default=True,
-              help="MD5 sum, if not provided, will be calculated before upload")
+              help="MD5 sum, if not provided, will be calculated before upload, required for non-local files")
+@click.option('--size', default=None, required=False, show_default=True, type=int,
+              help="file size in bytes, required for non-local files")
 @click.option('--no-bucket', 'no_bucket', default=False, required=False, show_default=True, is_flag=True,
               envvar=f'{ENV_VARIABLE_PREFIX}NO_BUCKET',
-              help="Do not upload to bucket, only add to index. (Use symlink or scp to download).")
+              help="Do not upload to bucket, only add to index. (Uses symlink or scp to download).")
+@click.option('--modified', default=None, required=False, show_default=True, type=click.DateTime(),
+              help="Modified datetime of the file, required for non-local files")
 @click.pass_obj
-def manifest_put_cli(config: Config, local_path: str, project_id: str, md5: str,
-                     specimen: str, patient: str, observation: str, task: str, no_bucket: bool):
+def manifest_put_cli(config: Config, path: str, project_id: str, md5: str,
+                     specimen: str, patient: str, observation: str, task: str, no_bucket: bool, size: int, modified: datetime):
     """Add file to the index.
 
     \b
@@ -84,19 +90,33 @@ def manifest_put_cli(config: Config, local_path: str, project_id: str, md5: str,
     # TODO deprecate `remote_path` insist on relative paths
     with CLIOutput(config=config) as output:
         try:
-            assert Path(PROJECT_DIR).exists(), "Please add files from the project root directory."
-            assert Path(local_path).absolute().is_relative_to(Path.cwd().absolute()), \
-                f"{local_path} must be relative to the project root, please move the file or create a symbolic link"
+            _parsed = urlparse(path, allow_fragments=False)
+            if _parsed.scheme != '' and _parsed.scheme in ['s3', 'gs', 'abfs']:
+                local_path = _parsed.path.lstrip('/')
+                url = path
+            elif _parsed.scheme != '':
+                raise ValueError(f"Unsupported url scheme {_parsed.scheme}")
+            elif _parsed.scheme == '' and Path(path).exists():
+                local_path = path
+                url = None
+                assert Path(PROJECT_DIR).exists(), "Please add files from the project root directory."
+                assert Path(local_path).absolute().is_relative_to(Path.cwd().absolute()), \
+                    f"{local_path} must be relative to the project root, please move the file or create a symbolic link"
+            if url:
+                assert all([size, md5, modified]), "size, md5, and modified are required for bucket objects"
 
             if not project_id:
                 project_id = config.gen3.project_id
-            _ = manifest_put(config, local_path, project_id=project_id, md5=md5)
+
+            _ = manifest_put(config, local_path, project_id=project_id, md5=md5, size=size, modified=modified)
+
             _['observation_id'] = observation
             _['patient_id'] = patient
             _['specimen_id'] = specimen
             _['task_id'] = task
             _['remote_path'] = None
             _['no_bucket'] = no_bucket
+            _['url'] = url
             output.update(_)
             manifest_save(config, project_id, [_])
         except Exception as e:
