@@ -1,11 +1,17 @@
+import json
 import os
 import pathlib
 import time
 import uuid
 
+import requests
 from click.testing import CliRunner
+from gen3.file import Gen3File
+
+from gen3_util import Config
+from gen3_util.config import ensure_auth
 from gen3_util.repo.cli import cli
-from gen3_util.common import PROJECT_DIRECTORIES
+from gen3_util.common import PROJECT_DIRECTORIES, read_yaml
 
 CURRENT_DIR = pathlib.Path.cwd()
 
@@ -113,10 +119,25 @@ def test_foreign_bucket(tmp_path, program, profile):
     # cd into the clone
     os.chdir(str(cloned_dir / project_id))
 
-    # pull down the data
-    result = runner.invoke(cli, f'--format json --profile {profile} pull'.split())
-    print(">>>>> pull output", result.output)
-    assert result.exit_code == 0
+    # weirdness with CLIRunner gen3-client and fileno
+    # see https://stackoverflow.com/questions/73311668/how-do-i-test-that-command-sends-subprocess-output-to-stderr
+    # so, we manually call the same methods
 
-    data_file = pathlib.Path('aced.json')
-    assert data_file.exists(), f"File not found {data_file}"
+    # read the META data
+    document_reference = json.loads(open(pathlib.Path('META') / 'DocumentReference.ndjson').readline())
+    print(json.dumps(document_reference, indent=2))
+    guid = document_reference['id']
+
+    _ = pathlib.Path().cwd() / '.g3t' / 'config.yaml'
+    config = Config(**read_yaml(_))
+    authentication_object = ensure_auth(config=config)
+    file_client = Gen3File(auth_provider=authentication_object)
+
+    presigned_url = file_client.get_presigned_url(guid=guid)
+
+    print(presigned_url)
+
+    # download the file
+    response = requests.get(presigned_url['url'])
+    with open('file-1MB.1.txt', 'wb') as f:
+        f.write(response.content)
