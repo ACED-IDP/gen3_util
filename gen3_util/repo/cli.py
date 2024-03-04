@@ -392,7 +392,11 @@ def project_rm(config: Config, project_id: str):
 @click.argument('project_id', default=None, required=False, envvar=f"{ENV_VARIABLE_PREFIX}PROJECT_ID")
 @click.pass_obj
 def project_empty(config: Config, project_id: str):
-    """Empty all metadata (graph, flat) for a project."""
+    """Empty all metadata (graph, flat) for a project.
+
+    \b
+    PROJECT_ID: Gen3 program-project default: current project env:G3T_PROJECT_ID
+    """
     with CLIOutput(config=config) as output:
         try:
             in_project = False
@@ -406,6 +410,7 @@ def project_empty(config: Config, project_id: str):
             _['msg'] = f"Emptied {project_id}"
             output.update(_)
 
+            # if we are in a project directory, clean up local commits
             if in_project:
                 """Delete all previous commits and manifests, but keep the project config file."""
                 delete_all_commits(config.commit_dir())
