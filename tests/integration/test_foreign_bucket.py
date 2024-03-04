@@ -57,7 +57,10 @@ def test_foreign_bucket(tmp_path, program, profile):
     assert project in result.output, result.output
 
     # add the file to the index
-    result = runner.invoke(cli, f'--format json --profile {profile} add s3://aced-public/aced.json --md5 eda5d98677ede8ea4ab1748e722d19ec --size 386270 --modified 2024-03-02T21:58:20 '.split())
+    # result = runner.invoke(cli, f'--format json --profile {profile} add s3://aced-public/aced.json --md5 eda5d98677ede8ea4ab1748e722d19ec --size 386270 --modified 2024-03-02T21:58:20 '.split())
+    result = runner.invoke(cli,
+                           f'--format json --profile {profile} add s3://data-import-test/file-1MB.1.txt --md5 b6d81b360a5672d80c27430f39153e2c --size 1000000 --modified 2024-03-02T21:58:20 '.split())
+    # data-import-test
     print(result.output)
     assert result.exit_code == 0
 
