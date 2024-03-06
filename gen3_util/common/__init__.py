@@ -193,6 +193,14 @@ class EmitterContextManager:
             self.emitters[name] = open(self.output_path / f"{name}.ndjson", self.file_mode)
             if self.verbose:
                 self.logger.info(f"opened {self.emitters[name].name}")
+
+            # If the user already has metadata in the resource file but wants to add
+            # another file the the first line will create a 2nd record on the same line causing the commit step to error
+            if os.path.getsize(self.emitters[name].name) > 0:
+                self.emitters[name].seek(self.emitters[name].tell() - 1, os.SEEK_SET)
+                last_char = self.emitters[name].read()
+                if last_char == "}":
+                    self.emitters[name].write("\n")
         return self.emitters[name]
 
 
