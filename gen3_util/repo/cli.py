@@ -434,7 +434,7 @@ def project_empty(config: Config, commit_id: str,  all: bool, project_id: str, v
                 raise e
 
 
-@cli.group(name='utilities', cls=NaturalOrderGroup)
+@cli.group(name='util', cls=NaturalOrderGroup)
 @click.pass_obj
 def utilities_group(config):
     """Useful utilities."""

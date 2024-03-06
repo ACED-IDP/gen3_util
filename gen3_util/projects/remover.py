@@ -14,6 +14,7 @@ from gen3_util.projects import ProjectSummaries
 from gen3_util.repo import CLIOutput
 from gen3_util.common import _check_parameters, Push
 from gen3_util.repo.committer import delete_all_commits
+from gen3_util.meta.publisher import cp_upload
 
 
 def empty(config: Config, project_id: str, args: dict, wait: bool = False) -> dict:
@@ -84,7 +85,7 @@ def reset_to_commit_id(config: Config, commit_id: str, project_id: str) -> dict:
     for dir in dir_commits:
         assert dir in commits_ids, f"commit {dir} does not exist in {f'.g3t/state/{project_id}/commits/completed.ndjson'}"
 
-    remove_list, updated_commits, manifest_ids = [], [], []
+    remove_list, updated_commits = [], []
     commit_date_order = [(commit["commits"][0]["commit_id"], commit["published_timestamp"]) for commit in commits]
     sorted_dates = sorted(commit_date_order, key=lambda x: x[1])
     i, tuple_entry = get_tuple_by_id(sorted_dates, commit_id)
@@ -107,13 +108,28 @@ def reset_to_commit_id(config: Config, commit_id: str, project_id: str) -> dict:
                 f.write(json.dumps(entry))
                 f.write("\n")
 
-        with open(f".g3t/state/{project_id}/commits/{commit_id}/meta-index.ndjson") as f, \
-                open(".g3t/state/meta-index.ndjson", "w") as g:
-            for line in f:
-                manifest_ids.append(json.loads(line))
-                g.write(line)
+        auth = ensure_auth(config=config)
+        user = auth.curl('/user/user').json()
 
-        args = {'object_id': None, 'project_id': project_id, 'method': 'delete', 'manifest_ids': manifest_ids}
+        source_file = f".g3t/state/{project_id}/commits/{commit_id}/meta-index.ndjson"
+        upload_result = cp_upload(
+            config=config,
+            from_=source_file,
+            project_id=config.gen3.project_id,
+            ignore_state=True,
+            auth=auth,
+            user=user,
+            metadata={'message': f'reset to commit: {commit_id}', 'is_commit': False}
+        )
+
+        object_id = upload_result['object_id']
+
+        click.echo(
+            upload_result['msg'],
+            file=sys.stderr
+        )
+
+        args = {'object_id': object_id, 'project_id': project_id, 'method': 'delete', 'commit_id': commit_id}
         _ = empty(config, project_id, args)
         _['msg'] = f"Emptied {project_id}"
         return _
