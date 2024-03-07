@@ -44,7 +44,7 @@ def empty_all(config: Config, output: CLIOutput, project_id: str) -> CLIOutput:
     output.update(_)
 
     delete_all_commits(config.commit_dir())
-    for file in [".g3t/state/manifest.sqlite", ".g3t/state/meta-index.ndjson"]:
+    for file in [f"{config.state_dir}/manifest.sqlite", f"{config.state_dir}/meta-index.ndjson"]:
         if os.path.isfile(file):
             os.unlink(file)
 
@@ -74,16 +74,16 @@ def reset_to_commit_id(config: Config, commit_id: str, project_id: str) -> dict:
     """Rollback locally and server side to an existing local commit state"""
 
     _check_parameters(config, project_id)
-    with open(f".g3t/state/{project_id}/commits/completed.ndjson", "r") as f:
+    with open(f"{config.state_dir}/{project_id}/commits/completed.ndjson", "r") as f:
         commits = [json.loads(line) for line in f]
 
     commits_ids = [commit["commits"][0]["commit_id"] for commit in commits]
-    dir_commits = [match.group() for string in os.listdir(f".g3t/state/{project_id}/commits")
+    dir_commits = [match.group() for string in os.listdir(f"{config.state_dir}/{project_id}/commits")
                    if (match := re.search(r"([a-fA-F\d]{32})", string)) and len(match.group()) == 32]
 
     """Make sure that every commit exists in completed.ndjson"""
     for dir in dir_commits:
-        assert dir in commits_ids, f"commit {dir} does not exist in {f'.g3t/state/{project_id}/commits/completed.ndjson'}"
+        assert dir in commits_ids, f"commit {dir} does not exist in {f'{config.state_dir}/{project_id}/commits/completed.ndjson'}"
 
     remove_list, updated_commits = [], []
     commit_date_order = [(commit["commits"][0]["commit_id"], commit["published_timestamp"]) for commit in commits]
@@ -99,11 +99,11 @@ def reset_to_commit_id(config: Config, commit_id: str, project_id: str) -> dict:
 
     if len(remove_list) > 0 and len(updated_commits) > 0:
         for dir in remove_list:
-            commit_path = f".g3t/state/{project_id}/commits/{dir}"
+            commit_path = f"{config.state_dir}/{project_id}/commits/{dir}"
             if os.path.isdir(commit_path):
                 delete_all_commits(commit_path)
 
-        with open(f".g3t/state/{project_id}/commits/completed.ndjson", "w") as f:
+        with open(f"{config.state_dir}/{project_id}/commits/completed.ndjson", "w") as f:
             for entry in updated_commits:
                 f.write(json.dumps(entry))
                 f.write("\n")
@@ -111,7 +111,7 @@ def reset_to_commit_id(config: Config, commit_id: str, project_id: str) -> dict:
         auth = ensure_auth(config=config)
         user = auth.curl('/user/user').json()
 
-        source_file = f".g3t/state/{project_id}/commits/{commit_id}/meta-index.ndjson"
+        source_file = f"{config.state_dir}/{project_id}/commits/{commit_id}/meta-index.ndjson"
         upload_result = cp_upload(
             config=config,
             from_=source_file,

@@ -35,10 +35,10 @@ def test_init_project(config, program, tmp_path, profile):
     result = runner.invoke(cli, f'--format json --profile {profile} init {project_id}'.split())
     assert result.exit_code == 0, result.output
 
-    result = runner.invoke(cli, f'--format json --profile {profile} utilities access sign'.split())
+    result = runner.invoke(cli, f'--format json --profile {profile} util access sign'.split())
     assert result.exit_code == 0, result.output
 
-    result = runner.invoke(cli, f"--format json --profile {profile} utilities projects create /programs/{program}/projects/{project}".split())
+    result = runner.invoke(cli, f"--format json --profile {profile} util projects create /programs/{program}/projects/{project}".split())
     assert result.exit_code == 0, result.output
 
     # add a file, associated with a patient
@@ -52,7 +52,7 @@ def test_init_project(config, program, tmp_path, profile):
     assert result.exit_code == 0, result.output
 
     # generate FHIR
-    result = runner.invoke(cli, f"--format json --profile {profile} utilities meta create".split())
+    result = runner.invoke(cli, f"--format json --profile {profile} util meta create".split())
     assert result.exit_code == 0, result.output
 
     metadata_path = pathlib.Path(tmp_path) / 'META'
@@ -72,11 +72,10 @@ def test_init_project(config, program, tmp_path, profile):
         push = line
 
     published_job_uid = push['published_job']['output']['uid']
-    print("published_job_uid", published_job_uid)
 
     sleep(5)
     while True:
-        result = runner.invoke(cli, f'--format json  --profile {profile} utilities jobs get {published_job_uid}'.split())
+        result = runner.invoke(cli, f'--format json  --profile {profile} util jobs get {published_job_uid}'.split())
         assert result.exit_code == 0, result.output
         try:
             output = json.loads(result.output)
@@ -99,7 +98,7 @@ def test_init_project(config, program, tmp_path, profile):
 
     sleep(5)
     while True:
-        result = runner.invoke(cli, f'--format json  --profile {profile} utilities jobs get {re_run_published_job_uid}'.split())
+        result = runner.invoke(cli, f'--format json  --profile {profile} util jobs get {re_run_published_job_uid}'.split())
         assert result.exit_code == 0, result.output
         output = json.loads(result.output)
         if output['status'] not in ['Completed', 'Unknown']:
@@ -119,7 +118,7 @@ def add_commit_push(runner: CliRunner, tmp_path, profile, project_id):
     assert result.exit_code == 0, result.output
 
     # generate FHIR
-    result = runner.invoke(cli, f"--format json --profile {profile} utilities meta create".split())
+    result = runner.invoke(cli, f"--format json --profile {profile} util meta create".split())
     assert result.exit_code == 0, result.output
 
     metadata_path = pathlib.Path(tmp_path) / 'META'
@@ -128,8 +127,8 @@ def add_commit_push(runner: CliRunner, tmp_path, profile, project_id):
 
     assert metadata_ls == expected_metadata_ls, f"expected metadata files not found {metadata_ls}"
 
-    result = runner.invoke(cli, f'--format json  --profile {profile} commit -m "test-commit"'.split())
-    assert result.exit_code == 0, result.output
+    commit_result = runner.invoke(cli, f'--format json  --profile {profile} commit -m "test-commit"'.split())
+    assert commit_result.exit_code == 0, commit_result.output
 
     result = runner.invoke(cli, f'--format json  --profile {profile} push --overwrite'.split())
     assert result.exit_code == 0, result.output
@@ -143,7 +142,7 @@ def add_commit_push(runner: CliRunner, tmp_path, profile, project_id):
 
     sleep(5)
     while True:
-        result = runner.invoke(cli, f'--format json  --profile {profile} utilities jobs get {published_job_uid}'.split())
+        result = runner.invoke(cli, f'--format json  --profile {profile} util jobs get {published_job_uid}'.split())
         assert result.exit_code == 0, result.output
         try:
             output = json.loads(result.output)
@@ -166,14 +165,104 @@ def add_commit_push(runner: CliRunner, tmp_path, profile, project_id):
 
     sleep(5)
     while True:
-        result = runner.invoke(cli, f'--format json  --profile {profile} utilities jobs get {re_run_published_job_uid}'.split())
+        result = runner.invoke(cli, f'--format json  --profile {profile} util jobs get {re_run_published_job_uid}'.split())
         assert result.exit_code == 0, result.output
         output = json.loads(result.output)
         if output['status'] not in ['Completed', 'Unknown']:
             break
         sleep(5)
 
-    return re_run_published_job_uid
+    return re_run_published_job_uid, commit_result
+
+
+def test_granular_reset_project(config, program, tmp_path, profile):
+    # navigate to tmp_path
+    os.chdir(tmp_path)
+    # create project
+    guid = str(uuid.uuid4())
+    project = f'TEST_COMMIT_{guid.replace("-", "_")}'
+    project_id = f'{program}-{project}'
+    config.gen3.project_id = project_id
+
+    runner = CliRunner()
+
+    result = runner.invoke(cli, f'--format json --profile {profile} init {project_id}'.split())
+    assert result.exit_code == 0, result.output
+
+    result = runner.invoke(cli, f'--format json --profile {profile} util access sign'.split())
+    assert result.exit_code == 0, result.output
+
+    result = runner.invoke(cli, f"--format json --profile {profile} util projects create /programs/{program}/projects/{project}".split())
+    assert result.exit_code == 0, result.output
+
+    re_run_published_job_uid, commit_result = add_commit_push(runner, tmp_path, profile, project_id)
+
+    """copy paste the add commit push but change the file name in order to get 2nd unqiue push"""
+    # add a file, associated with a patient
+    file_size = 1024
+    local_path = pathlib.Path(tmp_path) / 'some_random_file_two.txt'
+    local_path = local_path.relative_to(tmp_path)
+    with open(local_path, 'w') as fp:
+        fp.write(''.join(random.choices(string.ascii_letters, k=file_size)))
+
+    result = runner.invoke(cli, f"--format json --profile {profile} add {str(local_path)} --patient P2".split())
+    assert result.exit_code == 0, result.output
+
+    # generate FHIR
+    result = runner.invoke(cli, f"--format json --profile {profile} util meta create".split())
+    assert result.exit_code == 0, result.output
+
+    metadata_path = pathlib.Path(tmp_path) / 'META'
+    metadata_ls = sorted(str(_.relative_to(tmp_path)) for _ in metadata_path.glob('**/*.*'))
+    expected_metadata_ls = sorted(['META/.gitignore', 'META/README.md',  'META/DocumentReference.ndjson', 'META/Patient.ndjson', 'META/ResearchStudy.ndjson', 'META/ResearchSubject.ndjson'])
+
+    assert metadata_ls == expected_metadata_ls, f"expected metadata files not found {metadata_ls}"
+
+    result = runner.invoke(cli, f'--format json  --profile {profile} commit -m "test-commit-two"'.split())
+    assert result.exit_code == 0, result.output
+
+    result = runner.invoke(cli, f'--format json  --profile {profile} push --overwrite'.split())
+    assert result.exit_code == 0, result.output
+
+    push = None
+    for line in read_ndjson_file(pathlib.Path('.g3t/state') / project_id / 'commits' / 'completed.ndjson'):
+        push = line
+
+    published_job_uid = push['published_job']['output']['uid']
+
+    sleep(5)
+    while True:
+        result = runner.invoke(cli, f'--format json  --profile {profile} util jobs get {published_job_uid}'.split())
+        assert result.exit_code == 0, result.output
+        try:
+            output = json.loads(result.output)
+            if output['status'] not in ['Completed', 'Unknown']:
+                break
+            sleep(5)
+        except json.JSONDecodeError:
+            print(f"Unable to decode {result.output}")
+            break
+
+    commit_result = json.loads(commit_result.output)
+    print("COMMIT RESULT: ", commit_result)
+
+    result = runner.invoke(cli, f"--format json --profile {profile} reset {commit_result['commit_id']}".split())
+    assert result.exit_code == 0, result.output
+
+    push = None
+    for line in read_ndjson_file(pathlib.Path('.g3t/state') / project_id / 'commits' / 'emptied.ndjson'):
+        push = line
+
+    emptied_job_uid = push['published_job']['output']['uid']
+    assert emptied_job_uid != re_run_published_job_uid
+
+    while True:
+        result = runner.invoke(cli, f'--format json  --profile {profile} util jobs get {emptied_job_uid}'.split())
+        assert result.exit_code == 0, result.output
+        output = json.loads(result.output)
+        if output['status'] not in ['Completed', 'Unknown']:
+            break
+        sleep(5)
 
 
 def test_reset_project(config, program, tmp_path, profile):
@@ -192,16 +281,16 @@ def test_reset_project(config, program, tmp_path, profile):
     result = runner.invoke(cli, f'--format json --profile {profile} init {project_id}'.split())
     assert result.exit_code == 0, result.output
 
-    result = runner.invoke(cli, f'--format json --profile {profile} utilities access sign'.split())
+    result = runner.invoke(cli, f'--format json --profile {profile} util access sign'.split())
     assert result.exit_code == 0, result.output
 
-    result = runner.invoke(cli, f"--format json --profile {profile} utilities projects create /programs/{program}/projects/{project}".split())
+    result = runner.invoke(cli, f"--format json --profile {profile} util projects create /programs/{program}/projects/{project}".split())
     assert result.exit_code == 0, result.output
 
-    re_run_published_job_uid = add_commit_push(runner, tmp_path, profile, project_id)
+    re_run_published_job_uid, commit_result = add_commit_push(runner, tmp_path, profile, project_id)
 
     # Run reset command and run previous checks
-    result = runner.invoke(cli, f"--format json --profile {profile} reset".split())
+    result = runner.invoke(cli, f"--format json --profile {profile} reset --all".split())
     assert result.exit_code == 0, result.output
 
     push = None
@@ -212,14 +301,14 @@ def test_reset_project(config, program, tmp_path, profile):
     assert emptied_job_uid != re_run_published_job_uid
 
     while True:
-        result = runner.invoke(cli, f'--format json  --profile {profile} utilities jobs get {emptied_job_uid}'.split())
+        result = runner.invoke(cli, f'--format json  --profile {profile} util jobs get {emptied_job_uid}'.split())
         assert result.exit_code == 0, result.output
         output = json.loads(result.output)
         if output['status'] not in ['Completed', 'Unknown']:
             break
         sleep(5)
 
-    re_run_published_job_uid = add_commit_push(runner, tmp_path, profile, project_id)
+    re_run_published_job_uid, commit_result = add_commit_push(runner, tmp_path, profile, project_id)
 
 
 def test_bundle(config, program, tmp_path):
