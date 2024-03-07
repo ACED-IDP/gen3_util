@@ -11,7 +11,7 @@ import jwt
 import importlib.resources as pkg_resources
 import requests
 import yaml
-from gen3.auth import Gen3Auth
+from gen3.auth import Gen3Auth, Gen3AuthError
 from gen3.file import Gen3File
 from gen3.index import Gen3Index
 
@@ -123,7 +123,7 @@ def ensure_auth(refresh_file: [pathlib.Path, str] = None, validate: bool = False
             if not profile:
                 # in disconnected mode, or not in project dir
                 if config.no_config_found:
-                    print("INFO: No config file found in current directory or parents.", file=sys.stderr)
+                    click.secho("INFO: No config file found in current directory or parents.", file=sys.stderr)
                 return None
             # https://github.com/uc-cdis/gen3sdk-python/blob/master/gen3/auth.py#L190-L191
             key = _get_gen3_client_key(gen_client_ini_path(), profile=profile)
@@ -131,7 +131,7 @@ def ensure_auth(refresh_file: [pathlib.Path, str] = None, validate: bool = False
             if 'ERROR' in msg:
                 raise ValueError(msg.replace('ERROR', ''))  # remove ERROR prefix
             if 'WARNING' in msg:
-                print(msg, file=sys.stderr)
+                click.secho(msg, file=sys.stderr)
             auth = Gen3Auth(refresh_token={
                 'api_key': key,
             })
@@ -142,7 +142,7 @@ def ensure_auth(refresh_file: [pathlib.Path, str] = None, validate: bool = False
             api_key = auth.refresh_access_token()
             assert api_key, "refresh_access_token failed"
 
-    except (requests.exceptions.ConnectionError, AssertionError) as e:
+    except (Gen3AuthError, requests.exceptions.ConnectionError, AssertionError) as e:
         msg = (f"Could not get access. profile={profile}"
                "See https://bit.ly/3NbKGi4, or, "
                "store the file in ~/.gen3/credentials.json or specify location with env GEN3_API_KEY "

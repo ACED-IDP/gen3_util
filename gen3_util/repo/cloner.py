@@ -1,6 +1,7 @@
 import os
 import pathlib
 import sys
+import click
 from io import StringIO
 
 from gen3.file import Gen3File
@@ -21,7 +22,7 @@ def clone(config: Config, project_id: str, data_type: str = 'all') -> list[str]:
     logs = []
 
     if path.exists():
-        print(f"Directory {path} already exists, proceeding.", file=sys.stderr)
+        click.echo(f"Directory {path} already exists, proceeding.", file=sys.stderr)
 
     path.mkdir(exist_ok=True)
     os.chdir(path)

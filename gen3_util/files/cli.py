@@ -55,11 +55,8 @@ def files_ls(config: Config, object_id: str, project_id: str, specimen: str, pat
 
 @file_group.command(name="add")
 @click.argument('local_path', type=click.Path(exists=True, dir_okay=False))
-# @click.argument('remote_path', required=False, default=None)
 @click.option('--project_id', default=None, required=False, show_default=True,
               help="Gen3 program-project", envvar=f"{ENV_VARIABLE_PREFIX}PROJECT_ID", hidden=True)
-# @click.option('--source_path', required=False, default=None, show_default=True,
-#               help='Path on local file system')
 @click.option('--specimen', default=None, required=False, show_default=True,
               help="fhir specimen identifier", envvar=f'{ENV_VARIABLE_PREFIX}SPECIMEN')
 @click.option('--patient', default=None, required=False, show_default=True,
@@ -70,15 +67,16 @@ def files_ls(config: Config, object_id: str, project_id: str, specimen: str, pat
               help="fhir observation identifier", envvar=f'{ENV_VARIABLE_PREFIX}OBSERVATION')
 @click.option('--md5', default=None, required=False, show_default=True,
               help="MD5 sum, if not provided, will be calculated before upload")
+@click.option('--verbose', default=False, required=False, is_flag=True, show_default=True, help="Show all output")
 @click.pass_obj
 def manifest_put_cli(config: Config, local_path: str, project_id: str, md5: str,
-                     specimen: str, patient: str, observation: str, task: str):
+                     specimen: str, patient: str, observation: str, task: str,
+                     verbose: bool):
     """Add file to the index.
 
     \b
     local_path: relative path to file or symbolic link on the local file system
     """
-    # TODO deprecate `remote_path` insist on relative paths
     with CLIOutput(config=config) as output:
         try:
             assert Path(PROJECT_DIR).exists(), "Please add files from the project root directory."
@@ -92,12 +90,13 @@ def manifest_put_cli(config: Config, local_path: str, project_id: str, md5: str,
             _['patient_id'] = patient
             _['specimen_id'] = specimen
             _['task_id'] = task
-            _['remote_path'] = None
             output.update(_)
-            manifest_save(config, project_id, [_])
-        except Exception as e:
+            assert manifest_save(config, project_id, [_])
+        except (AssertionError, Exception) as e:
             output.exit_code = 1
             output.update({'msg': str(e)})
+            if verbose:
+                raise e
 
 
 @file_group.command(name="status")
@@ -136,7 +135,7 @@ def _manifest_upload(config: Config, project_id: str, overwrite: bool, upload_pa
     os.chdir(upload_path)
 
     with CLIOutput(config=config) as output:
-        print("Updating file index...", file=sys.stderr)
+        click.echo("Updating file index...", file=sys.stderr)
         try:
             manifest_entries = upload_indexd(
                 config=config,
@@ -147,7 +146,7 @@ def _manifest_upload(config: Config, project_id: str, overwrite: bool, upload_pa
             )
             output.update({'manifest_entries': manifest_entries})
         except (AssertionError, HTTPError) as e:
-            print(f"upload_indexd failed with {e}", file=sys.stderr)
+            click.echo(f"upload_indexd failed with {e}", file=sys.stderr)
             raise e
 
         completed_process = upload_files(config=config, project_id=project_id, manifest_entries=manifest_entries, profile=config.gen3.profile, upload_path=upload_path, overwrite_files=False)
@@ -156,7 +155,7 @@ def _manifest_upload(config: Config, project_id: str, overwrite: bool, upload_pa
             exit(1)
 
         if meta_data:
-            print("Updating metadata...", file=sys.stderr)
+            click.echo("Updating metadata...", file=sys.stderr)
             meta_data_path = config.state_dir / f"{project_id}-meta_data"
             new_record_count = study_metadata(config=config, overwrite=overwrite, project_id=project_id, source='manifest', output_path=meta_data_path)
             if new_record_count > 0:
@@ -164,9 +163,9 @@ def _manifest_upload(config: Config, project_id: str, overwrite: bool, upload_pa
                 try:
                     _ = json.loads(_['output'])
                     output.update({'job': {'publish_meta_data': _}})
-                    print(f"Meta data update underway, check status with: gen3_util jobs get {_['uid']}", file=sys.stderr)
+                    click.echo(f"Meta data update underway, check status with: gen3_util jobs get {_['uid']}", file=sys.stderr)
                 except JSONDecodeError:
-                    print("Error publishing metadata:", _)
+                    click.echo("Error publishing metadata:", _)
 
 
 @file_group.command(name="rm")

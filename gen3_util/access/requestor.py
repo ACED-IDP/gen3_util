@@ -54,8 +54,7 @@ def ls(config: Config, mine: bool, active: bool = False, username: str = None, a
         auth = ensure_auth(config=config)
     assert auth, "auth required"
     requests = get_requests(auth=auth, mine=mine, active=active, username=username)
-    if not isinstance(requests, list):
-        raise Exception(f"Unexpected response: {requests}")
+    assert isinstance(requests, list), f"Unexpected response: {requests}"
     return LogAccess(**{
         'endpoint': auth.endpoint,
         'requests': [_ for _ in requests],

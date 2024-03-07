@@ -19,6 +19,7 @@ from pydantic.json import pydantic_encoder
 
 import io
 import gzip
+import click
 from gen3_util import Config, ACED_NAMESPACE
 
 PROJECT_DIR = '.g3t'
@@ -54,15 +55,15 @@ def print_formatted(config: Config, output: Mapping) -> None:
     """Print the output, using configured output format"""
 
     if config.output.format == "yaml":
-        print(yaml.dump(output, sort_keys=False))
+        click.echo(yaml.dump(output, sort_keys=False))
     elif config.output.format == "json":
-        print(
+        click.echo(
             orjson.dumps(
                 output, default=pydantic_encoder, option=orjson.OPT_INDENT_2
             ).decode()
         )
     else:
-        print(output)
+        click.echo(output)
 
 
 def read_ndjson_file(path: str) -> Iterator[dict]:
@@ -119,6 +120,16 @@ def is_json_extension(name: str) -> bool:
     if name.endswith('json'):
         return True
     return False
+
+
+def _check_parameters(config, project_id):
+    """Common parameter checks."""
+    if not project_id:
+        raise AssertionError("project_id is required")
+    if not project_id.count('-') == 1:
+        raise AssertionError("project_id must be of the form program-project")
+    if not config.gen3.profile:
+        click.secho("No profile set. Continuing in disconnected mode. Use `set profile <profile>`", fg='yellow')
 
 
 def is_ndjson(file_path: pathlib.Path) -> bool:
@@ -346,7 +357,7 @@ class Push(BaseModel):
                 pending.append(commit)
             return pending
         except FileNotFoundError as e:
-            print(f"No pending commits found in {pending_path} {e}")
+            click.echo(f"No pending commits found in {pending_path} {e}")
 
     def pending_meta_index(self) -> list[dict]:
         """Index of pending meta files {id: resourceType}."""

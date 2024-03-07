@@ -59,7 +59,7 @@ def _meta_pull(config: Config, meta_data_path: str,  project_id: str, force: boo
         _ = meta_pull(auth, config, force, meta_data_path, project_id)
 
     except JSONDecodeError:
-        print("jobs_client.async_run_job_and_wait() (raw):", _)
+        click.echo("jobs_client.async_run_job_and_wait() (raw):", _)
 
 
 def meta_pull(auth, config, force, meta_data_path, project_id) -> dict:
@@ -112,8 +112,9 @@ def meta_pull(auth, config, force, meta_data_path, project_id) -> dict:
 @click.argument('meta_data_path')
 @click.argument('tabular_data_path')
 @click.option('--file_type', type=click.Choice(['tsv', 'xlsx']), default='tsv', help='Output file format: tsv or excel')
+@click.option('--verbose', default=False, required=False, is_flag=True, show_default=True, help="Show all output")
 @click.pass_obj
-def meta_to_tabular(config: Config, meta_data_path: str, tabular_data_path: str, file_type: str):
+def meta_to_tabular(config: Config, meta_data_path: str, tabular_data_path: str, file_type: str, verbose: bool):
     """Convert FHIR to tabular format (experimental)
 
     \b
@@ -126,9 +127,11 @@ def meta_to_tabular(config: Config, meta_data_path: str, tabular_data_path: str,
             for _ in transform_dir_to_tabular(meta_data_path, tabular_data_path, file_type):
                 msgs.append(_)
             console_output.update({'output_files': msgs})
-        except Exception as e:
+        except (ValueError, Exception) as e:
             console_output.update({'msg': f"Error: {e}"})
             console_output.exit_code = 1
+            if verbose:
+                raise e
 
 
 @meta_group.command(name="from_tabular")
@@ -200,7 +203,7 @@ def meta_push(config: Config, meta_data_path: str,  project_id: str, ignore_stat
             console_output.update(output)
 
     except JSONDecodeError:
-        print("jobs_client.async_run_job_and_wait() (raw):", _)
+        click.echo("jobs_client.async_run_job_and_wait() (raw):", _)
 
 
 # Hidden commands ............................................................

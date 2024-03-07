@@ -23,6 +23,6 @@ def ls_command(config: Config):
             assert auth, "auth required"
             output.update({'endpoint': auth.endpoint})
             output.update(ls(config))
-        except Exception as e:
+        except (AssertionError, ValueError, Exception) as e:
             output.update({'msg': str(e)})
             output.exit_code = 1

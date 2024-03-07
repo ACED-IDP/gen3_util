@@ -5,6 +5,7 @@ import sqlite3
 import subprocess
 import sys
 import uuid
+import click
 from datetime import datetime, time
 import multiprocessing
 # from multiprocessing.pool import Pool
@@ -66,7 +67,7 @@ def put(config: Config, file_name: str, project_id: str, md5: str):
     }
 
 
-def save(config: Config, project_id: str, generator, max_retries: int = 3, base_delay=2):
+def save(config: Config, project_id: str, generator, max_retries: int = 3, base_delay=2) -> bool:
     """Write to local sqlite."""
     for retry_count in range(max_retries):
         try:
@@ -80,15 +81,16 @@ def save(config: Config, project_id: str, generator, max_retries: int = 3, base_
                                                _, default=pydantic_encoder
                                            ).decode()
                                          ) for _ in generator])
-            return
+            return True
         except sqlite3.OperationalError as e:
-            print(f"Error locking database: {e}", file=sys.stderr)
+            click.echo(f"Error locking database: {e}", file=sys.stderr)
             # Calculate the delay for the next retry using exponential backoff
             delay = base_delay * 2**retry_count
-            print(f"Retrying in {delay} seconds...", file=sys.stderr)
+            click.echo(f"Retrying in {delay} seconds...", file=sys.stderr)
             # Wait before the next retry
             time.sleep(delay)
-        raise Exception(f"Failed to lock database after {max_retries} retries.")
+            click.secho(f"Failed to lock database after {max_retries} retries.", fg="red")
+            return False
 
 
 def ls(config: Config, project_id: str, object_id: str = None, commit_id: str = None):
@@ -143,7 +145,7 @@ def _write_indexd(index_client,
 
     if not existing_record:
         try:
-            file_name = manifest_item['remote_path'] or manifest_item['file_name']
+            file_name = manifest_item['file_name']
             response = index_client.create_record(
                 did=manifest_item["object_id"],
                 hashes=hashes,
@@ -156,8 +158,8 @@ def _write_indexd(index_client,
             assert response, "Expected response from indexd create_record"
         except (requests.exceptions.HTTPError, AssertionError) as e:
             if 'already exists' in str(e):
-                logger.error(f"indexd record already exists, consider using --overwrite. {manifest_item['object_id']} {str(e)}")
-            raise e
+                logger.error(f"\n \n Record already exists in Gen3. Consider adding --overwrite to your g3t push command. {manifest_item['object_id']} {str(e)}")
+            return False
     return True
 
 
@@ -195,7 +197,7 @@ def upload_commit_to_indexd(config: Config, commit: Commit, overwrite_index: boo
     assert bucket_name, f"could not find bucket for {program}"
     index_client = Gen3Index(auth_provider=auth)
     _generator = ls(config, project_id=config.gen3.project_id, commit_id=commit.commit_id)
-    # see if there are existing records
+    # See if there are existing records
     dids = [_['object_id'] for _ in _generator]
     if len(dids) == 0:
         # print(f"INFO No files to upload for {commit.commit_id}", file=sys.stderr)
@@ -203,7 +205,7 @@ def upload_commit_to_indexd(config: Config, commit: Commit, overwrite_index: boo
     existing_records = index_client.get_records(dids=dids)
     if existing_records:
         existing_records = [_['did'] for _ in existing_records]
-    print(f"Found {len(existing_records)} existing records")
+    click.echo(f"Found {len(existing_records)} existing records")
     manifest_entries = []
     for manifest_item in tqdm(_generator):
         _ = _write_indexd(
@@ -215,7 +217,7 @@ def upload_commit_to_indexd(config: Config, commit: Commit, overwrite_index: boo
             restricted_project_id=restricted_project_id,
             existing_records=existing_records
         )
-        assert _, "Expected a result from _write_indexd"
+        assert _, "_write_indexd function errored"
         manifest_entries.append(manifest_item)
     return manifest_entries
 
@@ -245,22 +247,7 @@ def upload_indexd(config: Config, project_id: str, object_id: str = None, duplic
     else:
         _generator = ls(config, project_id=project_id, object_id=object_id)
 
-    # with Pool(processes=worker_count()) as pool:
-    # start = datetime.now()
-    # logger.info(f"{start} Writing {len(_generator)} records to indexd...")
     for manifest_item in tqdm(_generator):
-        # multiprocessing takes too much overhead to start up, so we're not using it
-        # _ = pool.apply(
-        #     func=_write_indexd,
-        #     args=(
-        #         index_client,
-        #         project_id,
-        #         manifest_item,
-        #         bucket_name,
-        #         duplicate_check,
-        #         restricted_project_id
-        #     )
-        # )
         _ = _write_indexd(
             index_client,
             project_id,
@@ -269,7 +256,7 @@ def upload_indexd(config: Config, project_id: str, object_id: str = None, duplic
             duplicate_check,
             restricted_project_id
         )
-        assert _, "Expected a result from _write_indexd"
+        assert _, "_write_indexd function errored"
         manifest_entries.append(manifest_item)
     # end = datetime.now()
     # logger.info(f"{end} Wrote {len(manifest_entries)} records to indexd in {(end - start).total_seconds()} seconds")
@@ -299,7 +286,7 @@ def upload_files(config: Config, manifest_entries: list[dict], project_id: str, 
 
     assert upload_path, "upload_path is missing"
     cmd = f"gen3-client upload-multiple --manifest {manifest_path} --profile {profile} --upload-path {upload_path} --bucket {bucket_name} --numparallel {worker_count()}"
-    print(f"Running: {cmd}", file=sys.stderr)
+    click.secho(f"Running: {cmd}", file=sys.stderr)
     cmd = cmd.split()
     upload_results = subprocess.run(cmd)
     assert upload_results.returncode == 0, upload_results

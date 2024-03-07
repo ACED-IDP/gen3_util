@@ -5,7 +5,7 @@ from gen3_util.repo.cli import cli
 def test_any_command(caplog):
     """Ensure it does not print version if command provided"""
     runner = CliRunner()
-    result = runner.invoke(cli, 'utilities config'.split())
+    result = runner.invoke(cli, 'util config'.split())
     assert result.exit_code == 0
     un_expected_strings = ['Version']
     for expected_string in un_expected_strings:
@@ -27,7 +27,7 @@ def test_help(caplog):
   status     Show the working tree status.
   clone      Clone meta and files from remote.
   pull       Download data files.
-  utilities  Useful utilities.
+  util       Useful utilities.
         """.split()
     for expected_string in expected_strings:
         assert expected_string in result.output, f"Should have printed {expected_string}"
@@ -36,7 +36,7 @@ def test_help(caplog):
 def test_projects(caplog):
     """Ensure it prints project"""
     runner = CliRunner()
-    result = runner.invoke(cli, 'utilities projects --help'.split())
+    result = runner.invoke(cli, 'util projects --help'.split())
     assert result.exit_code == 0
     print(result.output)
     expected_strings = """
@@ -50,7 +50,7 @@ def test_projects(caplog):
 def test_meta(caplog):
     """Ensure it prints meta"""
     runner = CliRunner()
-    result = runner.invoke(cli, 'utilities meta --help'.split())
+    result = runner.invoke(cli, 'util meta --help'.split())
     assert result.exit_code == 0
     print(result.output)
     expected_strings = """
@@ -68,7 +68,7 @@ def test_meta(caplog):
 def test_file(caplog):
     """Ensure it prints file"""
     runner = CliRunner()
-    result = runner.invoke(cli, 'utilities files --help'.split())
+    result = runner.invoke(cli, 'util files --help'.split())
     assert result.exit_code == 0
     print(result.output)
     expected_strings = """
@@ -85,7 +85,7 @@ def test_file(caplog):
 def test_config(caplog):
     """Ensure it prints file"""
     runner = CliRunner()
-    result = runner.invoke(cli, 'utilities config --help'.split())
+    result = runner.invoke(cli, 'util config --help'.split())
     assert result.exit_code == 0, result.output
     print(result.output)
     expected_strings = """

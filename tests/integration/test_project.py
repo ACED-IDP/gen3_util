@@ -6,7 +6,7 @@ from gen3_util.repo.cli import cli
 def test_project_ls(caplog):
     """Ensure we can retrieve project listing."""
     runner = CliRunner()
-    result = runner.invoke(cli, ['utilities', 'projects', 'ls'])
+    result = runner.invoke(cli, ['util', 'projects', 'ls'])
     assert result.exit_code == 0
     expected_strings = ['/programs/']
     for expected_string in expected_strings:

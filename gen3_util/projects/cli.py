@@ -3,7 +3,7 @@ import click
 from gen3_util.access.submitter import ensure_program_project
 from gen3_util.config import Config, ensure_auth
 from gen3_util.projects.lister import ls
-from gen3_util.projects.remover import rm, empty
+from gen3_util.projects.remover import rm, empty_all
 from gen3_util.repo import CLIOutput, ENV_VARIABLE_PREFIX
 from gen3_util.repo import NaturalOrderGroup
 
@@ -25,17 +25,20 @@ def project_ls(config: Config, verbose: bool):
         try:
             auth = ensure_auth(config=config)
             output.update(ls(config, auth=auth, full=verbose))
-        except Exception as e:
+        except (AssertionError, ValueError, Exception) as e:
             output.update({'msg': str(e)})
             output.exit_code = 1
+            if verbose:
+                raise e
 
 
 @project_group.command(name="create")
 @click.option('--all', 'all_projects', default=False, show_default=True, is_flag=True,
               help="Create all projects")
 @click.argument('resource', default=None, required=False)
+@click.option('--verbose', default=False, required=False, is_flag=True, show_default=True, help="Show all output")
 @click.pass_obj
-def project_create(config: Config, all_projects: bool, resource: str):
+def project_create(config: Config, all_projects: bool, resource: str, verbose: bool):
     """Create project(s).
 
     \b
@@ -67,36 +70,43 @@ def project_create(config: Config, all_projects: bool, resource: str):
                 click.secho(f"Creating {policy_id}", fg='yellow')
                 submitter_msgs.append(ensure_program_project(config, policy_id, auth=auth))
 
-        except Exception as e:
+        except (AssertionError, ValueError, Exception) as e:
             output.update({'msg': str(e)})
             output.exit_code = 1
+            if verbose:
+                raise e
 
 
 @project_group.command(name="empty")
 @click.option('--project_id', default=None, show_default=True,
               help="Gen3 program-project", envvar=f"{ENV_VARIABLE_PREFIX}PROJECT_ID")
+@click.option('--verbose', default=False, required=False, is_flag=True, show_default=True, help="Show all output")
 @click.pass_obj
-def project_empty(config: Config, project_id: str):
+def project_empty(config: Config, project_id: str, verbose: bool):
     """Empty all metadata (graph, flat) for a project."""
+    project_id = project_id or config.gen3.project_id
     with CLIOutput(config=config) as output:
         try:
-            _ = empty(config, project_id)
-            _['msg'] = f"Emptied {project_id}"
-            output.update(_)
-        except Exception as e:
+            output = empty_all(config, output, project_id)
+        except (AssertionError, Exception) as e:
             output.update({'msg': str(e)})
             output.exit_code = 1
+            if verbose:
+                raise e
 
 
 @project_group.command(name="rm")
 @click.option('--project_id', default=None, show_default=True,
               help="Gen3 program-project", envvar=f"{ENV_VARIABLE_PREFIX}PROJECT_ID")
+@click.option('--verbose', default=False, required=False, is_flag=True, show_default=True, help="Show all output")
 @click.pass_obj
-def project_rm(config: Config, project_id: str):
+def project_rm(config: Config, project_id: str, verbose: bool):
     """Remove empty project."""
     with CLIOutput(config=config) as output:
         try:
             output.update(rm(config, project_id))
-        except Exception as e:
+        except (AssertionError, ValueError, Exception) as e:
             output.update({'msg': str(e)})
             output.exit_code = 1
+            if verbose:
+                raise e
