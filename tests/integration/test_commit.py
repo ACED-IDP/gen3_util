@@ -57,8 +57,8 @@ def test_init_project(config, program, tmp_path, profile):
 
     metadata_path = pathlib.Path(tmp_path) / 'META'
     metadata_ls = sorted(str(_.relative_to(tmp_path)) for _ in metadata_path.glob('**/*.*'))
-
-    expected_metadata_ls = sorted(['META/.gitignore', 'META/README.md',  'META/DocumentReference.ndjson', 'META/Patient.ndjson', 'META/ResearchStudy.ndjson', 'META/ResearchSubject.ndjson'])
+    expected_metadata_ls = ['META/.gitignore', 'META/DocumentReference.ndjson', 'META/Patient.ndjson',
+                            'META/README.md', 'META/ResearchStudy.ndjson', 'META/ResearchSubject.ndjson']
     assert metadata_ls == expected_metadata_ls, f"expected metadata files not found {metadata_ls}"
 
     result = runner.invoke(cli, f'--format json  --profile {profile} commit -m "test-commit"'.split())
@@ -251,8 +251,8 @@ def test_bundle(config, program, tmp_path):
     study_metadata(config=config, project_id=project_id, output_path=metadata_path,
                    overwrite=False, source='manifest')
     metadata_ls = sorted(str(_.relative_to(tmp_path)) for _ in metadata_path.glob('**/*.*'))
-
-    expected_metadata_ls = sorted(['META/.gitignore', 'META/README.md',  'META/DocumentReference.ndjson', 'META/Patient.ndjson', 'META/ResearchStudy.ndjson', 'META/ResearchSubject.ndjson'])
+    expected_metadata_ls = ['META/.gitignore', 'META/DocumentReference.ndjson', 'META/Patient.ndjson',
+                            'META/README.md', 'META/ResearchStudy.ndjson', 'META/ResearchSubject.ndjson']
     assert metadata_ls == expected_metadata_ls, f"expected metadata files not found {metadata_ls}"
 
     # create a bundle
