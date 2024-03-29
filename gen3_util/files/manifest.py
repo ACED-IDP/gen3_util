@@ -40,7 +40,7 @@ def _get_connection(config: Config, commit_id: str = None):
     return _connection
 
 
-def put(config: Config, file_name: str, project_id: str, md5: str, size: int = None, modified: str = None):
+def put(config: Config, file_name: str, project_id: str, hash: str, hash_type: str = 'md5', size: int = None, modified: str = None):
     """Create manifest entry for a file."""
     object_name = _normalize_file_url(file_name)
 
@@ -52,8 +52,12 @@ def put(config: Config, file_name: str, project_id: str, md5: str, size: int = N
     is_symlink = False
     realpath = None
     if file.is_file():  # could be a url
-        if not md5:
-            md5 = md5sum(file)
+        if hash_type not in ['md5', 'etag']:
+            raise Exception(f"hash_type {hash_type} is not supported")
+        if hash_type == 'etag' and not hash:
+            raise Exception(f"hash_type {hash_type} not provided")
+        if hash_type == 'md5' and not hash:
+            hash = md5sum(file)
         if not size:
             size = file.stat().st_size
         if not modified:
@@ -70,10 +74,11 @@ def put(config: Config, file_name: str, project_id: str, md5: str, size: int = N
         "file_name": object_name,
         "size": size,
         "modified": modified,
-        "md5": md5,
+        hash_type: hash,
         "mime_type": mime,
         "is_symlink": is_symlink,
     }
+
     if realpath:
         _['realpath'] = realpath
 
@@ -187,7 +192,13 @@ def _write_indexd(index_client,
 
 
 def create_hashes_metadata(manifest_item, program, project):
-    hashes = {'md5': manifest_item['md5']}
+    hashes = {}
+    if 'md5' in manifest_item:
+        hashes = {'md5': manifest_item['md5']}
+    elif 'etag' in manifest_item:
+        hashes = {'etag': manifest_item['etag']}
+    else:
+        raise Exception(f"md5 or etag is required for {manifest_item['object_id']}")
     metadata = {
         **{
             'document_reference_id': manifest_item['object_id'],

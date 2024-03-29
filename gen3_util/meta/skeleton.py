@@ -185,8 +185,14 @@ def transform_manifest_to_indexd(_: dict, project_id: str) -> dict:
     _['metadata']['project_id'] = project_id
     _['created_date'] = _['metadata']['modified']
     del _['metadata']['modified']
-    _['hashes'] = {'md5': _['metadata']['md5']}
-    del _['metadata']['md5']
+    if 'etag' in _['metadata']:
+        _['hashes'] = {'etag': _['metadata']['etag']}
+        del _['metadata']['etag']
+    elif 'md5' in _['metadata']:
+        _['hashes'] = {'md5': _['metadata']['md5']}
+        del _['metadata']['md5']
+    else:
+        raise ValueError(f"No supported hash found in {_}")
     _['file_name'] = _['metadata']['file_name']
     del _['metadata']['file_name']
     _['size'] = _['metadata']['size']

@@ -9,7 +9,7 @@ def test_put(test_files_directory, pattern='**/*'):
     for file in input_path.glob(pattern):
         if any([file.is_dir(), file.is_symlink()]):
             continue
-        _ = put(file_name=str(file), project_id=project_id, config=None, md5=None)
+        _ = put(file_name=str(file), project_id=project_id, config=None, hash=None)
         assert _['object_id'], f"object_id is missing for {file}"
         assert _['md5'], f"md5 is missing for {file}"
         assert _['mime_type'], f"mime_type is missing for {file}"
