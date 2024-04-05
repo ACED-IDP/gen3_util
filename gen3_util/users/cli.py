@@ -23,6 +23,8 @@ def users_group(config: Config):
 @click.pass_obj
 def project_add_user(config: Config, username: str, project_id: str, write: bool, delete: bool):
     """Add user to project."""
+    if not project_id:
+        project_id = config.gen3.project_id
     with CLIOutput(config=config) as output:
         output.update(add_user(config, project_id, username, write, delete))
 
