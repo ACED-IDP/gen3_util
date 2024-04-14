@@ -77,7 +77,7 @@ def files_ls(config: Config, object_id: str, project_id: str, specimen: str, pat
 @click.option('--no-bucket', 'no_bucket', default=False, required=False, show_default=True, is_flag=True,
               envvar=f'{ENV_VARIABLE_PREFIX}NO_BUCKET',
               help="Do not upload to bucket, only add to index. (Uses symlink or scp to download).")
-@click.option('--modified', default=None, required=False, show_default=True, type=click.DateTime(),
+@click.option('--modified', default=None, required=False, show_default=True,
               help="Modified datetime of the file, required for non-local files")
 @click.pass_obj
 def manifest_put_cli(config: Config, path: str, project_id: str, md5: str,
@@ -107,6 +107,12 @@ def manifest_put_cli(config: Config, path: str, project_id: str, md5: str,
 
             if not project_id:
                 project_id = config.gen3.project_id
+
+            if modified:
+                try:
+                    modified = datetime.fromisoformat(modified)
+                except ValueError:
+                    modified = click.DateTime()(modified)
 
             _ = manifest_put(config, local_path, project_id=project_id, md5=md5, size=size, modified=modified)
 

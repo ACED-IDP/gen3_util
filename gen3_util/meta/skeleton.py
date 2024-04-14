@@ -30,7 +30,10 @@ def update_document_reference(document_reference, index_record):
     assert 'created_date' in index_record, f"index_record missing created_date: {index_record}"
     document_reference.docStatus = 'final'
     document_reference.status = 'current'
-    document_reference.date = index_record['created_date'] + "Z"
+    if 'T' not in index_record['created_date']:
+        document_reference.date = index_record['created_date'] + "Z"
+    else:
+        document_reference.date = index_record['created_date']
     attachment = Attachment()
     attachment.extension = [
         {
