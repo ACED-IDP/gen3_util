@@ -30,10 +30,13 @@ def update_document_reference(document_reference, index_record):
     assert 'created_date' in index_record, f"index_record missing created_date: {index_record}"
     document_reference.docStatus = 'final'
     document_reference.status = 'current'
-    if 'T' not in index_record['created_date']:
-        document_reference.date = index_record['created_date'] + "Z"
-    else:
-        document_reference.date = index_record['created_date']
+
+    assert 'T' in index_record['created_date'], f"created_date must be in ISO8601 format: {index_record['created_date']}"
+    time_part = index_record['created_date'].split('T')[-1]
+    if not ('-' in time_part or '+' in time_part):
+        index_record['created_date'] = index_record['created_date'] + "Z"
+    document_reference.date = index_record['created_date']
+
     attachment = Attachment()
     attachment.extension = [
         {
