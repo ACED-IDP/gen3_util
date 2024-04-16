@@ -73,15 +73,20 @@ def sign(config: Config, username: str, request_id: str):
             msg = f"Signing {len(unsigned_requests)} requests."
 
             signed_requests = []
+            problem_requests = []
             click.secho("signing requests...", fg='green')
             for request in unsigned_requests:
                 if request_id and request['request_id'] != request_id:
                     continue
-                signed_requests.append(
-                    update(config, request_id=request['request_id'], status='SIGNED', auth=auth).request
-                )
+                try:
+                    signed_requests.append(
+                        update(config, request_id=request['request_id'], status='SIGNED', auth=auth).request
+                    )
+                except Exception as e:
+                    print(f"Error signing request {request}: {e}")
+                    problem_requests.append(request)
 
-            msg = f"Signed {len(unsigned_requests)} requests.  System administrators will create new projects."
+            msg = f"Signed {len(signed_requests)} requests. There were {len(problem_requests)} problems. System administrators will create new projects."
 
             output.update(LogAccess(**{
                 'msg': msg,
