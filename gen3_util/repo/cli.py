@@ -17,7 +17,7 @@ from gen3_util.buckets.cli import bucket_group
 from gen3_util.common import write_meta_index, PROJECT_DIR, to_metadata_dict, Push
 from gen3_util.config import Config, ensure_auth, gen3_client_profiles, init
 from gen3_util.config.cli import config_group
-from gen3_util.files.cli import file_group, manifest_put_cli
+from gen3_util.files.cli import file_group, manifest_put_cli, manifest_restore_cli
 from gen3_util.files.middleware import files_ls_driver
 from gen3_util.jobs.cli import job_group
 from gen3_util.meta.cli import meta_group
@@ -85,9 +85,14 @@ def ping(config: Config):
         msgs = []
         ok = True
         cmd = "gen3-client --version".split()
-        gen3_client_installed = subprocess.run(cmd, capture_output=True)
-        if gen3_client_installed.returncode != 0:
-            msgs.append("gen3-client not installed")
+        try:
+            _ = subprocess.run(cmd, capture_output=True)
+        except (FileNotFoundError, Exception) as e:
+            if FileNotFoundError:
+                msgs.append("g3t dependency gen3-client is not installed.\
+Refer to https://aced-idp.github.io/requirements/gen3-client/ for installation instructions")
+            elif Exception:
+                msgs.append(str(e))
             ok = False
 
         gen_client_ini_file = gen3_util.config.gen_client_ini_path()
@@ -164,6 +169,7 @@ def _check_parameters(config, project_id):
 
 
 cli.add_command(manifest_put_cli)
+cli.add_command(manifest_restore_cli)
 
 
 @cli.command(name='commit')
@@ -427,7 +433,7 @@ def project_empty(config: Config):
             output.exit_code = 1
 
 
-@cli.group(name='utilities', cls=NaturalOrderGroup)
+@cli.group(name='util', cls=NaturalOrderGroup)
 @click.pass_obj
 def utilities_group(config):
     """Useful utilities."""

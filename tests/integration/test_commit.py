@@ -48,7 +48,7 @@ def test_init_project(config, program, tmp_path, profile):
     with open(local_path, 'w') as fp:
         fp.write(''.join(random.choices(string.ascii_letters, k=file_size)))
 
-    result = runner.invoke(cli, f"--format json --profile {profile} add {str(local_path)} --patient P1".split())
+    result = runner.invoke(cli, f"--format json --profile {profile} add .".split())
     assert result.exit_code == 0, result.output
 
     # generate FHIR

@@ -239,6 +239,8 @@ def init(config: Config, project_id: str) -> Generator[str, None, None]:
         pathlib.Path(_).mkdir(exist_ok=True)
 
     if existing_dirs:
+        if ".g3t" in existing_dirs:
+            raise Exception("Cannot init project. Project directory .g3t already exists in the current directory")
         yield f"Directory already exists {existing_dirs}"
     else:
         yield f"Created project directories {PROJECT_DIRECTORIES}"

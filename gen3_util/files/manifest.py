@@ -5,6 +5,7 @@ import sqlite3
 import subprocess
 import sys
 import uuid
+import os
 from datetime import datetime, time
 import multiprocessing
 # from multiprocessing.pool import Pool
@@ -39,12 +40,21 @@ def _get_connection(config: Config, commit_id: str = None):
     return _connection
 
 
+def _get_file_paths(directory):
+    """Returns a list of all file paths in a directory"""
+    excluded_dirs = {"META", ".g3t"}
+    file_paths = [os.path.join(root, file) for root, _, files in os.walk(directory)
+                  if not any(ex_dir in root.split(os.sep) for ex_dir in excluded_dirs)
+                  for file in files if not file.startswith(".")]
+
+    return file_paths
+
+
 def put(config: Config, file_name: str, project_id: str, md5: str):
     """Create manifest entry for a file."""
     object_name = _normalize_file_url(file_name)
     file = pathlib.Path(object_name)
-    assert file.is_file(), f"{file} is not a file"
-
+    assert file.is_file() or file.is_dir(), f"{file} is not a file or directory"
     assert project_id, "project_id is missing"
     assert project_id.count('-') == 1, f"{project_id} should have a single '-' delimiter."
 
@@ -66,20 +76,26 @@ def put(config: Config, file_name: str, project_id: str, md5: str):
     }
 
 
-def save(config: Config, project_id: str, generator, max_retries: int = 3, base_delay=2):
+def save(config: Config, project_id: str, generator, delete: bool, max_retries: int = 3, base_delay=2):
     """Write to local sqlite."""
     for retry_count in range(max_retries):
         try:
             connection = _get_connection(config)
             with connection:
-                connection.executemany('INSERT OR REPLACE into manifest values (?, ?, ?)',
-                                       [(
-                                           _['object_id'],
-                                           project_id,
-                                           orjson.dumps(
-                                               _, default=pydantic_encoder
-                                           ).decode()
-                                         ) for _ in generator])
+                if delete:
+                    connection.executemany('DELETE FROM manifest WHERE object_id = ?',
+                                           [(
+                                            _['object_id'],
+                                            ) for _ in generator])
+                elif not delete:
+                    connection.executemany('INSERT OR REPLACE into manifest values (?, ?, ?)',
+                                           [(
+                                            _['object_id'],
+                                            project_id,
+                                            orjson.dumps(
+                                                _, default=pydantic_encoder
+                                            ).decode()
+                                            ) for _ in generator])
             return
         except sqlite3.OperationalError as e:
             print(f"Error locking database: {e}", file=sys.stderr)

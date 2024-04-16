@@ -109,7 +109,8 @@ def prepare_metadata_zip(config, metadata_path) -> (str, pathlib.Path, list[str]
                     resource_counts[resource['resourceType']] += 1
 
         # there should be at least one resource changed
-        assert len(emitted_resource_md5s) > 0, f"No resources changed in {metadata_path}"
+        assert len(emitted_resource_md5s) > 0, f"Metadata resources in {metadata_path} remain unchanged\
+but additional files have been staged. Add corresponding metadata files or generate skeleton metdata with 'g3t utilities meta create'"
         # aggregate md5 for all resources
         m = md5()
         for _ in emitted_resource_md5s:

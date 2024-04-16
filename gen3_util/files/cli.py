@@ -13,10 +13,11 @@ from gen3_util.common import PROJECT_DIR
 from gen3_util.config import Config
 from gen3_util.files.middleware import files_ls_driver
 from gen3_util.files.manifest import put as manifest_put, save as manifest_save, ls as manifest_ls, upload_indexd, \
-    upload_files, rm as manifest_rm
+    upload_files, rm as manifest_rm, _get_file_paths
 from gen3_util.files.remover import rm
 from gen3_util.meta.publisher import publish_meta_data
 from gen3_util.meta.skeleton import study_metadata
+
 
 
 @click.group(name='files', cls=NaturalOrderGroup)
@@ -54,7 +55,7 @@ def files_ls(config: Config, object_id: str, project_id: str, specimen: str, pat
 
 
 @file_group.command(name="add")
-@click.argument('local_path', type=click.Path(exists=True, dir_okay=False))
+@click.argument('local_path', type=click.Path(exists=True, dir_okay=True))
 # @click.argument('remote_path', required=False, default=None)
 @click.option('--project_id', default=None, required=False, show_default=True,
               help="Gen3 program-project", envvar=f"{ENV_VARIABLE_PREFIX}PROJECT_ID", hidden=True)
@@ -87,14 +88,20 @@ def manifest_put_cli(config: Config, local_path: str, project_id: str, md5: str,
 
             if not project_id:
                 project_id = config.gen3.project_id
-            _ = manifest_put(config, local_path, project_id=project_id, md5=md5)
-            _['observation_id'] = observation
-            _['patient_id'] = patient
-            _['specimen_id'] = specimen
-            _['task_id'] = task
-            _['remote_path'] = None
-            output.update(_)
-            manifest_save(config, project_id, [_])
+
+            dir_files = [local_path]
+            if Path(local_path).is_dir():
+                dir_files = _get_file_paths(local_path)
+
+            for local_path in dir_files:
+                _ = manifest_put(config, local_path, project_id=project_id, md5=md5)
+                _['observation_id'] = observation
+                _['patient_id'] = patient
+                _['specimen_id'] = specimen
+                _['task_id'] = task
+                _['remote_path'] = None
+                output.update(_)
+                manifest_save(config, project_id, [_], delete=False)
         except Exception as e:
             output.exit_code = 1
             output.update({'msg': str(e)})
@@ -113,6 +120,39 @@ def _manifest_ls(config: Config, project_id: str, object_id: str):
     with CLIOutput(config=config) as output:
         _ = manifest_ls(config, project_id=project_id, object_id=object_id)
         output.update(_)
+
+
+@file_group.command(name="restore")
+@click.argument('local_path', type=click.Path(exists=True, dir_okay=True))
+@click.option('--project_id', default=None, required=False, show_default=True,
+              help="Gen3 program-project", envvar=f"{ENV_VARIABLE_PREFIX}PROJECT_ID", hidden=True)
+@click.pass_obj
+def manifest_restore_cli(config: Config, local_path: str, project_id: str):
+    """Remove file from the index.
+    \b
+    local_path: relative path to file or symbolic link on the local file system to be removed
+    """
+    with CLIOutput(config=config) as output:
+        try:
+            assert Path(PROJECT_DIR).exists(), "Please add files from the project root directory."
+            assert Path(local_path).absolute().is_relative_to(Path.cwd().absolute()), \
+                f"{local_path} must be relative to the project root, please move the file or create a symbolic link"
+
+            if not project_id:
+                project_id = config.gen3.project_id
+
+            dir_files = [local_path]
+            if Path(local_path).is_dir():
+                dir_files = _get_file_paths(local_path)
+
+            for local_path in dir_files:
+                _ = manifest_put(config, local_path, project_id=project_id, md5=None)
+                _['remote_path'] = None
+                manifest_save(config, project_id, [_], delete=True)
+
+        except Exception as e:
+            output.exit_code = 1
+            output.update({'msg': str(e)})
 
 
 @file_group.command(name="push")

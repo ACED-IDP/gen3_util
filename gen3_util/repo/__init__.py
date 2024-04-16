@@ -74,12 +74,12 @@ class StdNaturalOrderGroup(click.Group):
 class CommandOutput(object):
     """Output object for commands."""
     def __init__(self):
-        self.obj = None
+        self.obj = []
         self.exit_code = 0
 
     def update(self, obj):
         """Update output with obj."""
-        self.obj = obj
+        self.obj.append(obj)
 
 
 class CLIOutput:
@@ -121,6 +121,11 @@ class CLIOutput:
                 _['msg'] = 'FAIL'
             else:
                 _['msg'] = 'OK'
+        if isinstance(_, list):
+            if rc == 1:
+                _.append({"msg": "FAIL"})
+            else:
+                _.append({"msg": "OK"})
         prune = []
         if isinstance(_, dict):
             for k, v in _.items():
