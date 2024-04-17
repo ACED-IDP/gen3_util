@@ -86,6 +86,10 @@ def manifest_put_cli(config: Config, local_path: str, project_id: str, md5: str,
             assert Path(local_path).absolute().is_relative_to(Path.cwd().absolute()), \
                 f"{local_path} must be relative to the project root, please move the file or create a symbolic link"
 
+            if project_id is not None and config is not None and\
+               config.gen3.project_id != project_id:
+                raise Exception("Environment project id does not match .g3t/config project id")
+
             if not project_id:
                 project_id = config.gen3.project_id
 
