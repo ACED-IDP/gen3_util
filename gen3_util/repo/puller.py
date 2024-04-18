@@ -13,7 +13,7 @@ def pull_files(config, auth, manifest_name, original_path, path, extra_metadata=
     # create a manifest
     manifest = []
     for _ in read_ndjson_file(pathlib.Path('META/DocumentReference.ndjson')):
-        manifest.append({'object_id': _['did']})
+        manifest.append({'object_id': _['id']})
 
     data_path = pathlib.Path(path)
     if len(manifest) > 0:
