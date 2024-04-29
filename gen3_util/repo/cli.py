@@ -340,16 +340,7 @@ def pull_cli(config: Config, meta: bool, specimen: str, patient: str, task: str,
                 md5=md5, observation=observation, patient=patient, specimen=specimen, task=task
             )
 
-            logs = pull_files(
-                config=config,
-                manifest_name=manifest_name,
-                original_path=original_path,
-                path=path,
-                auth=auth,
-                extra_metadata=transform_manifest_to_indexd_keys(metadata_dict),
-                path_filter=path_filter
-            )
-
+            logs = []
             if meta:
                 snapshot_manifest = find_latest_snapshot(auth, config)
                 download_unzip_snapshot_meta(
@@ -360,7 +351,18 @@ def pull_cli(config: Config, meta: bool, specimen: str, patient: str, task: str,
                     original_path=original_path,
                     extract_to=path
                 )
-                output.update(logs)
+
+            logs = pull_files(
+                config=config,
+                manifest_name=manifest_name,
+                original_path=original_path,
+                path=path,
+                auth=auth,
+                extra_metadata=transform_manifest_to_indexd_keys(metadata_dict),
+                path_filter=path_filter
+            )
+
+            output.update({'logs': logs})
 
         except AssertionError as e:
             output.update({'msg': str(e)})
@@ -428,6 +430,7 @@ def project_empty(config: Config, commit_id: str,  all: bool, project_id: str, v
                 output.update(reset_to_commit_id(config, commit_id, project_id))
 
         except (AssertionError, Exception) as e:
+
             output.update({'msg': str(e)})
             output.exit_code = 1
             if verbose:

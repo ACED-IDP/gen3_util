@@ -93,3 +93,14 @@ def test_config(caplog):
     """.split()
     for expected_string in expected_strings:
         assert expected_string in result.output, f"Should have printed {expected_string}"
+
+
+def test_add():
+    """Ensure no-bucket flag is present"""
+    runner = CliRunner()
+    result = runner.invoke(cli, 'add --help'.split())
+    assert result.exit_code == 0, result.output
+    print(result.output)
+    expected_strings = ["no-bucket", "Do not upload to bucket"]
+    for expected_string in expected_strings:
+        assert expected_string in result.output, f"Should have printed {expected_string}"

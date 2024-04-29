@@ -128,7 +128,7 @@ def add_user(config: Config, project_id: str, user_name: str, write: bool, delet
         requests.append(cp(request=policy, config=config).request)
         request_ids.append(requests[-1]['request_id'])
 
-    commands = ["gen3_util utilities access sign"]
+    commands = ["g3t utilities access sign"]
     msg = f"An authorized user must approve these requests to  add {user_name} to {project_id}"
 
     return LogAccess(**{
@@ -155,8 +155,12 @@ def rm_user(config: Config, project_id: str, user_name: str) -> LogAccess:
     request_ids = []
     for policy in policies_:
         policy = format_policy(policy, project_id, user_name)
-        requests.append(cp(request=policy, config=config, revoke=True).request)
-    commands = [f"gen3_util utilities access update {request_id} SIGNED" for request_id in request_ids]
+        try:
+            requests.append(cp(request=policy, config=config, revoke=True).request)
+        except Exception as e:
+            print(e)
+    commands = [f"g3t utilities access update {request_id} SIGNED" for request_id in request_ids]
+
     msg = f"Approve these requests to add {user_name} to {project_id}"
 
     return LogAccess(**{

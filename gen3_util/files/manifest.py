@@ -1,6 +1,7 @@
 import json
 import logging
 import pathlib
+import socket
 import sqlite3
 import subprocess
 import sys
@@ -40,31 +41,44 @@ def _get_connection(config: Config, commit_id: str = None):
     return _connection
 
 
-def put(config: Config, file_name: str, project_id: str, md5: str):
+def put(config: Config, file_name: str, project_id: str, md5: str, size: int = None, modified: str = None):
     """Create manifest entry for a file."""
     object_name = _normalize_file_url(file_name)
+
     file = pathlib.Path(object_name)
-    assert file.is_file(), f"{file} is not a file"
 
     assert project_id, "project_id is missing"
     assert project_id.count('-') == 1, f"{project_id} should have a single '-' delimiter."
 
-    stat = file.stat()
+    is_symlink = False
+    realpath = None
+    if file.is_file():  # could be a url
+        if not md5:
+            md5 = md5sum(file)
+        if not size:
+            size = file.stat().st_size
+        if not modified:
+            modified = datetime.fromtimestamp(file.stat().st_mtime)
+        is_symlink = file.is_symlink()
+        realpath = str(file.resolve())
+
     mime = get_mime_type(file)
 
     object_id = str(uuid.uuid5(ACED_NAMESPACE, project_id + f"::{file}"))
 
-    if not md5:
-        md5 = md5sum(file)
-
-    return {
+    _ = {
         "object_id": object_id,
         "file_name": object_name,
-        "size": stat.st_size,
-        "modified": datetime.fromtimestamp(stat.st_mtime),
+        "size": size,
+        "modified": modified,
         "md5": md5,
         "mime_type": mime,
+        "is_symlink": is_symlink,
     }
+    if realpath:
+        _['realpath'] = realpath
+
+    return _
 
 
 def save(config: Config, project_id: str, generator, max_retries: int = 3, base_delay=2) -> bool:
@@ -143,9 +157,21 @@ def _write_indexd(index_client,
     # strip any file:/// prefix
     manifest_item['file_name'] = urlparse(manifest_item['file_name']).path
 
+    if 'realpath' in manifest_item:
+        metadata['realpath'] = urlparse(manifest_item['realpath']).path
+
     if not existing_record:
         try:
-            file_name = manifest_item['file_name']
+
+            file_name = manifest_item['remote_path'] or manifest_item['file_name']
+            urls = [f"s3://{bucket_name}/{manifest_item['object_id']}/{file_name}"]
+            if manifest_item.get('no_bucket', False):
+                hostname = socket.gethostname()
+                _ = f"{hostname}/{metadata['realpath']}".replace('//', '/')
+                urls = [f"scp://{_}"]
+            if manifest_item.get('url', None):
+                urls = [manifest_item['url']]
+
             response = index_client.create_record(
                 did=manifest_item["object_id"],
                 hashes=hashes,
@@ -153,7 +179,7 @@ def _write_indexd(index_client,
                 authz=authz,
                 file_name=file_name,
                 metadata=metadata,
-                urls=[f"s3://{bucket_name}/{manifest_item['object_id']}/{file_name}"]
+                urls=urls
             )
             assert response, "Expected response from indexd create_record"
         except (requests.exceptions.HTTPError, AssertionError) as e:
@@ -173,6 +199,7 @@ def create_hashes_metadata(manifest_item, program, project):
             'task_identifier': manifest_item.get('task_id', None),
             'observation_identifier': manifest_item.get('observation_id', None),
             'project_id': f'{program}-{project}',
+            'no_bucket': manifest_item.get('no_bucket', False),
         },
         **hashes}
     return hashes, metadata

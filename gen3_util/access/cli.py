@@ -1,3 +1,5 @@
+import sys
+
 import click
 from requests import HTTPError
 
@@ -58,8 +60,9 @@ def access_touch(config: Config,  resource_path: str, user_name: str, roles: str
 
 @access_group.command(name="sign")
 @click.option('--username', required=False, help='Sign all requests for user within a project')
+@click.option('--request_id', required=False, help='Sign only this request')
 @click.pass_obj
-def sign(config: Config, username: str):
+def sign(config: Config, username: str, request_id: str):
     """Sign all policies for a project.
     \b
     """
@@ -78,12 +81,17 @@ def sign(config: Config, username: str):
             signed_requests = []
             click.secho("signing requests...", fg='green')
             for request in unsigned_requests:
-                signed_requests.append(
-                    update(config, request_id=request['request_id'], status='SIGNED', auth=auth).request
-                )
+                if request_id and request['request_id'] != request_id:
+                    continue
+
+                try:
+                    signed_requests.append(
+                        update(config, request_id=request['request_id'], status='SIGNED', auth=auth).request
+                    )
+                except Exception as e:
+                    click.secho(f"Error signing request {request['request_id']}: {e}", fg='red', file=sys.stderr)
 
             msg = f"Signed {len(unsigned_requests)} requests.  System administrators will create new projects."
-
             output.update(LogAccess(**{
                 'msg': msg,
                 'requests': signed_requests,
