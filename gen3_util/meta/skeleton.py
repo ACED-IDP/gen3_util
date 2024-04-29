@@ -1,6 +1,8 @@
 import pathlib
 import sys
+from datetime import datetime
 
+import pytz
 from fhir.resources.attachment import Attachment
 from fhir.resources.documentreference import DocumentReference
 from fhir.resources.fhirtypes import DocumentReferenceContentType
@@ -34,7 +36,9 @@ def update_document_reference(document_reference, index_record):
     assert 'T' in index_record['created_date'], f"created_date must be in ISO8601 format: {index_record['created_date']}"
     time_part = index_record['created_date'].split('T')[-1]
     if not ('-' in time_part or '+' in time_part):
-        index_record['created_date'] = index_record['created_date'] + "Z"
+        _ = datetime.fromisoformat(index_record['created_date'])
+        _ = datetime.astimezone(_, pytz.utc)
+        index_record['created_date'] = _.isoformat()
     document_reference.date = index_record['created_date']
 
     attachment = Attachment()
