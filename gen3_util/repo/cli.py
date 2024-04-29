@@ -332,16 +332,7 @@ def pull_cli(config: Config, meta: bool, specimen: str, patient: str, task: str,
                 md5=md5, observation=observation, patient=patient, specimen=specimen, task=task
             )
 
-            logs = pull_files(
-                config=config,
-                manifest_name=manifest_name,
-                original_path=original_path,
-                path=path,
-                auth=auth,
-                extra_metadata=transform_manifest_to_indexd_keys(metadata_dict),
-                path_filter=path_filter
-            )
-
+            logs = []
             if meta:
                 snapshot_manifest = find_latest_snapshot(auth, config)
                 download_unzip_snapshot_meta(
@@ -352,6 +343,16 @@ def pull_cli(config: Config, meta: bool, specimen: str, patient: str, task: str,
                     original_path=original_path,
                     extract_to=path
                 )
+
+            logs = pull_files(
+                config=config,
+                manifest_name=manifest_name,
+                original_path=original_path,
+                path=path,
+                auth=auth,
+                extra_metadata=transform_manifest_to_indexd_keys(metadata_dict),
+                path_filter=path_filter
+            )
 
             output.update({'logs': logs})
 
