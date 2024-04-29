@@ -92,14 +92,14 @@ def study_metadata(config: Config, project_id: str, output_path: str, overwrite:
         # print(f"Checking remote for existing records for project_id:{project_id}...", file=sys.stderr)
         # nodes = meta_nodes(config, project_id, auth=auth)  # fetches all nodes by default
         nodes = []
-        click.secho(f"Retrieved {len(nodes)} from remote.", file=sys.stderr)
+        click.secho(f"Retrieved {len(nodes)} from remote.", file=sys.stdout)
         len_nodes = len(nodes)
-        click.secho(f"Checking {output_path} and pending commits...", file=sys.stderr)
+        click.secho(f"Checking {output_path} and pending commits...", file=sys.stdout)
         nodes.extend(Push(config=config).pending_meta_index())
         for parse_result in directory_reader(output_path):
             nodes.append({'id': parse_result.resource.id, 'type': parse_result.resource.resource_type})
         len_nodes = len(nodes) - len_nodes
-        click.secho(f"Retrieved {len_nodes} locally.", file=sys.stderr)
+        click.secho(f"Retrieved {len_nodes} locally.", file=sys.stdout)
         existing_resource_ids = set([_['id'] for _ in nodes])
 
     # get file client

@@ -22,7 +22,7 @@ from gen3_util.jobs.cli import job_group
 from gen3_util.meta.cli import meta_group
 from gen3_util.meta.skeleton import transform_manifest_to_indexd_keys
 from gen3_util.projects.cli import project_group
-from gen3_util.projects.remover import rm, empty_all, reset_to_commit_id
+from gen3_util.projects.remover import rm, empty_all
 from gen3_util.repo import StdNaturalOrderGroup, CLIOutput, NaturalOrderGroup, ENV_VARIABLE_PREFIX
 from gen3_util.repo.cloner import clone, download_unzip_snapshot_meta, find_latest_snapshot
 from gen3_util.repo.committer import commit, diff
@@ -255,7 +255,7 @@ def status_cli(config: Config, verbose: bool):
             assert config.gen3.project_id, "Not in an initialed project directory."
             project_id = config.gen3.project_id
             _check_parameters(config, project_id)
-            click.secho("retrieving status...", fg='green', file=sys.stderr)
+            click.secho("retrieving status...", fg='green', file=sys.stdout)
             _status = status(config)
 
             for _commit in _status.get('local', {}).get('pushed_commits', []):
@@ -271,7 +271,7 @@ def status_cli(config: Config, verbose: bool):
 
     if last_job_status:
         fg = 'green' if last_job_status == 'Completed' else 'yellow'
-        click.secho(f"Last job status: {last_job_status}", fg=fg, file=sys.stderr)
+        click.secho(f"Last job status: {last_job_status}", fg=fg, file=sys.stdout)
 
 
 @cli.command(name='clone')
@@ -411,26 +411,20 @@ def project_rm(config: Config, project_id: str, verbose: bool):
 
 
 @cli.command(name="reset")
-@click.argument('commit_id', default=None, required=False)
-@click.option('--all', default=False, show_default=True,
-              help="Remove all commits locally and remotely, on the gen3 servers", required=False, is_flag=True)
 @click.option('--project_id', default=None, show_default=True, required=False,
               help="Gen3 program-project", envvar=f"{ENV_VARIABLE_PREFIX}PROJECT_ID")
 @click.option('--verbose', default=False, required=False, is_flag=True, show_default=True, help="Show all output")
 @click.pass_obj
-def project_empty(config: Config, commit_id: str,  all: bool, project_id: str, verbose: bool):
+def project_empty(config: Config, project_id: str, verbose: bool):
     """Empty all metadata (graph, flat) for a project."""
     with CLIOutput(config=config) as output:
         try:
             project_id = project_id or config.gen3.project_id
-            assert all or (commit_id is not None), "either --all flag or --commit_id option need to be set"
-            if all:
+            confirmation = click.confirm(f"This command deletes all server and local data for {project_id}  Are you sure you wish to proceed?", err=True)
+            if confirmation:
                 output.update(empty_all(config, output, project_id))
-            elif commit_id is not None:
-                output.update(reset_to_commit_id(config, commit_id, project_id))
 
         except (AssertionError, Exception) as e:
-
             output.update({'msg': str(e)})
             output.exit_code = 1
             if verbose:

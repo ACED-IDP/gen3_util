@@ -30,8 +30,8 @@ def get_program_bucket(config: Config, program: str, auth: Gen3Auth = None) -> s
     buckets = get_buckets(config=config, auth=auth)
     bucket_name = None
     for k, v in buckets['S3_BUCKETS'].items():
-        if program in v['programs']:
+        if 'programs' in v and program in v['programs']:
             bucket_name = k
             break
-    # assert bucket_name, f"could not find bucket for {program}"
+
     return bucket_name

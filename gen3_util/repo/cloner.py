@@ -22,7 +22,7 @@ def clone(config: Config, project_id: str, data_type: str = 'all') -> list[str]:
     logs = []
 
     if path.exists():
-        click.echo(f"Directory {path} already exists, proceeding.", file=sys.stderr)
+        click.echo(f"Directory {path} already exists, proceeding.", file=sys.stdout)
 
     path.mkdir(exist_ok=True)
     os.chdir(path)

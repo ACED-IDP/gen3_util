@@ -229,6 +229,7 @@ def upload_commit_to_indexd(config: Config, commit: Commit, overwrite_index: boo
     if len(dids) == 0:
         # print(f"INFO No files to upload for {commit.commit_id}", file=sys.stderr)
         return []
+
     existing_records = index_client.get_records(dids=dids)
     if existing_records:
         existing_records = [_['did'] for _ in existing_records]
@@ -313,7 +314,7 @@ def upload_files(config: Config, manifest_entries: list[dict], project_id: str, 
 
     assert upload_path, "upload_path is missing"
     cmd = f"gen3-client upload-multiple --manifest {manifest_path} --profile {profile} --upload-path {upload_path} --bucket {bucket_name} --numparallel {worker_count()}"
-    click.secho(f"Running: {cmd}", file=sys.stderr)
+    click.secho(f"Running: {cmd}", file=sys.stdout)
     cmd = cmd.split()
     upload_results = subprocess.run(cmd)
     assert upload_results.returncode == 0, upload_results

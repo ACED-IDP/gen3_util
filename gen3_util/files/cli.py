@@ -56,7 +56,6 @@ def files_ls(config: Config, object_id: str, project_id: str, specimen: str, pat
 
 
 @file_group.command(name="add")
-
 @click.argument('path')
 # @click.argument('remote_path', required=False, default=None)
 @click.option('--project_id', default=None, required=False, show_default=True,
@@ -79,9 +78,10 @@ def files_ls(config: Config, object_id: str, project_id: str, specimen: str, pat
               help="Do not upload to bucket, only add to index. (Uses symlink or scp to download).")
 @click.option('--modified', default=None, required=False, show_default=True,
               help="Modified datetime of the file, required for non-local files")
+@click.option('--verbose', default=False, required=False, is_flag=True, show_default=True, help="Show all output")
 @click.pass_obj
 def manifest_put_cli(config: Config, path: str, project_id: str, md5: str,
-                     specimen: str, patient: str, observation: str, task: str, no_bucket: bool, size: int, modified: datetime):
+                     specimen: str, patient: str, observation: str, task: str, no_bucket: bool, size: int, modified: datetime, verbose: bool):
     """Add file to the index.
 
     \b
@@ -166,9 +166,8 @@ def _manifest_upload(config: Config, project_id: str, overwrite: bool, upload_pa
     """
 
     os.chdir(upload_path)
-
     with CLIOutput(config=config) as output:
-        click.echo("Updating file index...", file=sys.stderr)
+        click.echo("Updating file index...", file=sys.stdout)
         try:
             manifest_entries = upload_indexd(
                 config=config,
@@ -188,7 +187,7 @@ def _manifest_upload(config: Config, project_id: str, overwrite: bool, upload_pa
             exit(1)
 
         if meta_data:
-            click.echo("Updating metadata...", file=sys.stderr)
+            click.echo("Updating metadata...", file=sys.stdout)
             meta_data_path = config.state_dir / f"{project_id}-meta_data"
             new_record_count = study_metadata(config=config, overwrite=overwrite, project_id=project_id, source='manifest', output_path=meta_data_path)
             if new_record_count > 0:
@@ -196,7 +195,7 @@ def _manifest_upload(config: Config, project_id: str, overwrite: bool, upload_pa
                 try:
                     _ = json.loads(_['output'])
                     output.update({'job': {'publish_meta_data': _}})
-                    click.echo(f"Meta data update underway, check status with: gen3_util jobs get {_['uid']}", file=sys.stderr)
+                    click.echo(f"Meta data update underway, check status with: gen3_util jobs get {_['uid']}", file=sys.stdout)
                 except JSONDecodeError:
                     click.echo("Error publishing metadata:", _)
 

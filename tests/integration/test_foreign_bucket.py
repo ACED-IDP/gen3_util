@@ -49,14 +49,14 @@ def test_foreign_bucket(tmp_path, program, profile):
         assert pathlib.Path(tmp_path, _).exists(), f"{_} not found in {tmp_path}"
 
     # sign the requests
-    result = runner.invoke(cli, f'--format json --profile {profile} utilities access sign'.split())
+    result = runner.invoke(cli, f'--format json --profile {profile} util access sign'.split())
     _, project = project_id.split('-')
     print(result.output)
     assert result.exit_code == 0
     assert project in result.output, result.output
 
     # create the project
-    result = runner.invoke(cli, f'--format json --profile {profile} utilities projects create /programs/{program}/projects/{project}'.split())
+    result = runner.invoke(cli, f'--format json --profile {profile} util projects create /programs/{program}/projects/{project}'.split())
     _, project = project_id.split('-')
     print(result.output)
     assert result.exit_code == 0
@@ -71,7 +71,7 @@ def test_foreign_bucket(tmp_path, program, profile):
     assert result.exit_code == 0
 
     # create the metadata
-    result = runner.invoke(cli, f'--format json --profile {profile} utilities meta create'.split())
+    result = runner.invoke(cli, f'--format json --profile {profile} util meta create'.split())
     print(result.output)
     assert result.exit_code == 0
 

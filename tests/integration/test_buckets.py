@@ -1,4 +1,3 @@
-
 from click.testing import CliRunner
 from gen3_util.repo.cli import cli
 

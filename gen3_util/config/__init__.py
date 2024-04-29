@@ -123,7 +123,7 @@ def ensure_auth(refresh_file: [pathlib.Path, str] = None, validate: bool = False
             if not profile:
                 # in disconnected mode, or not in project dir
                 if config.no_config_found:
-                    click.secho("INFO: No config file found in current directory or parents.", file=sys.stderr)
+                    click.secho("INFO: No config file found in current directory or parents.", file=sys.stdout)
                 return None
             # https://github.com/uc-cdis/gen3sdk-python/blob/master/gen3/auth.py#L190-L191
             key = _get_gen3_client_key(gen_client_ini_path(), profile=profile)
@@ -131,7 +131,7 @@ def ensure_auth(refresh_file: [pathlib.Path, str] = None, validate: bool = False
             if 'ERROR' in msg:
                 raise ValueError(msg.replace('ERROR', ''))  # remove ERROR prefix
             if 'WARNING' in msg:
-                click.secho(msg, file=sys.stderr)
+                click.secho(msg, file=sys.stdout)
             auth = Gen3Auth(refresh_token={
                 'api_key': key,
             })

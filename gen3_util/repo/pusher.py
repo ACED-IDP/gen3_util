@@ -30,7 +30,7 @@ def push(config: Config,
     for commit in push_.pending_commits():
         click.echo(
             f"Pushing commit:{commit.commit_id} '{commit.message}' to {config.gen3.profile} {config.gen3.project_id}",
-            file=sys.stderr
+            file=sys.stdout
         )
         manifest_entries = upload_commit_to_indexd(
             config=config,
@@ -44,7 +44,7 @@ def push(config: Config,
 
         click.echo(
             f"Indexed {len(manifest_entries)} files",
-            file=sys.stderr
+            file=sys.stdout
         )
         if not upload_path:
             upload_path = pathlib.Path.cwd()
@@ -60,7 +60,7 @@ def push(config: Config,
         assert completed_process.returncode == 0, f"upload_files failed with {completed_process.returncode}"
         click.echo(
             f"Upload {len(manifest_entries)} files",
-            file=sys.stderr
+            file=sys.stdout
         )
         push_.commits.append(commit)
 
@@ -73,7 +73,7 @@ def push(config: Config,
 
     click.echo(
         f"Published {len(push_.commits)} commits",
-        file=sys.stderr
+        file=sys.stdout
     )
 
     completed_path = push_.config.commit_dir() / "completed.ndjson"
@@ -84,14 +84,14 @@ def push(config: Config,
         fp.write("\n")
     click.echo(
         f"Updated {completed_path}",
-        file=sys.stderr
+        file=sys.stdout
     )
 
     pending_path = push_.config.commit_dir() / "pending.ndjson"
     pending_path.unlink(missing_ok=False)
     click.echo(
         f"Cleared {pending_path}",
-        file=sys.stderr
+        file=sys.stdout
     )
 
     if os.path.isfile(push_.config.commit_dir() / "emptied.ndjson"):
@@ -99,7 +99,7 @@ def push(config: Config,
         pending_path.unlink(missing_ok=False)
         click.echo(
             f"Cleared {pending_path}",
-            file=sys.stderr
+            file=sys.stdout
         )
 
     # index the cloned metadata
@@ -131,6 +131,6 @@ def re_push(config: Config):
     click.secho(
         f"Updated {completed_path}",
         fg='yellow',
-        file=sys.stderr
+        file=sys.stdout
     )
     return published_job

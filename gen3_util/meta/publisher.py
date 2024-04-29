@@ -54,7 +54,7 @@ def publish_commits(config: Config, push: Push, wait: bool = True, auth=None) ->
         commit.object_id = upload_result['object_id']
         click.echo(
             upload_result['msg'],
-            file=sys.stderr
+            file=sys.stdout
         )
 
     jobs_client = Gen3Jobs(auth_provider=auth)
