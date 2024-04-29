@@ -3,6 +3,7 @@ import pathlib
 import time
 import uuid
 
+import pytest
 from click.testing import CliRunner
 from gen3_util.repo.cli import cli
 from gen3_util.common import PROJECT_DIRECTORIES
@@ -23,6 +24,7 @@ def teardown_module(module):
     os.chdir(CURRENT_DIR)
 
 
+@pytest.mark.skip("Code for this was commented out see https://github.com/ACED-IDP/gen3_util/blob/ea10a1d9a23296f90616d2fb4f52ff6918c623f5/gen3_util/repo/puller.py#L31-L65")
 def test_no_bucket(tmp_path, program, profile):
     """Test adding file with no bucket."""
 

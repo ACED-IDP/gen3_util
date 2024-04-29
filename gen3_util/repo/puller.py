@@ -1,7 +1,6 @@
 import json
 import pathlib
 import subprocess
-import sys
 
 from gen3_util.common import read_ndjson_file
 from gen3_util.files.manifest import worker_count
@@ -24,7 +23,7 @@ def pull_files(config, auth, manifest_name, original_path, path, extra_metadata=
         # download files using the manifest created above
         cmd = f"gen3-client download-multiple --manifest {manifest_file.absolute()} --profile {config.gen3.profile} --download-path {data_path} --no-prompt  --skip-completed --numparallel {worker_count()}"
         logs.append(cmd)
-        download_results = subprocess.run(cmd.split(), capture_output=False, stdout=sys.stderr)
+        download_results = subprocess.run(cmd.split(), capture_output=False)
         assert download_results.returncode == 0, f"gen3-client download-multiple  failed {download_results}"
     else:
         logs.append(f"No files to download for {config.gen3.project_id}")

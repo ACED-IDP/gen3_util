@@ -75,7 +75,6 @@ def sign(config: Config, username: str, request_id: str):
             msg = f"Signing {len(unsigned_requests)} requests."
 
             signed_requests = []
-            problem_requests = []
             click.secho("signing requests...", fg='green')
             for request in unsigned_requests:
                 if request_id and request['request_id'] != request_id:
