@@ -332,16 +332,7 @@ def pull_cli(config: Config, meta: bool, specimen: str, patient: str, task: str,
                 md5=md5, observation=observation, patient=patient, specimen=specimen, task=task
             )
 
-            logs = pull_files(
-                config=config,
-                manifest_name=manifest_name,
-                original_path=original_path,
-                path=path,
-                auth=auth,
-                extra_metadata=transform_manifest_to_indexd_keys(metadata_dict),
-                path_filter=path_filter
-            )
-
+            logs = []
             if meta:
                 snapshot_manifest = find_latest_snapshot(auth, config)
                 download_unzip_snapshot_meta(
@@ -352,7 +343,18 @@ def pull_cli(config: Config, meta: bool, specimen: str, patient: str, task: str,
                     original_path=original_path,
                     extract_to=path
                 )
-                output.update(logs)
+
+            logs = pull_files(
+                config=config,
+                manifest_name=manifest_name,
+                original_path=original_path,
+                path=path,
+                auth=auth,
+                extra_metadata=transform_manifest_to_indexd_keys(metadata_dict),
+                path_filter=path_filter
+            )
+
+            output.update({'logs': logs})
 
         except AssertionError as e:
             output.update({'msg': str(e)})
@@ -388,39 +390,50 @@ def project_rm(config: Config, project_id: str):
 
 
 @cli.command(name="reset")
+@click.argument('project_id', default=None, required=False, envvar=f"{ENV_VARIABLE_PREFIX}PROJECT_ID")
 @click.pass_obj
-def project_empty(config: Config):
-    """Empty all metadata (graph, flat) for a project."""
+def project_empty(config: Config, project_id: str):
+    """Empty all metadata (graph, flat) for a project.
+
+    \b
+    PROJECT_ID: Gen3 program-project default: current project env:G3T_PROJECT_ID
+    """
     with CLIOutput(config=config) as output:
         try:
-            assert config.gen3.project_id, "Not in an initialized project directory."
-            project_id = config.gen3.project_id
+            in_project = False
+            if not project_id:
+                assert config.gen3.project_id, "Not in an initialized project directory."
+                project_id = config.gen3.project_id
+                in_project = True
+
             _check_parameters(config, project_id)
             _ = empty(config, project_id)
             _['msg'] = f"Emptied {project_id}"
             output.update(_)
 
-            """Delete all previous commits and manifests, but keep the project config file."""
-            delete_all_commits(config.commit_dir())
-            for file in [".g3t/state/manifest.sqlite", ".g3t/state/meta-index.ndjson"]:
-                if os.path.isfile(file):
-                    os.unlink(file)
+            # if we are in a project directory, clean up local commits
+            if in_project:
+                """Delete all previous commits and manifests, but keep the project config file."""
+                delete_all_commits(config.commit_dir())
+                for file in [".g3t/state/manifest.sqlite", ".g3t/state/meta-index.ndjson"]:
+                    if os.path.isfile(file):
+                        os.unlink(file)
 
-            """
-            Create a new push file titled 'emptied.ndjson' that contains
-            the job metadata from the empty function called above.
-            """
-            push_ = Push(config=config)
-            push_.published_job = _
-            completed_path = push_.config.commit_dir() / "emptied.ndjson"
-            push_.published_timestamp = datetime.now()
+                """
+                Create a new push file titled 'emptied.ndjson' that contains
+                the job metadata from the empty function called above.
+                """
+                push_ = Push(config=config)
+                push_.published_job = _
+                completed_path = push_.config.commit_dir() / "emptied.ndjson"
+                push_.published_timestamp = datetime.now()
 
-            with open(completed_path, "w") as fp:
-                fp.write(push_.model_dump_json())
-                fp.write("\n")
-            click.secho(
-                f"Updated {completed_path}",
-                file=sys.stderr, fg='green')
+                with open(completed_path, "w") as fp:
+                    fp.write(push_.model_dump_json())
+                    fp.write("\n")
+                click.secho(
+                    f"Updated {completed_path}",
+                    file=sys.stderr, fg='green')
 
         except Exception as e:
             output.update({'msg': str(e)})

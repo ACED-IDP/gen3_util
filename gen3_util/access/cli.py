@@ -75,6 +75,7 @@ def sign(config: Config, username: str, request_id: str):
             msg = f"Signing {len(unsigned_requests)} requests."
 
             signed_requests = []
+            problem_requests = []
             click.secho("signing requests...", fg='green')
             for request in unsigned_requests:
                 if request_id and request['request_id'] != request_id:
@@ -88,7 +89,6 @@ def sign(config: Config, username: str, request_id: str):
                     click.secho(f"Error signing request {request['request_id']}: {e}", fg='red', file=sys.stderr)
 
             msg = f"Signed {len(unsigned_requests)} requests.  System administrators will create new projects."
-
             output.update(LogAccess(**{
                 'msg': msg,
                 'requests': signed_requests,
