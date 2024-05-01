@@ -241,7 +241,7 @@ def test_bundle(config, program, tmp_path):
     with open(local_path, 'w') as fp:
         fp.write(''.join(random.choices(string.ascii_letters, k=file_size)))
 
-    _ = gen3_util.files.manifest.put(config, str(local_path), project_id=project_id, md5=None)
+    _ = gen3_util.files.manifest.put(config, str(local_path), project_id=project_id, hash=None)
     _['patient_id'] = "P1"
     gen3_util.files.manifest.save(config, project_id, [_])
 
