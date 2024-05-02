@@ -461,7 +461,7 @@ utilities_group.add_command(users_group)
 @click.pass_obj
 def log_cli(config: Config):
     """List metadata files"""
-    files_ls_driver(config, object_id=None, project_id=None, specimen=None, patient=None, observation=None, task=None, is_metadata=True, md5=None, is_snapshot=False, long=False)
+    files_ls_driver(config, object_id=None, project_id=None, specimen=None, patient=None, observation=None, task=None, is_metadata=True, md5=None, etag=None, is_snapshot=False, long=False)
 
 
 if __name__ == '__main__':

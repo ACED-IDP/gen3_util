@@ -8,7 +8,7 @@ from gen3_util.meta.skeleton import transform_manifest_to_indexd_keys
 from gen3_util.files.lister import ls
 
 
-def files_ls_driver(config: Config, object_id: str, project_id: str, specimen: str, patient: str, observation: str, task: str, md5: str, is_metadata: bool, is_snapshot: bool, long: bool):
+def files_ls_driver(config: Config, object_id: str, project_id: str, specimen: str, patient: str, observation: str, task: str, md5: str, etag: str, is_metadata: bool, is_snapshot: bool, long: bool):
     """List uploaded files in a project bucket."""
 
     if not project_id:
@@ -18,12 +18,17 @@ def files_ls_driver(config: Config, object_id: str, project_id: str, specimen: s
             _ = to_metadata_dict(
                 is_metadata=is_metadata,
                 is_snapshot=is_snapshot,
-                md5=md5,
                 observation=observation,
                 patient=patient,
                 project_id=project_id,
                 specimen=specimen,
                 task=task)
+            if md5 is not None:
+                _['md5'] = md5
+            elif etag is not None:
+                _['etag'] = etag
+            else:
+                raise ValueError("Unsupported hash type")
             _ = transform_manifest_to_indexd_keys(_)
             results = ls(config, object_id=object_id, metadata=_)
             if not long:

@@ -48,11 +48,12 @@ def file_group(config):
               help="Meta data",)
 @click.option('--md5', default=None, required=False, show_default=True,
               help="file's md5")
+@click.option('--etag', default=None, required=False, show_default=True, help="file's etag")
 @click.option('-l', '--long', default=False, required=False, show_default=True, is_flag=True,
               help="long format")
-def files_ls(config: Config, object_id: str, project_id: str, specimen: str, patient: str, observation: str, task: str, md5: str, is_metadata: bool, is_snapshot: bool, long: bool):
+def files_ls(config: Config, object_id: str, project_id: str, specimen: str, patient: str, observation: str, task: str, md5: str, etag: str, is_metadata: bool, is_snapshot: bool, long: bool):
     """List uploaded files in a project bucket."""
-    files_ls_driver(config, object_id, project_id, specimen, patient, observation, task, md5, is_metadata, is_snapshot, long)
+    files_ls_driver(config, object_id, project_id, specimen, patient, observation, task, md5, etag, is_metadata, is_snapshot, long)
 
 
 @file_group.command(name="add")
@@ -71,7 +72,9 @@ def files_ls(config: Config, object_id: str, project_id: str, specimen: str, pat
 @click.option('--observation', default=None, required=False, show_default=True,
               help="fhir observation identifier", envvar=f'{ENV_VARIABLE_PREFIX}OBSERVATION')
 @click.option('--md5', default=None, required=False, show_default=True,
-              help="MD5 sum, if not provided, will be calculated before upload, required for non-local files")
+              help="MD5 sum, if not provided, will be calculated before upload unless etag is provided")
+@click.option('--etag', default=None, required=False, show_default=True,
+              help="ETag value, required for non-local files")
 @click.option('--size', default=None, required=False, show_default=True, type=int,
               help="file size in bytes, required for non-local files")
 @click.option('--no-bucket', 'no_bucket', default=False, required=False, show_default=True, is_flag=True,
@@ -80,7 +83,7 @@ def files_ls(config: Config, object_id: str, project_id: str, specimen: str, pat
 @click.option('--modified', default=None, required=False, show_default=True,
               help="Modified datetime of the file, required for non-local files")
 @click.pass_obj
-def manifest_put_cli(config: Config, path: str, project_id: str, md5: str,
+def manifest_put_cli(config: Config, path: str, project_id: str, md5: str, etag: str,
                      specimen: str, patient: str, observation: str, task: str, no_bucket: bool, size: int, modified: datetime):
     """Add file to the index.
 
@@ -103,7 +106,7 @@ def manifest_put_cli(config: Config, path: str, project_id: str, md5: str,
                 assert Path(local_path).absolute().is_relative_to(Path.cwd().absolute()), \
                     f"{local_path} must be relative to the project root, please move the file or create a symbolic link"
             if url:
-                assert all([size, md5, modified]), "size, md5, and modified are required for bucket objects"
+                assert all([any([md5, etag]), modified]), "hash (md5 or etag), and modified are required for bucket objects"
 
             if not project_id:
                 project_id = config.gen3.project_id

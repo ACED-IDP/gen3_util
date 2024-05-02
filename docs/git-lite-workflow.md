@@ -74,8 +74,9 @@ Options:
   --patient TEXT      fhir patient identifier
   --task_id TEXT         fhir task identifier
   --observation_id TEXT  fhir observation identifier
-  --md5 TEXT             MD5 sum, if not provided, will be calculated before
-                         upload
+  --md5 TEXT          MD5 sum, if not provided, will be calculated before
+                      upload unless etag is provided
+  --etag TEXT         ETag value, required for non-local files
 ```
 
 #### Migration of existing project data
@@ -102,9 +103,9 @@ Options:
   --patient TEXT      fhir patient identifier
   --task_id TEXT         fhir task identifier
   --observation_id TEXT  fhir observation identifier
-  --md5 TEXT             MD5 sum, if not provided, will be calculated before
-                         upload
-
+  --md5 TEXT          MD5 sum, if not provided, will be calculated before
+                      upload unless etag is provided
+  --etag TEXT         ETag value, required for non-local files
 ```
 
 ### Create metadata files
