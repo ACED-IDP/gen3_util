@@ -1,0 +1,4 @@
+*.zip
+*.ndjson
+!README.md
+!.gitignore
