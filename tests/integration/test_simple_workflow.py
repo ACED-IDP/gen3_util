@@ -5,8 +5,8 @@ import uuid
 import pytest
 import yaml
 from click.testing import CliRunner
-from g3t.cli import cli
 from g3t.git import DVC
+from tests.integration import run
 
 
 @pytest.fixture
@@ -25,12 +25,11 @@ def test_simple_workflow(runner: CliRunner, tmpdir) -> None:
 
     # create a project
     project = uuid.uuid4().hex.replace('-', '_')
-    print(cli)
-    result = runner.invoke(cli, ["--debug", "init", f"cbds-{project}", "--approve"])
-    print(result.stdout)
-    assert result.exit_code == 0
-    assert pathlib.Path(".g3t").exists()
-    assert pathlib.Path(".git").exists()
+    project_id = f"cbds-{project}"
+    print(project_id)
+
+    run(runner, ["--debug", "init", project_id, "--approve"],
+        expected_files=[".g3t", ".git"])
 
     # create a test file
     test_file = pathlib.Path("my-project-data/hello.txt")
@@ -38,9 +37,7 @@ def test_simple_workflow(runner: CliRunner, tmpdir) -> None:
     test_file.write_text('hello\n')
 
     # add the file
-    result = runner.invoke(cli, ["--debug", "add", str(test_file)])
-    print(result.stdout)
-    assert result.exit_code == 0
+    run(runner, ["--debug", "add", str(test_file)], expected_files=["MANIFEST/my-project-data/hello.txt.dvc"])
 
     # should create a dvc file
     dvc_path = pathlib.Path("MANIFEST/my-project-data/hello.txt.dvc")
@@ -51,15 +48,21 @@ def test_simple_workflow(runner: CliRunner, tmpdir) -> None:
     dvc = DVC.model_validate(yaml_data)
     assert dvc, "DVC file not parsed."
 
-    try:
-        result = runner.invoke(cli, ["--debug", "meta init"])
-        print(result.stdout)
-        assert False, "DEBUG 2"
-        assert result.exit_code == 0
-        document_reference_path = pathlib.Path("META/DocumentReference.ndjson")
-        assert document_reference_path.exists(), f"{document_reference_path} does not exist."
+    run(runner, ["--debug", "meta", "init"])
 
-        assert False, "DEBUG 3"
-    except Exception as e:
-        print(e)
-        raise e
+    run(runner, ["--debug", "commit", "-am", "\"initial commit\""])
+
+    run(runner, ["--debug", "meta", "validate"])
+
+    run(runner, ["--debug", "meta", "graph"], expected_files=["meta.html"])
+
+    # TODO fix meta dataframe when no Patient
+    # result = runner.invoke(cli, ["--debug", "meta", "dataframe"])
+    # print(result.stdout)
+    # assert result.exit_code == 0, 'meta dataframe failed'
+    # meta_csv = pathlib.Path("meta.csv")
+    # assert meta_csv.exists(), f"{meta_csv} does not exist."
+
+    run(runner, ["--debug", "push"])
+
+    run(runner, ["--debug", "ls"], expected_output=["my-project-data/hello.txt"])
