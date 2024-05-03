@@ -13,7 +13,11 @@ $ pip install gen3_tracker
 $ g3t version
 version: 0.0.1
 
-
+```
+#### Optional: install the dtale package for interactive data exploration
+* called from `g3t meta dataframe --dtale`
+```
+pip install g3t[dtale].
 ```
 
 
