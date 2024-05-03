@@ -305,9 +305,13 @@ def create_dataframe(directory_path: str, work_path: str) -> pd.DataFrame:
     db.load_ndjson_from_dir(path=directory_path)
 
     df = pd.DataFrame(db.flattened_document_reference())
-    front_column_names = ["resourceType", "identifier", "patient"]
+    front_column_names = ["resourceType", "identifier"]
+    if "patient" in df.columns:
+        front_column_names = front_column_names + ["patient"]
     remaining_columns = [col for col in df.columns if col not in front_column_names]
-    rear_column_names = ["status", "id", "subject"]
+    rear_column_names = ["status", "id"]
+    if "subject" in df.columns:
+        rear_column_names = rear_column_names + ["subject"]
     remaining_columns = [col for col in remaining_columns if col not in rear_column_names]
 
     reordered_columns = front_column_names + remaining_columns + rear_column_names

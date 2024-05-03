@@ -101,9 +101,9 @@ def render_graph(config: Config, directory_path: str, output_path: str, browser:
 @click.argument("output_path",
                 type=click.Path(file_okay=True),
                 default="meta.csv", required=False)
-@click.option('--dtale', default=False, show_default=True, is_flag=True, help='Open the graph in a browser using the dtale package for interactive data exploration.')
+@click.option('--dtale', 'launch_dtale', default=False, show_default=True, is_flag=True, help='Open the graph in a browser using the dtale package for interactive data exploration.')
 @click.pass_obj
-def render_df(config: Config, directory_path: str, output_path: str, browser: bool):
+def render_df(config: Config, directory_path: str, output_path: str, launch_dtale: bool):
     """Render a metadata dataframe.
 
     \b
@@ -112,11 +112,11 @@ def render_df(config: Config, directory_path: str, output_path: str, browser: bo
     """
     try:
         from g3t.meta.dataframer import create_dataframe
-        from dtale import dtale
         with Halo(text='Creating DataFrame', spinner='line', placement='right', color='white'):
             df = create_dataframe(directory_path, config.work_dir)
 
-        if browser:
+        if launch_dtale:
+            from dtale import dtale
             dtale.show(df, subprocess=False, open_browser=True, port=40000)
         else:
             # export to csv
