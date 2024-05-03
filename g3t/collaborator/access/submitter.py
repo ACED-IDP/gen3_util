@@ -1,6 +1,5 @@
 
 from gen3.auth import Gen3Auth
-from gen3.submission import Gen3Submission
 
 from g3t import Config
 from g3t.config import ensure_auth
@@ -9,6 +8,9 @@ from g3t.config import ensure_auth
 def ensure_program_project(config: Config, project_id: str, auth: Gen3Auth = None) -> str:
     """Ensure program and project exist in sheepdog.
     """
+    # improve startup time by importing only what is needed
+    from gen3.submission import Gen3Submission
+
     if not auth:
         auth = ensure_auth(config=config)
     program, project = project_id.split('-')

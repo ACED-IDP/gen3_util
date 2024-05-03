@@ -14,7 +14,7 @@ from g3t import NaturalOrderGroup, ENV_VARIABLE_PREFIX
 @click.pass_obj
 def project_group(config: Config):
     """Manage Gen3 projects."""
-    assert_config(config)
+    pass
 
 
 @project_group.command(name="ls")

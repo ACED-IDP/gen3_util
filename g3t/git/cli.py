@@ -294,8 +294,8 @@ def push(ctx, step: str, transfer_method: str, overwrite: bool, re_run: bool, wa
                 click.secho("Dry run: not indexing files", fg=INFO_COLOR, file=sys.stderr)
                 yaml.dump(
                     {
-                        'new': [_.dict() for _ in new_dvc_objects],
-                        'updated': [_.dict() for _ in updated_dvc_objects],
+                        'new': [_.model_dump() for _ in new_dvc_objects],
+                        'updated': [_.model_dump() for _ in updated_dvc_objects],
                     },
                     sys.stdout
                 )
@@ -505,7 +505,7 @@ def ls_cli(config: Config, long_flag: bool):
                 if not dvc_object:
                     return None
                 _ = {}
-                for k, v in dvc_object.meta.dict().items():
+                for k, v in dvc_object.meta.model_dump().items():
                     if v:
                         _[k] = v
                 return _

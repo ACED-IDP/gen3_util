@@ -3,8 +3,6 @@ import sys
 import click
 from halo import Halo
 
-import g3t.collaborator.access.requestor
-from g3t.collaborator.access.requestor import add_user, rm_user, update
 from g3t import NaturalOrderGroup, ENV_VARIABLE_PREFIX
 from g3t.common import CLIOutput, assert_config, ERROR_COLOR
 from g3t.config import Config, ensure_auth
@@ -25,6 +23,9 @@ def collaborator(config: Config):
 @click.pass_obj
 def project_add_user(config: Config, username: str, write: bool, approve: bool):
     """Add user to project."""
+    import g3t.collaborator.access.requestor
+    from g3t.collaborator.access.requestor import add_user, update
+
     assert username, "username (email) required"
     project_id = config.gen3.project_id
     program = config.gen3.program
@@ -81,6 +82,8 @@ def project_add_user(config: Config, username: str, write: bool, approve: bool):
 @click.pass_obj
 def project_rm_user(config: Config, username: str, approve: bool):
     """Remove user from project."""
+    from g3t.collaborator.access.requestor import rm_user, update
+
     with CLIOutput(config=config) as output:
         try:
             assert username, "username (email) required"
@@ -112,6 +115,8 @@ def project_rm_user(config: Config, username: str, approve: bool):
 @click.pass_obj
 def project_rm_user(config: Config):
     """List all users in project."""
+    import g3t.collaborator.access.requestor
+
     with CLIOutput(config=config) as output:
         try:
             program = config.gen3.program
@@ -136,6 +141,9 @@ def project_rm_user(config: Config):
 @click.pass_obj
 def project_approve_request(config: Config, request_id: str, all_requests: bool):
     """Sign an existing request (privileged)."""
+    import g3t.collaborator.access.requestor
+    from g3t.collaborator.access.requestor import update
+
     with CLIOutput(config=config) as output:
         try:
             assert request_id or all_requests, "request_id or --all required"

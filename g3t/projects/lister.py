@@ -1,5 +1,4 @@
 from gen3.auth import Gen3Auth
-from gen3.submission import Gen3Submission
 
 from g3t.config import Config, ensure_auth
 from g3t.projects import ProjectSummaries, get_projects, ProjectSummary
@@ -7,6 +6,8 @@ from g3t.projects import ProjectSummaries, get_projects, ProjectSummary
 
 def ls(config: Config, resource_filter: str = None, msgs: list[str] = [], auth: Gen3Auth = None, full: bool = True) -> ProjectSummaries:
     """List projects."""
+    # improve startup time by importing only what is needed
+    from gen3.submission import Gen3Submission
 
     if not auth:
         auth = ensure_auth(config=config)

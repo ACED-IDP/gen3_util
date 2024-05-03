@@ -1,3 +1,4 @@
+
 import click
 import pathlib
 import sys
@@ -77,6 +78,7 @@ def render_graph(config: Config, directory_path: str, output_path: str, browser:
     """
     try:
         from g3t.meta.visualizer import create_network_graph
+        import webbrowser
 
         assert pathlib.Path(directory_path).exists(), f"Directory {directory_path} does not exist."
         with Halo(text='Graphing', spinner='line', placement='right', color='white'):
@@ -99,13 +101,14 @@ def render_graph(config: Config, directory_path: str, output_path: str, browser:
 @click.argument("output_path",
                 type=click.Path(file_okay=True),
                 default="meta.csv", required=False)
-@click.option('--browser', default=False, show_default=True, is_flag=True, help='Open the graph in a browser.')
+@click.option('--dtale', default=False, show_default=True, is_flag=True, help='Open the graph in a browser using the dtale package for interactive data exploration.')
 @click.pass_obj
 def render_df(config: Config, directory_path: str, output_path: str, browser: bool):
-    """Render a dataframe of the metadata.
+    """Render a metadata dataframe.
 
     \b
     directory_path: The directory path to the metadata.
+    output_path: The output path for the dataframe. default [meta.csv]
     """
     try:
         from g3t.meta.dataframer import create_dataframe

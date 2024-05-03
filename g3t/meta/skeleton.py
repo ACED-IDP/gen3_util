@@ -93,7 +93,7 @@ def create_skeleton(dvc: dict, project_id: str) -> list[Resource]:
     """
     Create a skeleton graph for document and ancestors from a set of identifiers.
     """
-    dvc = DVC.parse_obj(dvc)
+    dvc = DVC.model_validate(dvc)
 
     specimen_identifier = dvc.meta.specimen
     patient_identifier = dvc.meta.patient

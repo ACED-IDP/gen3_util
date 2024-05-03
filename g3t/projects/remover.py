@@ -1,7 +1,6 @@
 import asyncio
 
 from gen3.jobs import Gen3Jobs
-from gen3.submission import Gen3Submission
 
 from g3t.config import Config, ensure_auth
 from g3t.projects import ProjectSummaries
@@ -28,6 +27,9 @@ def empty(config: Config, project_id: str, wait: bool = True) -> dict:
 
 def rm(config: Config, project_id: str) -> dict:
     """Remove a project."""
+
+    # improve startup time by importing only what is needed
+    from gen3.submission import Gen3Submission
 
     assert '-' in project_id, f'Invalid project_id: {project_id}'
     program, project = project_id.split('-')

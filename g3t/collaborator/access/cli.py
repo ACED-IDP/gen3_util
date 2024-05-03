@@ -1,7 +1,5 @@
 import click
 
-from g3t.collaborator.access import create_request
-from g3t.collaborator.access.requestor import ls, cat, update, LogAccess
 from g3t.common import validate_email
 from g3t.config import Config, ensure_auth
 from g3t.common import CLIOutput
@@ -29,6 +27,8 @@ def access_touch(config: Config,  resource_path: str, user_name: str, roles: str
     USER_NAME (str): user's email
 
     """
+    from g3t.collaborator.access import create_request
+
     with CLIOutput(config=config) as output:
         try:
 
@@ -61,6 +61,8 @@ def sign(config: Config, username: str, request_id: str):
     \b
     """
     with CLIOutput(config=config) as output:
+        from g3t.collaborator.access.requestor import ls, update, LogAccess
+
         auth = ensure_auth(config=config)
         access = ls(config, mine=False, username=username, active=True, auth=auth)
         unsigned_requests = [_ for _ in access.requests if _['status'] != 'SIGNED']
@@ -101,6 +103,8 @@ def sign(config: Config, username: str, request_id: str):
 @click.pass_obj
 def access_ls(config: Config, mine: bool, active: bool, username: str):
     """List current user's requests."""
+    from g3t.collaborator.access.requestor import ls
+
     with CLIOutput(config=config) as output:
         try:
             msg = 'OK'
@@ -122,5 +126,7 @@ def access_cat(config: Config, request_id: str):
     \b
     request_id (str): uuid of an existing request
     """
+    from g3t.collaborator.access.requestor import cat
+
     with CLIOutput(config=config) as output:
         output.update(cat(config, request_id))

@@ -1,4 +1,3 @@
-from gen3.submission import Gen3Submission
 
 from g3t.collaborator.access.requestor import add_policies
 from g3t.config import ensure_auth
@@ -7,6 +6,9 @@ from g3t.projects.lister import ls as project_ls
 
 def initialize_project_server_side(config, project_id, auth=None):
     """Initialize a project in the current directory."""
+    # improve startup time by importing only what is needed
+    from gen3.submission import Gen3Submission
+
     if auth is None:
         if not config.gen3.profile:
             return ["Disconnected mode, skipping server side initialization"]

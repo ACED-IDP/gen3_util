@@ -4,7 +4,6 @@ import multiprocessing
 import os
 import pathlib
 import subprocess
-import sys
 import time
 import typing
 import uuid
@@ -16,7 +15,6 @@ from typing import NamedTuple
 import pydantic
 import pytz
 import yaml
-from deepdiff import DeepDiff
 from gen3.auth import Gen3Auth
 from pydantic import BaseModel, ConfigDict, field_validator
 
@@ -302,6 +300,9 @@ def data_file_changes(manifest_path, update: bool = False) -> list[ManifestChang
 
 def update_meta(file_path, new_meta):
     # Check if file exists
+    # lazy loading improves startup
+    from deepdiff import DeepDiff
+
     if not os.path.isfile(file_path):
         raise FileNotFoundError(f"{file_path} does not exist.")
 
