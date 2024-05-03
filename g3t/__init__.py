@@ -1,6 +1,6 @@
 import json
-import os
 import pathlib
+import subprocess
 import sys
 import typing
 import uuid
@@ -11,6 +11,7 @@ import click
 import pydantic
 from click import Context, Command
 from pydantic import BaseModel, field_validator
+
 
 ACED_NAMESPACE = uuid.uuid3(uuid.NAMESPACE_DNS, 'aced-idp.org')
 ENV_VARIABLE_PREFIX = 'G3T_'
@@ -153,18 +154,21 @@ class NaturalOrderGroup(click.Group):
             return super().resolve_command(ctx, args)
         except Exception as e:
             if 'No such command' in str(e):
-                # # delegate to git
-                # try:
-                #     result = run_command(f'git {" ".join(args)}', dry_run=False, no_capture=True)
-                #     os._exit(result.return_code)  # noqa
-                # except subprocess.CalledProcessError as e2:
-                #     os._exit(e2.returncode)  # noqa
+                # delegate to git
+                try:
+                    from g3t.git import run_command
+                    result = run_command(f'git {" ".join(args)}', dry_run=False, no_capture=True)
+                    sys.exit(result.return_code)
+                    # os._exit(result.return_code)  # noqa
+                except subprocess.CalledProcessError as e2:
+                    # os._exit(e2.returncode)  # noqa
+                    sys.exit(e2.returncode)
 
-                # suggest git prompt
-                from g3t.common import ERROR_COLOR
-                click.secho(f'Command not found: `g3t {" ".join(args)}`, did you mean: `git {" ".join(args)}` ?',
-                            fg=ERROR_COLOR, file=sys.stderr)
-                os._exit(1)  # noqa
+                # # suggest git prompt
+                # from g3t.common import ERROR_COLOR
+                # click.secho(f'Command not found: `g3t {" ".join(args)}`, did you mean: `git {" ".join(args)}` ?',
+                #             fg=ERROR_COLOR, file=sys.stderr)
+                # os._exit(1)  # noqa
 
             raise e
 
