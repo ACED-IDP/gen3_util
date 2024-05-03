@@ -55,7 +55,7 @@ def put(config: Config, file_name: str, project_id: str, hash: str, hash_type: s
         if hash_type not in ['md5', 'etag']:
             raise Exception(f"hash_type {hash_type} is not supported")
         if hash_type == 'etag' and not hash:
-            raise Exception(f"hash_type {hash_type} not provided")
+            raise Exception(f"etag value not provided")
         if hash_type == 'md5' and not hash:
             hash = md5sum(file)
         if not size:

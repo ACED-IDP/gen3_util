@@ -117,7 +117,11 @@ def manifest_put_cli(config: Config, path: str, project_id: str, md5: str, etag:
                 except ValueError:
                     modified = click.DateTime()(modified)
 
-            _ = manifest_put(config, local_path, project_id=project_id, hash=md5, size=size, modified=modified)
+            _ = {}
+            if etag is not None:
+                _ = manifest_put(config, local_path, project_id=project_id, hash=etag, hash_type='etag', size=size, modified=modified)
+            else:
+                _ = manifest_put(config, local_path, project_id=project_id, hash=md5, size=size, modified=modified)
 
             _['observation_id'] = observation
             _['patient_id'] = patient

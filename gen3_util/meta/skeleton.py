@@ -42,10 +42,16 @@ def update_document_reference(document_reference, index_record):
     document_reference.date = index_record['created_date']
 
     attachment = Attachment()
+    hash_type = ''
+    if 'etag' in index_record['hashes']:
+        hash_type = 'etag'
+    else:
+        hash_type = 'md5'
+
     attachment.extension = [
         {
-            "url": "http://aced-idp.org/fhir/StructureDefinition/md5",
-            "valueString": index_record['hashes']['md5']
+            "url": f"http://aced-idp.org/fhir/StructureDefinition/{hash_type}",
+            "valueString": index_record['hashes'][hash_type]
         },
         {
             "url": "http://aced-idp.org/fhir/StructureDefinition/source_path",
