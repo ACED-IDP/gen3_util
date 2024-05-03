@@ -17,6 +17,9 @@ setup(
     url='https://github.com/ACED-IDP/g3t-git',
     packages=['g3t'],
     install_requires=requirements,
+    extras_require={
+        'dtale': ['dtale'],
+    },
     entry_points={
         'console_scripts': [
             'g3t=g3t.cli:cli',
