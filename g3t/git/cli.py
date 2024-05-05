@@ -25,9 +25,9 @@ from g3t.common import CLIOutput, INFO_COLOR, ERROR_COLOR, is_url
 from g3t.config import init as config_init
 from g3t.config import init as config_init, ensure_auth
 from g3t.git import git_files, to_indexd, to_remote, dvc_data, \
-    data_file_changes, modified_date, git_status, DVC
+    data_file_changes, modified_date, git_status, DVC, MISSING_G3T_MESSAGE
 from g3t.git import run_command, \
-    MISSING_DVC_MESSAGE, git_repository_exists
+    MISSING_GIT_MESSAGE, git_repository_exists
 from g3t.git.cloner import ls
 from g3t.git.initializer import initialize_project_server_side
 from g3t.git.snapshotter import push_snapshot
@@ -70,8 +70,9 @@ def cli():
 # @click.option('--force', '-f', is_flag=True, help='Force the init.')
 @click.argument('project_id', default=None, required=False, envvar=f"{g3t.ENV_VARIABLE_PREFIX}PROJECT_ID")
 @click.option('--approve', '-a', help='Approve the addition (privileged)', is_flag=True, default=False, show_default=True)
+@click.option('--no-server', help='Skip server setup (testing)', is_flag=True, default=False, show_default=True, hidden=True)
 @click.pass_obj
-def init(config: Config, project_id: str, approve: bool):
+def init(config: Config, project_id: str, approve: bool, no_server: bool):
     """Initialize a new repository."""
     try:
         # uncomment if we want to check for a git remote
@@ -111,17 +112,18 @@ def init(config: Config, project_id: str, approve: bool):
         run_command('git add MANIFEST META .gitignore .g3t', dry_run=config.dry_run, no_capture=True)
         run_command('git commit -m "initialized" MANIFEST META .gitignore .g3t', dry_run=config.dry_run, no_capture=True)
 
-        logs.extend(initialize_project_server_side(config, project_id))
+        if not no_server:
+            logs.extend(initialize_project_server_side(config, project_id))
+
+            if approve:
+                run_command('g3t projects create', dry_run=config.dry_run, no_capture=True)
+                run_command('g3t collaborator approve --all', dry_run=config.dry_run, no_capture=True)
+            else:
+                click.secho("To approve the project, a privileged user must run `g3t projects create` and `g3t collaborator approve --all`", fg=INFO_COLOR, file=sys.stderr)
 
         if config.debug:
             for _ in logs:
                 click.secho(_, fg=INFO_COLOR, file=sys.stderr)
-
-        if approve:
-            run_command('g3t projects create', dry_run=config.dry_run, no_capture=True)
-            run_command('g3t collaborator approve --all', dry_run=config.dry_run, no_capture=True)
-        else:
-            click.secho("To approve the project, a privileged user must run `g3t projects create` and `g3t collaborator approve --all`", fg=INFO_COLOR, file=sys.stderr)
 
     except Exception as e:
         click.secho(str(e), fg=ERROR_COLOR, file=sys.stderr)
@@ -152,7 +154,8 @@ def add(ctx, target):
     config: Config = ctx.obj
     try:
         # needs to be in project root
-        assert git_repository_exists(config.debug), MISSING_DVC_MESSAGE
+        assert git_repository_exists(config.debug), MISSING_GIT_MESSAGE
+        assert not config.no_config_found, MISSING_G3T_MESSAGE
 
         # needs to have a target
         assert target, 'No targets specified.'
