@@ -84,7 +84,7 @@ def add_url(ctx, target) -> tuple[list[pathlib.Path], list[str]]:
     _args = ctx.args
     metadata = {'meta': dict(map(lambda i: (_args[i].replace('--', ''), _args[i + 1]), range(len(_args) - 1)[::2]))}
 
-    required_keys = ['size', 'modified', 'hash']
+    required_keys = ['size', 'modified']
     required_keys_msg = []
     for k in required_keys:
         if k not in metadata['meta']:
@@ -105,12 +105,18 @@ def add_url(ctx, target) -> tuple[list[pathlib.Path], list[str]]:
     # convert the datetime object back into an ISO formatted string with timezone
     metadata['meta']['modified'] = date_obj.isoformat()
 
-    hash_type = metadata['meta']['hash']
-    assert hash_type in ACCEPTABLE_HASHES.keys(), f'hash should be one of {", ".join(ACCEPTABLE_HASHES.keys())}'
-    hash_value = metadata['meta'][hash_type]
-    assert hash_value, f'{hash_type} should be provided.'
-    hash_regex = ACCEPTABLE_HASHES[hash_type]
-    assert hash_regex(hash_value), f'{hash_value} is not a valid {hash_type} hash.'
+    for k in ACCEPTABLE_HASHES.keys():
+        if k in metadata['meta']:
+            hash_type = k
+            hash_value = metadata['meta'][k]
+            assert hash_value, f'{hash_type} should be provided.'
+            hash_regex = ACCEPTABLE_HASHES[hash_type]
+            assert hash_regex(hash_value), f'{hash_value} is not a valid {hash_type} hash.'
+            if 'hash' in metadata['meta']:
+                assert metadata['meta']['hash'] == hash_type, f'--hash {hash_type} does not match the provided hash type {metadata["meta"]["hash"]}.'
+            else:
+                metadata['meta']['hash'] = hash_type
+            break
 
     # create reference to the file
     yaml_data = create_dvc_for_url(metadata, target=target)
