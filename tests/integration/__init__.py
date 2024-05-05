@@ -1,5 +1,4 @@
 import pathlib
-
 from click.testing import CliRunner, Result
 
 from g3t.cli import cli

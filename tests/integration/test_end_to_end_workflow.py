@@ -1,8 +1,6 @@
 import os
 import pathlib
-import uuid
 
-import pytest
 import yaml
 from click.testing import CliRunner
 
@@ -11,13 +9,7 @@ from g3t.git import DVC
 from tests.integration import run, validate_document_in_psql_graph, validate_document_in_elastic
 
 
-@pytest.fixture
-def runner() -> CliRunner:
-    """Fixture for creating a CliRunner instance."""
-    return CliRunner()
-
-
-def test_simple_workflow(runner: CliRunner, tmpdir) -> None:
+def test_simple_workflow(runner: CliRunner, project_id, tmpdir) -> None:
     """Test the init command."""
     # change to the temporary directory
     assert tmpdir.chdir()
@@ -25,9 +17,6 @@ def test_simple_workflow(runner: CliRunner, tmpdir) -> None:
 
     assert os.environ.get("G3T_PROFILE"), "G3T_PROFILE environment variable must be set."
 
-    # create a project
-    project = uuid.uuid4().hex.replace('-', '_')
-    project_id = f"cbds-{project}"
     print(project_id)
 
     run(runner, ["--debug", "init", project_id, "--approve"],
