@@ -38,18 +38,19 @@ Options:
   --help                     Show this message and exit.
 
 Commands:
+  init          Initialize a new repository.
+  add           Update references to data files to the repository.
+  status        Show changed files.
+  push          Push changes to the remote repository.
+  pull          Fetch from and integrate with a remote repository.
+  clone         Clone a repository into a new directory
+  ls            List files in the repository.
+  rm            Remove a single file from the server index, and MANIFEST.
   ping          Verify gen3-client and test connectivity.
-  init          Create project, both locally and on remote.
-  add           Add file to the index.
-  commit        Record changes to the project.
-  diff          Show new/changed metadata since last commit.
-  push          Submit committed changes to commons.
-  status        Show the working tree status.
-  clone         Clone meta and files from remote.
-  pull          Download latest meta and data files.
-  update-index  Update the index from the META directory.
-  rm            Remove project.
-  utilities     Useful utilities.
+  meta          Manage the META directory.
+  collaborator  Manage project membership.
+  projects      Manage Gen3 projects.
+
 
 
 ```
