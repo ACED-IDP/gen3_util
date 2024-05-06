@@ -18,10 +18,9 @@ ENV_VARIABLE_PREFIX = 'G3T_'
 
 FILE_TRANSFER_METHODS = {
     'gen3': 'gen3-client to/from local',
-    's3': 's3 to/from local',
-    's3-cp': 's3 cp from external s3',
-    's3-map': 's3 index only external s3',
     'no-bucket': 'indexd only, symlink to/from local',
+    's3': '(admin) s3 to/from local',
+    's3-map': '(admin) s3 index only external s3',
 }
 
 

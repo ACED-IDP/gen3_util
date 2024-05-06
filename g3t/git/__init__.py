@@ -448,7 +448,15 @@ def to_manifest(dvc):
 
 
 def to_s3(dvc):
-    return f"aws s3 cp {dvc.out.path} s3://BUCKET-NAME/{dvc.object_id}/{dvc.out.path}"
+
+    src = dvc.out.path
+    if not pathlib.Path(src).exists():
+        src = dvc.out.realpath
+        if not src or not pathlib.Path(src).exists():
+            src = dvc.out.source_url
+
+    assert src, f"Could not determine source file. {dvc} "
+    return f"aws s3 cp {src} s3://BUCKET-NAME/{dvc.object_id}/{dvc.out.path}"
 
 
 class S3RemoteWriter(LoggingWriter):
@@ -541,8 +549,9 @@ def to_remote(upload_method, dvc_objects, bucket_name, profile, dry_run, work_di
         writer = Gen3ClientRemoteWriter
     elif upload_method == 's3':
         writer = S3RemoteWriter
-    elif upload_method == 's3-cp':
-        writer = S3CpRemoteWriter
+    else:
+        logging.getLogger(__package__).info(f"No upload for {upload_method}")
+        return
 
     with writer(work_dir=work_dir, log_file=f"logs/mock-remote-{upload_method}.log", remote=upload_method) as remote_writer:
         for _ in dvc_objects:

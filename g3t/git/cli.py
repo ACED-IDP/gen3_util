@@ -245,10 +245,9 @@ def push(ctx, step: str, transfer_method: str, overwrite: bool, re_run: bool, wa
         all - all of the above.
     transfer-method: specify the remote storage type:
         gen3 - gen3-client to/from local
-        s3 - s3 to/from local
-        s3-cp - s3 cp from external s3
-        s3-map - s3 index only external s3
         no-bucket - indexd only symlink to/from local
+        s3 - (admin) s3 to/from local
+        s3-map - (admin) s3 index only external s3
     """
     from g3t.gen3.jobs import publish_commits
     from g3t.gen3.buckets import get_program_bucket
@@ -282,8 +281,9 @@ def push(ctx, step: str, transfer_method: str, overwrite: bool, re_run: bool, wa
             dids = {_['did']: _['updated_date'] for _ in records}
             new_dvc_objects = [_ for _ in dvc_objects if _.object_id not in dids]
             updated_dvc_objects = [_ for _ in dvc_objects if _.object_id in dids and _.out.modified > dids[_.object_id]]
-            dvc_objects = new_dvc_objects + updated_dvc_objects
-            assert dvc_objects, f"No new files to index."
+            if not overwrite:
+                dvc_objects = new_dvc_objects + updated_dvc_objects
+                assert dvc_objects, f"No new files to index."
 
         click.secho(f'Scanned new: {len(new_dvc_objects)}, updated: {len(updated_dvc_objects)} files', fg=INFO_COLOR, file=sys.stderr)
         if updated_dvc_objects:
@@ -334,11 +334,13 @@ def push(ctx, step: str, transfer_method: str, overwrite: bool, re_run: bool, wa
             push_snapshot(config, auth=auth)
 
         if step in ['publish', 'all']:
-
-            with Halo(text='Publishing', spinner='line', placement='right', color='white'):
-                _ = publish_commits(config, wait=wait, auth=auth, bucket_name=bucket_name)
-            click.secho(f'Published project', fg=INFO_COLOR, file=sys.stderr)
-            click.secho(_, fg=INFO_COLOR, file=sys.stdout)
+            if transfer_method == 'gen3':
+                with Halo(text='Publishing', spinner='line', placement='right', color='white'):
+                    _ = publish_commits(config, wait=wait, auth=auth, bucket_name=bucket_name)
+                click.secho(f'Published project', fg=INFO_COLOR, file=sys.stderr)
+                click.secho(_, fg=INFO_COLOR, file=sys.stdout)
+            else:
+                click.secho(f'Auto-publishing not supported for {transfer_method}. Please use --step publish after uploading', fg=ERROR_COLOR, file=sys.stderr)
 
     except Exception as e:
         click.secho(str(e), fg=ERROR_COLOR, file=sys.stderr)
@@ -358,7 +360,7 @@ def manifest(project_id) -> tuple[list[str], list[DVC]]:
 
 @cli.command()
 @click.option('--remote',
-              type=click.Choice(['gen3', 's3', 's3-cp']),
+              type=click.Choice(['gen3', 's3']),
               default='gen3',
               show_default=True,
               help='Specify the remote storage type.'
