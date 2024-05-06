@@ -530,3 +530,23 @@ def parse_iso_tz_date(date_str: str) -> str:
         date_obj = date_obj.replace(tzinfo=tzutc())
     # convert the datetime object back into an ISO formatted string with timezone
     return date_obj.isoformat()
+
+
+def filter_dicts(data, pattern):
+    """Filter a list of dictionaries based on a pattern."""
+    pattern = re.compile(pattern)
+
+    if not isinstance(data, list):
+        data = [data]
+
+    def match_pattern(value):
+        if isinstance(value, str):
+            return pattern.search(value) is not None
+        elif isinstance(value, dict):
+            return any(match_pattern(v) for v in value.values())
+        elif isinstance(value, list):
+            return any(match_pattern(v) for v in value)
+        else:
+            return False
+
+    return [d for d in data if any(match_pattern(v) for v in d.values())]

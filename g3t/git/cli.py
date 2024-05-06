@@ -21,7 +21,7 @@ from tqdm import tqdm
 
 import g3t
 from g3t import Config
-from g3t.common import CLIOutput, INFO_COLOR, ERROR_COLOR, is_url
+from g3t.common import CLIOutput, INFO_COLOR, ERROR_COLOR, is_url, filter_dicts
 from g3t.config import init as config_init
 from g3t.config import init as config_init, ensure_auth
 from g3t.git import git_files, to_indexd, to_remote, dvc_data, \
@@ -348,7 +348,7 @@ def push(ctx, step: str, transfer_method: str, overwrite: bool, re_run: bool, wa
 
 
 def manifest(project_id) -> tuple[list[str], list[DVC]]:
-    """Get the committed files and the dvc objects. Initialize dvc objects with this project_id"""
+    """Get the committed files and their dvc objects. Initialize dvc objects with this project_id"""
     committed_files = [_ for _ in git_files() if _.endswith('.dvc')]
     dvc_objects = [_ for _ in dvc_data(committed_files)]
     for _ in dvc_objects:
@@ -490,9 +490,13 @@ def file_name_or_guid(config, object_id) -> (str, pathlib.Path):
 
 @cli.command("ls")
 @click.option('--long', '-l', 'long_flag', default=False, is_flag=True, help='Long listing format.', show_default=True)
+@click.argument('target', default=None, required=False)
 @click.pass_obj
-def ls_cli(config: Config, long_flag: bool):
-    """List files in the repository."""
+def ls_cli(config: Config, long_flag: bool, target: str):
+    """List files in the repository.
+    \b
+    TARGET wild card match of guid, path or hash.
+    """
     try:
         from g3t.git.cloner import find_latest_snapshot, ls
 
@@ -504,13 +508,17 @@ def ls_cli(config: Config, long_flag: bool):
             # list all data files
             dvc_objects = {_.object_id: _ for _ in dvc_objects}
 
-            def _dvc_meta(dvc_object) -> dict:
+            def _dvc_meta(dvc_object, full=False) -> dict:
                 if not dvc_object:
-                    return None
+                    return {}
                 _ = {}
-                for k, v in dvc_object.meta.model_dump().items():
-                    if v:
-                        _[k] = v
+                if not full:
+                    for k, v in dvc_object.meta.model_dump(exclude_none=True).items():
+                        if v:
+                            _[k] = v
+                else:
+                    _ = dvc_object.model_dump(exclude_none=True)
+                _['object_id'] = dvc_object.object_id
                 return _
 
             if not long_flag:
@@ -519,17 +527,44 @@ def ls_cli(config: Config, long_flag: bool):
                         'did': _['did'],
                         'file_name': _['file_name'],
                         'indexd_created_date': _['created_date'],
-                        'meta': _dvc_meta(dvc_objects.get(_['did'], None))
+                        'meta': _dvc_meta(dvc_objects.get(_['did'], None)),
+                        'urls': _['urls']
                      } for _ in indexd_records
                 ]
+
+        bucket_ids = {_['did'] for _ in indexd_records}
+
+        uncommitted = pathlib.Path('MANIFEST').glob('**/*.dvc')
+        uncommitted = [str(_) for _ in uncommitted]
+        uncommitted = [str(_) for _ in uncommitted if _ not in committed_files]
+        uncommitted = [_.model_dump(exclude_none=True) for _ in dvc_data(uncommitted)]
+
+        _ = {
+            'bucket': indexd_records,
+            'committed': [_dvc_meta(v, full=True) for k, v in dvc_objects.items() if k not in bucket_ids],
+            'uncommitted': uncommitted
+        }
+
+        if target:
+            # Escape special characters and replace wildcard '*' with '.*' for regex pattern
+            pattern = re.escape(target).replace("\\*", ".*")
+            filtered = {
+                'bucket': filter_dicts(_.get('bucket', []), pattern),
+                'committed': filter_dicts(_.get('committed', []), pattern),
+                'uncommitted': filter_dicts(_.get('uncommitted', []), pattern)
+            }
+            _ = filtered
+
         if config.output.format == 'json':
-            print(json.dumps(indexd_records, indent=2))
+            print(json.dumps(_, indent=2))
         else:
-            yaml.dump(indexd_records, sys.stdout, default_flow_style=False)
+            yaml.dump(_, sys.stdout, default_flow_style=False)
+
     except Exception as e:
         click.secho(str(e), fg=ERROR_COLOR, file=sys.stderr)
         if config.debug:
             raise
+
 
 @cli.command()
 @click.argument('object_id', metavar='<name>')

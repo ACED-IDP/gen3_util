@@ -276,9 +276,15 @@ def data_file_changes(manifest_path, update: bool = False) -> list[ManifestChang
     changes = []
     for _ in manifest_path.rglob('*.dvc'):
         dvc = to_dvc(_)
+
         if not dvc.out.realpath or dvc.out.source_url:
             continue
+
         data_path = pathlib.Path(dvc.out.realpath)
+
+        if not data_path.is_symlink() and not data_path.exists():
+            continue
+
         if data_path.stat().st_mtime > _.stat().st_mtime:
             if update:
                 with open(_, 'r') as f:
