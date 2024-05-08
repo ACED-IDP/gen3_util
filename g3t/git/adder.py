@@ -224,7 +224,12 @@ def write_dvc_file(target, yaml_data):
         with open(dvc_file) as f:
             existing_yaml_data = yaml.load(f, Loader=yaml.SafeLoader)
             # don't overwrite existing metadata with empty metadata
-            yaml_data['meta'].update(existing_yaml_data['meta'])
+            for k, v in existing_yaml_data['meta'].items():
+                if v is None:
+                    continue
+                if k in yaml_data['meta'] and yaml_data['meta'][k] is not None:
+                    continue
+                yaml_data['meta'][k] = v
     with open(dvc_file, 'w') as yaml_file:
         yaml.dump(yaml_data, yaml_file, default_flow_style=False)
     return dvc_file
