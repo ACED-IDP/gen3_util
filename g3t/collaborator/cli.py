@@ -4,15 +4,19 @@ import click
 from halo import Halo
 
 from g3t import NaturalOrderGroup, ENV_VARIABLE_PREFIX
-from g3t.common import CLIOutput, assert_config, ERROR_COLOR
+from g3t.collaborator.access.requestor import update
+from g3t.common import CLIOutput, assert_config, ERROR_COLOR, validate_email
 from g3t.config import Config, ensure_auth
 
 
 @click.group(name='collaborator', cls=NaturalOrderGroup)
-@click.pass_obj
-def collaborator(config: Config):
+@click.pass_context
+def collaborator(ctx):
     """Manage project membership."""
-    assert_config(config)
+    cmd = ctx.invoked_subcommand
+    if cmd != 'add-steward':
+        config: Config = ctx.obj
+        assert_config(config)
 
 
 @collaborator.command(name="add")
@@ -176,6 +180,63 @@ def project_approve_request(config: Config, request_id: str, all_requests: bool)
 
         except Exception as e:
             click.secho(str(e), fg=ERROR_COLOR, file=sys.stderr)
+            output.exit_code = 1
+            if config.debug:
+                raise e
+
+
+@collaborator.command(name="add-steward")
+@click.argument('user_name')
+@click.option('--resource_path', default=None, required=False, show_default=True,
+              help="Gen3 authz /programs/<program>")
+@click.option('--approve', '-a', help='Approve the addition (privileged)', is_flag=True, default=False, show_default=True)
+@click.pass_obj
+def add_steward(config: Config,  resource_path: str, user_name: str, approve: bool):
+    """Add a steward to a program.
+
+    \b
+    USER_NAME (str): user's email
+
+    """
+    from g3t.collaborator.access import create_request
+
+    with CLIOutput(config=config) as output:
+        try:
+
+            msgs = validate_email(user_name)
+            assert msgs == [], f"Invalid email address: {user_name} {msgs}"
+            assert user_name, "user_name required"
+
+            request = {"username": user_name, "resource_path": resource_path}
+            roles = ['requestor_reader_role', 'requestor_updater_role']
+
+            needs_approval = []
+            approvals = []
+            with Halo(text='Adding', spinner='line', placement='right', color='white'):
+                auth = ensure_auth(config=config)
+
+                user = auth.curl('/user/user').json()
+                is_privileged = False
+                for _ in user['authz']['/programs']:
+                    if _['method'] == 'update' and _['service'] == 'requestor':
+                        is_privileged = True
+                        break
+                assert is_privileged, "You must be a privileged user to add a steward."
+
+                for role in roles:
+                    request.update({"role_ids": [role]})
+                    needs_approval.append(create_request(config=config, request=request))
+
+            if approve:
+                with Halo(text='Approving', spinner='line', placement='right', color='white'):
+                    for request in needs_approval:
+                        approvals.append(update(config, request_id=request['request_id'], status='SIGNED', auth=auth).request)
+                output.update({'approved': [{'policy_id': r['policy_id'], 'request_id': r['request_id'], 'status': r['status'], 'username': r['username']} for r in approvals]})
+            else:
+                output.update({'needs_approval': [{'policy_id': r['policy_id'], 'request_id': r['request_id'], 'status': r['status'], 'username': r['username']} for r in needs_approval]})
+
+        except Exception as e:
+            output.update({'msg': str(e)})
             output.exit_code = 1
             if config.debug:
                 raise e
