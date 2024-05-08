@@ -28,6 +28,7 @@ from g3t.git import git_files, to_indexd, to_remote, dvc_data, \
     data_file_changes, modified_date, git_status, DVC, MISSING_G3T_MESSAGE
 from g3t.git import run_command, \
     MISSING_GIT_MESSAGE, git_repository_exists
+from g3t.git.adder import url_path
 from g3t.git.cloner import ls
 from g3t.git.initializer import initialize_project_server_side
 from g3t.git.snapshotter import push_snapshot
@@ -468,8 +469,11 @@ def file_name_or_guid(config, object_id) -> (str, pathlib.Path):
     guid_pattern = re.compile(r'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$')
     path = None
     if not guid_pattern.match(object_id):
-        print(1)
-        path = pathlib.Path('MANIFEST') / (object_id + ".dvc")
+        if not is_url(object_id):
+            path = pathlib.Path('MANIFEST') / (object_id + ".dvc")
+        else:
+            path = pathlib.Path('MANIFEST') / (url_path(object_id) + ".dvc")
+
         if path.exists():
             dvc_object = next(iter(dvc_data([str(path)])), None)
             assert dvc_object, f"{object_id} is not a valid GUID or DVC file."
@@ -479,9 +483,7 @@ def file_name_or_guid(config, object_id) -> (str, pathlib.Path):
             raise ValueError(
                 f"{object_id} was not found in the MANIFEST and does not appear to be an object identifier (GUID).")
     else:
-        print(2)
         committed_files, dvc_objects = manifest(config.gen3.project_id)
-        print(dvc_objects)
         dvc_objects = [dvc_object for dvc_object in dvc_objects if dvc_object.object_id == object_id]
         assert dvc_objects, f"{object_id} not found in MANIFEST."
         path = pathlib.Path('MANIFEST') / (dvc_objects[0].out.path + ".dvc")

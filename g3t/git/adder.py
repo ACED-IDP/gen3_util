@@ -64,16 +64,7 @@ def add_url(ctx, target) -> tuple[list[pathlib.Path], list[str]]:
     updates = []  # only updates
     all_changed_files = []  # new and updates
 
-    # The path component of the parsed URL starts with a '/', so we remove it with [1:]
-    if not url.startswith('http'):
-        cloud_storage_parts = get_cloud_storage_path(url)
-        path = cloud_storage_parts.path[1:]
-        bucket = cloud_storage_parts.netloc
-    else:
-        path = get_http_cloud_storage_path(url)
-        bucket = get_http_bucket_from_url(url)
-
-    target = f"{bucket}/{path}"
+    target = url_path(url)
 
     if f"MANIFEST/{target}.dvc" in files_already_in_repo:
         click.secho(f'{target} is already in the repository. updating.', fg=INFO_COLOR, file=sys.stderr)
@@ -134,6 +125,20 @@ def add_url(ctx, target) -> tuple[list[pathlib.Path], list[str]]:
 
     all_changed_files = [dvc_file]
     return all_changed_files, updates
+
+
+def url_path(url):
+    """Breaks the URL into components, which can then be used to derive the MANIFEST file path."""
+    # The path component of the parsed URL starts with a '/', so we remove it with [1:]
+    if not url.startswith('http'):
+        cloud_storage_parts = get_cloud_storage_path(url)
+        path = cloud_storage_parts.path[1:]
+        bucket = cloud_storage_parts.netloc
+    else:
+        path = get_http_cloud_storage_path(url)
+        bucket = get_http_bucket_from_url(url)
+    target = f"{bucket}/{path}"
+    return target
 
 
 def add_file(ctx, target) -> tuple[list[pathlib.Path], list[str]]:
