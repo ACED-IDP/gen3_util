@@ -36,7 +36,7 @@ SHOULD_FAIL = [
 
 
 def test_bucket_import(runner: CliRunner, project_id, tmpdir) -> None:
-    """Test the init command."""
+    """Test import from sources other than filesystem."""
     # change to the temporary directory
     assert tmpdir.chdir()
     print(pathlib.Path.cwd())
