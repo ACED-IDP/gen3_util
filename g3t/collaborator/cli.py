@@ -185,14 +185,14 @@ def project_approve_request(config: Config, request_id: str, all_requests: bool)
                 raise e
 
 
-@collaborator.command(name="add-steward")
+@collaborator.command(name="add-steward", hidden=True)
 @click.argument('user_name')
 @click.option('--resource_path', default=None, required=False, show_default=True,
               help="Gen3 authz /programs/<program>")
 @click.option('--approve', '-a', help='Approve the addition (privileged)', is_flag=True, default=False, show_default=True)
 @click.pass_obj
 def add_steward(config: Config,  resource_path: str, user_name: str, approve: bool):
-    """Add a steward to a program.
+    """Add a data steward user with approval rights to a program.
 
     \b
     USER_NAME (str): user's email
