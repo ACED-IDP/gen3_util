@@ -282,9 +282,10 @@ def push(ctx, step: str, transfer_method: str, overwrite: bool, re_run: bool, wa
             dids = {_['did']: _['updated_date'] for _ in records}
             new_dvc_objects = [_ for _ in dvc_objects if _.object_id not in dids]
             updated_dvc_objects = [_ for _ in dvc_objects if _.object_id in dids and _.out.modified > dids[_.object_id]]
-            if not overwrite:
-                dvc_objects = new_dvc_objects + updated_dvc_objects
-                assert dvc_objects, f"No new files to index."
+            if step != 'publish':
+                if not overwrite:
+                    dvc_objects = new_dvc_objects + updated_dvc_objects
+                    assert dvc_objects, f"No new files to index."
 
         click.secho(f'Scanned new: {len(new_dvc_objects)}, updated: {len(updated_dvc_objects)} files', fg=INFO_COLOR, file=sys.stderr)
         if updated_dvc_objects:
