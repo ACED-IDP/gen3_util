@@ -92,3 +92,12 @@ def test_simple_workflow(runner: CliRunner, project_id, tmpdir) -> None:
     # arborist logs:  "Policy `data_upload` does not exist for user `xxx@xxx.xxx`: not revoking. Check if it is assigned through a group."
     # username = auth.curl('/user/user').json()['username']
     # run(runner, ["--debug", "collaborator", "rm", username, "--approve"], expected_output=[username])
+
+    # add a user with write permissions
+    run(runner, ["--debug", "collaborator", "add", "foo@bar.com", "--write", "--approve"])
+
+    # add a user from another directory (without config)
+    os.mkdir("empty")
+    os.chdir("empty")
+    program, project = project_id.split("-")
+    run(runner, ["--debug", "collaborator", "add", "foo2@bar.com", f"/programs/{program}/projects/{project}", "--write", "--approve"])

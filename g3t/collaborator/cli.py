@@ -14,26 +14,36 @@ from g3t.config import Config, ensure_auth
 def collaborator(ctx):
     """Manage project membership."""
     cmd = ctx.invoked_subcommand
-    if cmd not in ['add-steward', 'pending', 'approve']:
+    if cmd not in ['add-steward', 'pending', 'approve', 'add']:
         config: Config = ctx.obj
         assert_config(config)
 
 
 @collaborator.command(name="add")
 @click.argument('username', required=True, type=str)
+@click.argument('resource_path', required=False, type=str)
 @click.option('--write/--no-write', '-w', help='Give user write privileges', is_flag=True, default=False, show_default=True)
 # @click.option('--delete/--no-delete', '-d', help='Give user delete privileges', is_flag=True, default=False, show_default=True)
 @click.option('--approve', '-a', help='Approve the addition (privileged)', is_flag=True, default=False, show_default=True)
 @click.pass_obj
-def project_add_user(config: Config, username: str, write: bool, approve: bool):
+def project_add_user(config: Config, username: str, resource_path: str, write: bool, approve: bool):
     """Add user to project."""
     import g3t.collaborator.access.requestor
     from g3t.collaborator.access.requestor import add_user, update
 
     assert username, "username (email) required"
-    project_id = config.gen3.project_id
-    program = config.gen3.program
-    project = config.gen3.project
+    if resource_path:
+        resource_path = resource_path.split('/')
+        program = resource_path[2]
+        project = resource_path[4]
+        project_id = f"{program}-{project}"
+    else:
+        project_id = config.gen3.project_id
+        program = config.gen3.program
+        project = config.gen3.project
+
+    assert program, "program required"
+    assert project, "project required"
 
     with CLIOutput(config=config) as output:
         try:
@@ -216,9 +226,8 @@ def project_approve_request(config: Config, request_id: str, all_requests: bool)
 
 
 @collaborator.command(name="add-steward", hidden=True)
-@click.argument('user_name')
-@click.option('--resource_path', default=None, required=False, show_default=True,
-              help="Gen3 authz /programs/<program>")
+@click.argument('user_name', required=True)
+@click.argument('resource_path', required=True)
 @click.option('--approve', '-a', help='Approve the addition (privileged)', is_flag=True, default=False, show_default=True)
 @click.pass_obj
 def add_steward(config: Config,  resource_path: str, user_name: str, approve: bool):
@@ -226,7 +235,7 @@ def add_steward(config: Config,  resource_path: str, user_name: str, approve: bo
 
     \b
     USER_NAME (str): user's email
-
+    RESOURCE_PATH (str): Gen3 authz /programs/<program>
     """
     from g3t.collaborator.access import create_request
 
