@@ -84,14 +84,20 @@ class Gen3Config(BaseModel):
 
     @property
     def program(self) -> str:
+        if not self.project_id:
+            return None
         return self.project_id.split('-')[0]
 
     @property
     def project(self) -> str:
+        if not self.project_id:
+            return None
         return self.project_id.split('-')[1]
 
     @property
     def authz(self) -> str:
+        if not self.project_id:
+            return None
         return f'/programs/{self.program}/projects/{self.project}'
 
 
