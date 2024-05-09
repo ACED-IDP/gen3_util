@@ -75,7 +75,7 @@ def project_create(config: Config, all_projects: bool, resource: str):
                 if config.debug:
                     click.secho(f"Creating {policy_id}", fg='yellow')
                 submitter_msgs.append(ensure_program_project(config, policy_id, auth=auth))
-            output.update({'msg': f"OK created {config.gen3.authz}"})
+            output.update({'msg': f"OK created {resource}"})
         except Exception as e:
             click.secho(str(e), fg=ERROR_COLOR, file=sys.stderr)
             output.exit_code = 1
