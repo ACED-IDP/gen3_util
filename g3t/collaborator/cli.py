@@ -14,7 +14,7 @@ from g3t.config import Config, ensure_auth
 def collaborator(ctx):
     """Manage project membership."""
     cmd = ctx.invoked_subcommand
-    if cmd != 'add-steward':
+    if cmd not in ['add-steward', 'pending', 'approve']:
         config: Config = ctx.obj
         assert_config(config)
 
@@ -139,6 +139,34 @@ def project_rm_user(config: Config):
                 raise e
 
 
+@collaborator.command(name="pending")
+@click.pass_obj
+def project_approve_request(config: Config):
+    """Show all pending requests."""
+    import g3t.collaborator.access.requestor
+
+    with CLIOutput(config=config) as output:
+        try:
+            with Halo(text='Searching', spinner='line', placement='right', color='white'):
+                auth = ensure_auth(config=config)
+                existing_requests = g3t.collaborator.access.requestor.ls(config=config, mine=False,
+                                                                         auth=auth).requests
+                needs_approval = []
+                for request in existing_requests:
+                    if request['status'] != 'SIGNED':
+                        needs_approval.append(request)
+
+                output.update(
+                    {'existing': [{'policy_id': r['policy_id'], 'request_id': r['request_id'], 'status': r['status'], 'username': r['username']} for r in needs_approval]}
+                )
+
+        except Exception as e:
+            click.secho(str(e), fg=ERROR_COLOR, file=sys.stderr)
+            output.exit_code = 1
+            if config.debug:
+                raise e
+
+
 @collaborator.command(name="approve")
 @click.option('--request_id', required=False, help='Sign only this request')
 @click.option('--all',  'all_requests', required=False, is_flag=True, help='Sign all requests')
@@ -158,8 +186,10 @@ def project_approve_request(config: Config, request_id: str, all_requests: bool)
                 if all_requests:
                     existing_requests = g3t.collaborator.access.requestor.ls(config=config, mine=False,
                                                                              auth=auth).requests
-                    existing_requests = [r for r in existing_requests if
-                                         r['policy_id'].startswith(f'programs.{program}.projects.{project}')]
+
+                    if program and project:
+                        existing_requests = [r for r in existing_requests if
+                                             r['policy_id'].startswith(f'programs.{program}.projects.{project}')]
                     needs_approval = []
                     for request in existing_requests:
                         if request['status'] != 'SIGNED':
@@ -173,7 +203,7 @@ def project_approve_request(config: Config, request_id: str, all_requests: bool)
                         {'approved': [{'policy_id': r['policy_id'], 'request_id': r['request_id'], 'status': r['status'], 'username': r['username']} for r in approved]}
                     )
                 else:
-                    r = update(config, request_id=request_id, status='SIGNED', auth=auth)
+                    r = update(config, request_id=request_id, status='SIGNED', auth=auth).request
                     output.update(
                         {'approved': [{'policy_id': r['policy_id'], 'request_id': r['request_id'], 'status': r['status'], 'username': r['username']}]}
                     )
