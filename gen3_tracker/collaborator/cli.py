@@ -151,7 +151,7 @@ def project_rm_user(config: Config):
 
 @collaborator.command(name="pending")
 @click.pass_obj
-def project_approve_request(config: Config):
+def project_ls_pending(config: Config):
     """Show all pending requests."""
     import gen3_tracker.collaborator.access.requestor
 
