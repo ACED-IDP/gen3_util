@@ -209,6 +209,7 @@ def commit(ctx, targets, message, all):
 @click.pass_obj
 def status(config):
     """Show changed files."""
+    soft_error = False
     try:
         with Halo(text='Scanning', spinner='line', placement='right', color='white'):
             manifest_path = pathlib.Path('MANIFEST')
@@ -222,13 +223,16 @@ def status(config):
         else:
             # Find the most recently changed file
             latest_file = max(files, key=os.path.getmtime)
-            # Get the modification time
+
             document_reference_mtime = 0
+
             if pathlib.Path('META/DocumentReference.ndjson').exists():
+                # Get the modification time
                 document_reference_mtime = os.path.getmtime('META/DocumentReference.ndjson')
 
             if document_reference_mtime < os.path.getmtime(latest_file):
                 click.secho(f"DocumentReference.ndjson is out of date. The most recently changed file is {latest_file}.  Please run `g3t meta init`", fg=INFO_COLOR, file=sys.stderr)
+                soft_error = True
 
             if changes:
                 click.secho(f"# There are {len(changes)} data files that you need to update via `g3t add`:", fg=INFO_COLOR, file=sys.stderr)
@@ -236,11 +240,14 @@ def status(config):
                 for _ in changes:
                     data_path = str(_.data_path).replace(str(cwd) + '/', "")
                     click.secho(f'  g3t add {data_path} # changed: {modified_date(_.data_path)},  last added: {modified_date(_.dvc_path)}', fg=INFO_COLOR, file=sys.stderr)
+                    soft_error = True
             else:
                 click.secho("No data file changes.", fg=INFO_COLOR, file=sys.stderr)
 
         _ = run_command('git status')
         print(_.stdout)
+        if soft_error:
+            exit(1)
     except Exception as e:
         click.secho(str(e), fg=ERROR_COLOR, file=sys.stderr)
         if config.debug:
@@ -285,11 +292,21 @@ def push(ctx, step: str, transfer_method: str, overwrite: bool, re_run: bool, wa
 
     config = ctx.obj
 
-    if re_run:
-        # step = 'publish'
-        raise NotImplementedError("Re-run not implemented")
-
     try:
+
+        if re_run:
+            # step = 'publish'
+            raise NotImplementedError("Re-run not implemented")
+
+        try:
+            run_command("g3t status")
+        except Exception as e:
+            click.secho("Please correct issues before pushing.", fg=ERROR_COLOR, file=sys.stderr)
+            click.secho(str(e), fg=ERROR_COLOR, file=sys.stderr)
+            if config.debug:
+                raise
+            exit(1)
+
         with Halo(text='Scanning', spinner='line', placement='right', color='white'):
 
             # check git status
