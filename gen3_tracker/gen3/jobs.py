@@ -1,19 +1,16 @@
 import asyncio
+import json
+import logging
 import pathlib
-import sys
-import tempfile
-import urllib
-import uuid
 from datetime import datetime
+import time
 from urllib.parse import urlparse
 from zipfile import ZipFile
 
 from gen3.auth import Gen3Auth
-from gen3.file import Gen3File
-from gen3.index import Gen3Index
 from gen3.jobs import Gen3Jobs
 
-from gen3_tracker import Config, ACED_NAMESPACE
+from gen3_tracker import Config
 from gen3_tracker.common import Push, Commit
 from gen3_tracker.gen3.indexd import write_indexd
 from gen3_tracker.git import calculate_hash, DVC, run_command, DVCMeta, DVCItem, modified_date
@@ -98,7 +95,7 @@ def cp(config: Config,
     return {'msg': f"Uploaded {zipfile_path} to {bucket_name}", "object_id": my_dvc.object_id, "object_name": object_name}
 
 
-def publish_commits(config: Config, wait: bool, auth: Gen3Auth, bucket_name: str) -> dict:
+def publish_commits(config: Config, wait: bool, auth: Gen3Auth, bucket_name: str, spinner=None) -> dict:
     """Publish commits to the portal."""
 
     # TODO legacy fhir-import-export job: copies meta to bucket and triggers job,
@@ -126,10 +123,67 @@ def publish_commits(config: Config, wait: bool, auth: Gen3Auth, bucket_name: str
     push.commits.append(Commit(object_id=object_id, message='From g3t-git', meta_path=upload_result['object_name'], commit_id=object_id))
     args = {'push': push.model_dump(), 'project_id': config.gen3.project_id, 'method': 'put'}
 
+    from cdislogging import get_logger  # noqa
+    cdis_logging = get_logger("__name__")
+    cdis_logging.setLevel(logging.WARN)
+
     if wait:
-        _ = asyncio.run(jobs_client.async_run_job_and_wait('fhir_import_export', args))
-        _ = {'output': _}
+        _ = asyncio.run(jobs_client.async_run_job_and_wait(job_name='fhir_import_export', job_input=args, spinner=spinner))
     else:
         _ = jobs_client.create_job('fhir_import_export', args)
+    if not isinstance(_, dict):
         _ = {'output': _}
+    if isinstance(_['output'], str):
+        try:
+            _['output'] = json.loads(_['output'])
+        except json.JSONDecodeError:
+            pass
     return _
+
+
+# monkey patch for gen3.jobs.Gen3Jobs.async_run_job_and_wait
+# make it less noisy and sleep less (max of 30 seconds)
+async def async_run_job_and_wait(self, job_name, job_input, spinner=None, _ssl=None, **kwargs):
+    """
+    Asynchronous function to create a job, wait for output, and return. Will
+    sleep in a linear delay until the job is done, starting with 1 second.
+
+    Args:
+        _ssl (None, optional): whether or not to use ssl
+        job_name (str): name for the job, can use globals in this file
+        job_input (Dict): dictionary of input for the job
+
+    Returns:
+        Dict: Response from the endpoint
+    """
+    job_create_response = await self.async_create_job(job_name, job_input)
+    status = {"status": "Running", "name": job_name}
+    initial_sleep_time = 3
+    sleep_time = initial_sleep_time
+    max_sleep_time = 30
+    while status.get("status") == "Running":
+        if spinner:
+            spinner.text = f"{status.get('name')} waiting {int(sleep_time)}"
+        else:
+            logging.debug(f"job still running, waiting for {sleep_time} seconds...")
+        time.sleep(sleep_time)
+        sleep_time *= 1.5
+        if sleep_time > max_sleep_time:
+            sleep_time = initial_sleep_time
+        status = await self.async_get_status(job_create_response.get("uid"))
+        if not spinner:
+            logging.info(f"{status}")
+
+    if not spinner:
+        logging.info(f"Job is finished!")
+    else:
+        spinner.text = f"{status.get('name')} {status.get('status')}"
+
+    if status.get("status") != "Completed":
+        raise Exception(f"Job status not complete: {status.get('status')}.")
+
+    response = await self.async_get_output(job_create_response.get("uid"))
+    return response
+
+
+Gen3Jobs.async_run_job_and_wait = async_run_job_and_wait

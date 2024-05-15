@@ -12,6 +12,7 @@ import zipfile
 from datetime import datetime
 
 import click
+import pytz
 import yaml
 from gen3.auth import Gen3AuthError
 from gen3.file import Gen3File
@@ -21,7 +22,7 @@ from tqdm import tqdm
 
 import gen3_tracker
 from gen3_tracker import Config
-from gen3_tracker.common import CLIOutput, INFO_COLOR, ERROR_COLOR, is_url, filter_dicts
+from gen3_tracker.common import CLIOutput, INFO_COLOR, ERROR_COLOR, is_url, filter_dicts, SUCCESS_COLOR
 from gen3_tracker.config import init as config_init
 from gen3_tracker.config import init as config_init, ensure_auth
 from gen3_tracker.git import git_files, to_indexd, to_remote, dvc_data, \
@@ -384,10 +385,14 @@ def push(ctx, step: str, transfer_method: str, overwrite: bool, re_run: bool, wa
 
         if step in ['publish', 'all']:
             if transfer_method == 'gen3':
-                with Halo(text='Publishing', spinner='line', placement='right', color='white'):
-                    _ = publish_commits(config, wait=wait, auth=auth, bucket_name=bucket_name)
-                click.secho(f'Published project', fg=INFO_COLOR, file=sys.stderr)
-                click.secho(_, fg=INFO_COLOR, file=sys.stdout)
+                with Halo(text='Publishing', spinner='line', placement='right', color='white') as spinner:
+                    _ = publish_commits(config, wait=wait, auth=auth, bucket_name=bucket_name, spinner=spinner)
+                click.secho(f'Published project. See logs/publish.log', fg=SUCCESS_COLOR, file=sys.stderr)
+                with open("logs/publish.log", 'a') as f:
+                    log_msg = {'timestamp': datetime.now(pytz.UTC).isoformat()}
+                    log_msg.update(_)
+                    f.write(json.dumps(log_msg, separators=(',', ':')))
+                    f.write('\n')
             else:
                 click.secho(f'Auto-publishing not supported for {transfer_method}. Please use --step publish after uploading', fg=ERROR_COLOR, file=sys.stderr)
 
