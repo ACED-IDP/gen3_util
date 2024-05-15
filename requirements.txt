@@ -13,7 +13,7 @@ nested_lookup
 gen3
 # json web token
 PyJWT==2.8.0
-g3t
+
 pydantic
 requests
 
@@ -22,7 +22,7 @@ pandas
 matplotlib==3.8.4  # see https://github.com/pydata/pandas-datareader/issues/969
 numpy
 pyvis==0.3.2  # see https://github.com/holoviz/holoviz/issues/25
-dtale
+# dtale
 ndjson
 inflection
 python-dateutil
