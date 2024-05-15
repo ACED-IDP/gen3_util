@@ -1,8 +1,8 @@
 import pytest
 from pydantic import ValidationError
 
-from g3t.common import ACCEPTABLE_HASHES
-from g3t.git import DVCItem
+from gen3_tracker.common import ACCEPTABLE_HASHES
+from gen3_tracker.git import DVCItem
 
 VALID_HASHES = {
     'md5': 'acbd18db4cc2f85cedef654fccc4a4d8',

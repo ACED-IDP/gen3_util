@@ -4,8 +4,8 @@ import pathlib
 import yaml
 from click.testing import CliRunner
 
-from g3t.config import ensure_auth, default
-from g3t.git import DVC
+from gen3_tracker.config import ensure_auth, default
+from gen3_tracker.git import DVC
 from tests.integration import run, validate_document_in_psql_graph, validate_document_in_elastic
 
 

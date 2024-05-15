@@ -1,4 +1,4 @@
-from g3t.git import to_dvc, DVCItem
+from gen3_tracker.git import to_dvc, DVCItem
 
 
 def test_read_dvc():

@@ -1,8 +1,8 @@
 import pathlib
 from click.testing import CliRunner, Result
 
-from g3t.cli import cli
-from g3t.config import ensure_auth, default
+from gen3_tracker.cli import cli
+from gen3_tracker.config import ensure_auth, default
 from gen3.submission import Gen3Submission
 from gen3.query import Gen3Query
 
