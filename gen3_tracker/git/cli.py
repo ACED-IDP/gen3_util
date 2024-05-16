@@ -163,7 +163,7 @@ def add(ctx, target):
         - We will automatically calculate the hash, size, modified and mime type of the file
         - You can specify those values with the --<hash>, --size, --modified and --mime options
         - As a convenience, you can use wildcards to add multiple files at once.
-          If wildcards are used, the hash, size, modified and mime type are ignored.
+          If wildcards are used, the hash, size, modified and mime type parameters are ignored.
     \b
     If the TARGET is a url:
         - You must specify the hash, size, modified and mime type
@@ -175,6 +175,15 @@ def add(ctx, target):
     --modified: A variety of date formats are supported, see https://tinyurl.com/ysad3rj7
     \b
     --mime: If not specified, it will be inferred from the file extension.
+    \b
+    Identifiers:
+    In order to link a file with associated Patient, Specimen, Observation or Task, you can use one of the following identifiers:
+    --patient <value>: The patient identifier
+    --specimen <value>: The specimen identifier, requires patient
+    --observation <value>: The observation identifier, requires patient, optionally specimen
+    --task <value>: The task identifier, requires either patient or specimen
+    The <value> is a user defined string that will be used to link the data file with the associated resource.  Do not use PHI in the value.
+    See `g3t meta` for more
     """
     from gen3_tracker.git.adder import add_file, add_url
 
