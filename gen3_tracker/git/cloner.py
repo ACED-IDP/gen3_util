@@ -41,6 +41,13 @@ def ls(config, object_id: str = None, metadata: dict = {}, auth=None):
 
 
 def find_latest_snapshot(auth, config):
+    """
+    Find the latest snapshot for a project.
+    Looks for a hierarchy of files in the indexd database and returns the latest one found. The hierarchy is:
+        * the latest git snapshot
+        * the latest SNAPSHOT.zip created by the fhir-import-export job on output
+        * the latest meta.zip created by the fhir-import-export client on input
+    """
     results = ls(config=config, metadata={'project_id': config.gen3.project_id}, auth=auth)
     records = 'records' in results and results['records'] or []
     file_names = [_['file_name'] for _ in records]
@@ -48,7 +55,6 @@ def find_latest_snapshot(auth, config):
     git_records = sorted(git_records, key=lambda d: d['file_name'])
     download_meta = None
     if len(git_records) > 0:
-        # print(f"Found {len(records)} metadata records {[_['file_name'] for _ in records]}", file=sys.stderr)
         # most recent metadata, file_name has a timestamp
         download_meta = git_records[-1]
     else:
@@ -56,7 +62,14 @@ def find_latest_snapshot(auth, config):
         logger.info(f"No git snapshot found for {config.gen3.project_id}")
         snapshot_records = [r for r in records if 'SNAPSHOT.zip' in r['file_name']]
         snapshot_records = sorted(snapshot_records, key=lambda d: d['file_name'])
-        download_meta = snapshot_records[-1]
+        if len(snapshot_records) > 0:
+            download_meta = snapshot_records[-1]
+        else:
+            logger.info(f"No SNAPSHOT found for {config.gen3.project_id}")
+            meta_records = [r for r in records if 'meta.zip' in r['file_name']]
+            meta_records = sorted(meta_records, key=lambda d: d['file_name'])
+            if len(meta_records) > 0:
+                download_meta = meta_records[-1]
 
-    assert download_meta, f"No snapshot found for {config.gen3.project_id}, file_names: {file_names}"
+    assert download_meta, f"No git, snapshot or meta files found for {config.gen3.project_id}, file_names: {file_names}"
     return download_meta

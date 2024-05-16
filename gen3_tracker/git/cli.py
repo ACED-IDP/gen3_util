@@ -132,6 +132,7 @@ def ensure_git_repo(config):
     pathlib.Path('LOGS').mkdir(exist_ok=True)
     with open('.gitignore', 'w') as f:
         f.write('LOGS/\n')
+        f.write('.g3t/state/\n')  # legacy
     with open('META/README.md', 'w') as f:
         f.write('This directory contains metadata files for the data files in the MANIFEST directory.\n')
     with open('MANIFEST/README.md', 'w') as f:
@@ -507,15 +508,17 @@ def clone(config, project_id):
             expected_dirs = ['.git', 'META', 'MANIFEST']
             if not all([pathlib.Path(_).exists() for _ in expected_dirs]):
                 # if not, we have downloaded a legacy SNAPSHOT.zip, so lets migrate the data to the expected drirectories
-                click.secho(f"{expected_dirs} not found after downloading {snapshot['file_name']}")
-                # legacy
-                studies = (pathlib.Path('studies') / config.gen3.project)
-                assert studies.exists(), f"{studies} does not exist"
+                click.secho(f"{expected_dirs} not found after downloading {snapshot['file_name']} processing legacy snapshot", fg=INFO_COLOR, file=sys.stderr)
+                # legacy - was this a *SNAPSHOT.zip?
+                meta_files = (pathlib.Path('studies') / config.gen3.project)
+                # legacy - was this a *meta.zip?
+                if not meta_files.exists():
+                    meta_files = pathlib.Path('.')
                 # create local directories and git
                 [_ for _ in config_init(config, project_id)]
                 ensure_git_repo(config=config)
                 # move ndjson from studies to META
-                for _ in studies.glob('*.*'):
+                for _ in meta_files.glob('*.ndjson'):
                     shutil.move(_, 'META/')
                 # add to git
                 run_command('git add META/*.*')
