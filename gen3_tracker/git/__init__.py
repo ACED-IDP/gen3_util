@@ -35,6 +35,8 @@ MISSING_G3T_MESSAGE = '.g3t is not initialized in the current directory.'
 STATUS_MESSAGE = 'Showing changed stages...'
 DIFF_MESSAGE = 'Showing details of changed files...'
 
+LOGGED_ALREADY = set()
+
 
 # process helpers ---------------------------------------------------------------
 class CommandResult(NamedTuple):
@@ -190,7 +192,10 @@ class DVC(BaseModel):
                     assert isinstance(meta, DVCMeta), f"Did not get expected meta {meta}"
                     dvc_object.meta = meta
             else:
-                print(f"Did not find {document_reference.subject.reference} in references")
+                msg = f"Did not find {document_reference.subject.reference} in references"
+                if msg not in LOGGED_ALREADY:
+                    logging.getLogger(__package__).warning(msg)
+                    LOGGED_ALREADY.add(msg)
         assert attachment.url.replace('file:///', '') == dvc_object.out.path, f"attachment and dvc path doesn't match"
         assert document_reference.id == dvc_object.object_id, f"Did not get expected ID {config.gen3.project_id} {attachment.url}/{document_reference.id} {dvc_object.out.path}/{dvc_object.object_id}"
         return dvc_object

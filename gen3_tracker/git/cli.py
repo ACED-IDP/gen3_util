@@ -492,6 +492,9 @@ def clone(config, project_id):
     """Clone a repository into a new directory"""
     try:
         config.gen3.project_id = project_id
+        assert not pathlib.Path(project_id).exists(), f"{project_id} already exists.  Please remove it first."
+        os.mkdir(project_id)
+        os.chdir(project_id)
         with Halo(text='Cloning', spinner='line', placement='right', color='white'):
             auth = gen3_tracker.config.ensure_auth(config=config)
             snapshot, zip_filepath = download_snapshot(auth, config)
