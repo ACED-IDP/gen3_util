@@ -1,4 +1,5 @@
 import json
+import logging
 
 
 def ls(config, object_id: str = None, metadata: dict = {}, auth=None):
@@ -7,19 +8,6 @@ def ls(config, object_id: str = None, metadata: dict = {}, auth=None):
     config: Config = config
     from gen3.index import Gen3Index
     index_client = Gen3Index(auth_provider=auth)
-
-    negate_params = {'metadata': {}}
-    if metadata.get('is_metadata', False):
-        metadata['is_metadata'] = 'true'
-    # else:
-    #     negate_params['metadata']['is_metadata'] = 'true'
-
-    if metadata.get('is_snapshot', False):
-        metadata['is_snapshot'] = 'true'
-
-    if 'is_snapshot' not in metadata and 'is_metadata' not in metadata:
-        negate_params['metadata']['is_snapshot'] = 'true'
-        negate_params['metadata']['is_metadata'] = 'true'
 
     if object_id:
         if ',' in object_id:
@@ -36,9 +24,6 @@ def ls(config, object_id: str = None, metadata: dict = {}, auth=None):
         params = {'authz': f"/programs/{program}/projects/{project}"}
         metadata.pop('project_id')
     params['metadata'] = metadata
-
-    if len(negate_params['metadata']):
-        params['negate_params'] = json.dumps(negate_params)
 
     records = index_client.client.list_with_params(params=params)
 
@@ -59,10 +44,19 @@ def find_latest_snapshot(auth, config):
     results = ls(config=config, metadata={'project_id': config.gen3.project_id}, auth=auth)
     records = 'records' in results and results['records'] or []
     file_names = [_['file_name'] for _ in records]
-    records = [r for r in records if 'git' in r['file_name']]
-    records = sorted(records, key=lambda d: d['file_name'])
-    assert len(records) > 0, f"No snapshot found for {config.gen3.project_id}, file_names: {file_names}"
-    # print(f"Found {len(records)} metadata records {[_['file_name'] for _ in records]}", file=sys.stderr)
-    # most recent metadata, file_name has a timestamp
-    download_meta = records[-1]
+    git_records = [r for r in records if 'git' in r['file_name']]
+    git_records = sorted(git_records, key=lambda d: d['file_name'])
+    download_meta = None
+    if len(git_records) > 0:
+        # print(f"Found {len(records)} metadata records {[_['file_name'] for _ in records]}", file=sys.stderr)
+        # most recent metadata, file_name has a timestamp
+        download_meta = git_records[-1]
+    else:
+        logger = logging.getLogger(__name__)
+        logger.info(f"No git snapshot found for {config.gen3.project_id}")
+        snapshot_records = [r for r in records if 'SNAPSHOT.zip' in r['file_name']]
+        snapshot_records = sorted(snapshot_records, key=lambda d: d['file_name'])
+        download_meta = snapshot_records[-1]
+
+    assert download_meta, f"No snapshot found for {config.gen3.project_id}, file_names: {file_names}"
     return download_meta

@@ -44,6 +44,9 @@ def meta_index():
                 if resource_type == 'Bundle':
                     continue
                 official_identifier = next((identifier.get('value') for identifier in record.get('identifier', []) if identifier.get('use') == 'official'), None)
+                if not official_identifier and record.get('identifier'):
+                    official_identifier = record['identifier'][0]['value']
+
                 if _id and official_identifier:
                     id_dict[f"{resource_type}/{_id}"] = official_identifier
 

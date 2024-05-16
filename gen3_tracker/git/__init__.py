@@ -3,6 +3,7 @@ import logging
 import multiprocessing
 import os
 import pathlib
+import re
 import subprocess
 import time
 import typing
@@ -15,6 +16,7 @@ from typing import NamedTuple
 import pydantic
 import pytz
 import yaml
+from fhir.resources.attachment import Attachment
 from gen3.auth import Gen3Auth
 from pydantic import BaseModel, ConfigDict, field_validator
 
@@ -70,7 +72,7 @@ class DVCItem(BaseModel):
     source_url: typing.Optional[str] = None
     """bucket imports, the url to the file."""
 
-    _object_id: typing.Optional[str] = None
+    object_id: typing.Optional[str] = None
 
     @pydantic.model_validator(mode="after")
     def check_hash_value(self):
@@ -89,12 +91,16 @@ class DVCItem(BaseModel):
 
     def set_object_id(self, project_id: str) -> str:
         """ create a unique did for this object within a project"""
-        self._object_id = str(uuid.uuid5(ACED_NAMESPACE, project_id + f"::{self.path}"))
-        return self._object_id
+        assert self.path, 'path is required'
 
-    @property
-    def object_id(self):
-        return self._object_id
+        def _normalize_file_url(path: str) -> str:
+            """Strip leading ./ and file:/// from file urls."""
+            path = re.sub(r'^file:\/\/\/', '', path)
+            path = re.sub(r'^\.\/', '', path)
+            return path
+
+        self.object_id = str(uuid.uuid5(ACED_NAMESPACE, project_id + f"::{_normalize_file_url(self.path)}"))
+        return self.object_id
 
 
 class DVCMeta(BaseModel):
@@ -113,7 +119,7 @@ class DVC(BaseModel):
     model_config = ConfigDict(
         extra='allow',
     )
-    meta: typing.Optional[DVCMeta] = {}
+    meta: typing.Optional[DVCMeta] = None
     outs: list[DVCItem]
     project_id: typing.Optional[str] = None
 
@@ -123,13 +129,71 @@ class DVC(BaseModel):
             raise ValueError('outs must contain at least one item')
         return v
 
+    @pydantic.model_validator(mode="after")
+    def check_object_id(self):
+        """Set the object_id if empty."""
+        if not self.object_id and self.project_id:
+            self.outs[0].set_object_id(self.project_id)
+        return self
+
     @property
     def out(self) -> DVCItem:
+        """Convenience method to get the first out."""
         return self.outs[0]
 
     @property
     def object_id(self) -> str:
-        return self.outs[0].set_object_id(self.project_id)
+        """Convenience method to get the first object_id."""
+        if not self.outs[0].object_id and self.project_id:
+            self.outs[0].set_object_id(self.project_id)
+        return self.outs[0].object_id
+
+    @classmethod
+    def from_document_reference(cls, config, document_reference, references) -> 'DVC':
+        """Factory: create DVC from DocumentReference.
+
+        Args:
+            config (object): our config object
+            document_reference (DocumentReference): loaded DocumentReferences
+            references (dict): cross ref of Reference to Identifiers
+
+        """
+        attachment: Attachment = document_reference.content[0].attachment
+        assert attachment.extension, document_reference
+        source_path = [_.valueUrl for _ in attachment.extension if _.url.endswith('source_path')][0]
+        md5 = [_.valueString for _ in attachment.extension if _.url.endswith('md5')][0]
+        assert source_path, document_reference
+        assert md5, document_reference
+        dvc_object = DVC(
+            project_id=config.gen3.project_id,
+            outs=[
+                DVCItem(
+                    modified=attachment.creation.isoformat(),
+                    path=attachment.url.replace('file:///', ''),
+                    size=attachment.size,
+                    realpath=source_path.replace('file:///', ''),
+                    mime=attachment.contentType,
+                    md5=md5,
+                    hash='md5',
+                    object_id=document_reference.id
+                )
+            ],
+        )
+        if document_reference.subject:
+
+            if document_reference.subject.reference in references:
+                key = document_reference.subject.reference.split('/')[0]
+
+                if key not in ['ResearchStudy']:
+                    value = references[document_reference.subject.reference]
+                    meta = DVCMeta.model_validate({key: value})
+                    assert isinstance(meta, DVCMeta), f"Did not get expected meta {meta}"
+                    dvc_object.meta = meta
+            else:
+                print(f"Did not find {document_reference.subject.reference} in references")
+        assert attachment.url.replace('file:///', '') == dvc_object.out.path, f"attachment and dvc path doesn't match"
+        assert document_reference.id == dvc_object.object_id, f"Did not get expected ID {config.gen3.project_id} {attachment.url}/{document_reference.id} {dvc_object.out.path}/{dvc_object.object_id}"
+        return dvc_object
 
 
 def run_command(command: str, dry_run: bool = False, raise_on_err: bool = True, env: dict = None, no_capture: bool = False) -> CommandResult:

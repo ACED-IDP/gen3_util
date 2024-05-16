@@ -229,7 +229,7 @@ class LocalFHIRDatabase:
             document_reference['subject'] = subject
 
             # simplify the identifier
-            document_reference['identifier'] = document_reference['identifier'][0]['value']
+            document_reference['identifier'] = document_reference.get('identifier', [{'value': None}])[0]['value']
 
             # simplify the extensions
             for _ in document_reference['content'][0]['attachment']['extension']:

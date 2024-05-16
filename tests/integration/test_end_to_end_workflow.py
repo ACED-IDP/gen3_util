@@ -5,7 +5,7 @@ import yaml
 from click.testing import CliRunner
 
 from gen3_tracker.config import ensure_auth, default
-from gen3_tracker.git import DVC
+from gen3_tracker.git import DVC, run_command
 from tests.integration import run, validate_document_in_psql_graph, validate_document_in_elastic
 
 
@@ -47,7 +47,7 @@ def test_simple_workflow(runner: CliRunner, project_id, tmpdir) -> None:
     run(runner, ["--debug", "meta", "init"], expected_files=["META/DocumentReference.ndjson"])
 
     # commit the changes, delegating to git
-    run(runner, ["--debug", "commit", "-am", "\"initial commit\""])
+    run(runner, ["--debug", "commit", "-am", "initial commit"])
 
     # validate the meta files
     run(runner, ["--debug", "meta", "validate"])
@@ -80,7 +80,8 @@ def test_simple_workflow(runner: CliRunner, project_id, tmpdir) -> None:
     # pull the data
     run(runner, ["--debug", "pull"])
     # check the files exist in the cloned directory
-    assert pathlib.Path("my-project-data/hello.txt").exists()
+    run_command("ls -l")
+    assert pathlib.Path("my-project-data/hello.txt").exists(), "hello.txt does not exist in the cloned directory."
 
     # remove the project from the server.
     # TODO note, this does not remove the files from the bucket (UChicago bug)

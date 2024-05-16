@@ -13,7 +13,7 @@ from click import Context, Command
 from pydantic import BaseModel, field_validator
 
 
-ACED_NAMESPACE = uuid.uuid3(uuid.NAMESPACE_DNS, 'aced-idp.org')
+ACED_NAMESPACE = uuid.uuid3(uuid.NAMESPACE_DNS, 'aced-ipd.org')
 ENV_VARIABLE_PREFIX = 'G3T_'
 
 FILE_TRANSFER_METHODS = {

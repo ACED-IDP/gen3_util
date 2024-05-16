@@ -68,7 +68,7 @@ def test_bucket_import(runner: CliRunner, project_id, tmpdir) -> None:
     assert len(listing['uncommitted']) == len(SHOULD_SUCCEED)
 
     # commit the changes
-    run(runner, ["--debug", "commit", "-am", "\"initial commit\""])
+    run(runner, ["--debug", "commit", "-am", "initial commit"])
 
     # test the ls command, should now be in committed
     result = run(runner, ["--debug", "--format", "json",  "ls"])

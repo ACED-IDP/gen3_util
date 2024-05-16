@@ -8,12 +8,14 @@ import re
 import shutil
 import subprocess
 import sys
+import time
 import zipfile
 from datetime import datetime
 
 import click
 import pytz
 import yaml
+from fhir.resources.documentreference import DocumentReference
 from gen3.auth import Gen3AuthError
 from gen3.file import Gen3File
 from gen3.index import Gen3Index
@@ -22,17 +24,19 @@ from tqdm import tqdm
 
 import gen3_tracker
 from gen3_tracker import Config
-from gen3_tracker.common import CLIOutput, INFO_COLOR, ERROR_COLOR, is_url, filter_dicts, SUCCESS_COLOR
+from gen3_tracker.common import CLIOutput, INFO_COLOR, ERROR_COLOR, is_url, filter_dicts, SUCCESS_COLOR, \
+    read_ndjson_file
 from gen3_tracker.config import init as config_init
 from gen3_tracker.config import init as config_init, ensure_auth
 from gen3_tracker.git import git_files, to_indexd, to_remote, dvc_data, \
     data_file_changes, modified_date, git_status, DVC, MISSING_G3T_MESSAGE
 from gen3_tracker.git import run_command, \
     MISSING_GIT_MESSAGE, git_repository_exists
-from gen3_tracker.git.adder import url_path
+from gen3_tracker.git.adder import url_path, write_dvc_file
 from gen3_tracker.git.cloner import ls
 from gen3_tracker.git.initializer import initialize_project_server_side
 from gen3_tracker.git.snapshotter import push_snapshot
+from gen3_tracker.meta.skeleton import meta_index
 
 # logging.basicConfig(level=logging.INFO)
 _logger = logging.getLogger(__package__)
@@ -95,24 +99,7 @@ def init(config: Config, project_id: str, approve: bool, no_server: bool):
         for _ in config_init(config, project_id):
             logs.append(_)
 
-        # ensure a git repo
-        if not pathlib.Path('.git').exists():
-            command = 'git init'
-            run_command(command, dry_run=config.dry_run, no_capture=True)
-        else:
-            click.secho('Git repository already exists.', fg=INFO_COLOR, file=sys.stderr)
-
-        pathlib.Path('MANIFEST').mkdir(exist_ok=True)
-        pathlib.Path('META').mkdir(exist_ok=True)
-        pathlib.Path('LOGS').mkdir(exist_ok=True)
-        with open('.gitignore', 'w') as f:
-            f.write('LOGS/\n')
-        with open('META/README.md', 'w') as f:
-            f.write('This directory contains metadata files for the data files in the MANIFEST directory.\n')
-        with open('MANIFEST/README.md', 'w') as f:
-            f.write('This directory contains dvc files that reference the data files.\n')
-        run_command('git add MANIFEST META .gitignore .g3t', dry_run=config.dry_run, no_capture=True)
-        run_command('git commit -m "initialized" MANIFEST META .gitignore .g3t', dry_run=config.dry_run, no_capture=True)
+        ensure_git_repo(config)
 
         if not no_server:
             logs.extend(initialize_project_server_side(config, project_id))
@@ -131,6 +118,26 @@ def init(config: Config, project_id: str, approve: bool, no_server: bool):
         click.secho(str(e), fg=ERROR_COLOR, file=sys.stderr)
         if config.debug:
             raise
+
+
+def ensure_git_repo(config):
+    # ensure a git repo
+    if not pathlib.Path('.git').exists():
+        command = 'git init'
+        run_command(command, dry_run=config.dry_run, no_capture=True)
+    else:
+        click.secho('Git repository already exists.', fg=INFO_COLOR, file=sys.stderr)
+    pathlib.Path('MANIFEST').mkdir(exist_ok=True)
+    pathlib.Path('META').mkdir(exist_ok=True)
+    pathlib.Path('LOGS').mkdir(exist_ok=True)
+    with open('.gitignore', 'w') as f:
+        f.write('LOGS/\n')
+    with open('META/README.md', 'w') as f:
+        f.write('This directory contains metadata files for the data files in the MANIFEST directory.\n')
+    with open('MANIFEST/README.md', 'w') as f:
+        f.write('This directory contains dvc files that reference the data files.\n')
+    run_command('git add MANIFEST META .gitignore .g3t', dry_run=config.dry_run, no_capture=True)
+    run_command('git commit -m "initialized" MANIFEST META .gitignore .g3t', dry_run=config.dry_run, no_capture=True)
 
 
 # Note: The commented code below is an example of how to use context settings to allow extra arguments.
@@ -493,6 +500,39 @@ def clone(config, project_id):
             with zipfile.ZipFile(zip_filepath, 'r') as zip_ref:
                 zip_ref.extractall('.')
 
+            # if we just unzipped a .git these directories will exist
+            expected_dirs = ['.git', 'META', 'MANIFEST']
+            if not all([pathlib.Path(_).exists() for _ in expected_dirs]):
+                # if not, we have downloaded a legacy SNAPSHOT.zip, so lets migrate the data to the expected drirectories
+                click.secho(f"{expected_dirs} not found after downloading {snapshot['file_name']}")
+                # legacy
+                studies = (pathlib.Path('studies') / config.gen3.project)
+                assert studies.exists(), f"{studies} does not exist"
+                # create local directories and git
+                [_ for _ in config_init(config, project_id)]
+                ensure_git_repo(config=config)
+                # move ndjson from studies to META
+                for _ in studies.glob('*.*'):
+                    shutil.move(_, 'META/')
+                # add to git
+                run_command('git add META/*.*')
+                # migrate DocumentReferences to MANIFEST
+                references = meta_index()
+                manifest_files = []
+                for _ in read_ndjson_file('META/DocumentReference.ndjson'):
+                    document_reference = DocumentReference.parse_obj(_)
+                    dvc_object = DVC.from_document_reference(config, document_reference, references)
+                    manifest_files.append(write_dvc_file(yaml_data=dvc_object.model_dump(), target=dvc_object.out.path))
+
+                # Get the current time in seconds since the epoch
+                current_time = time.time()
+                # Update the access and modification times of the file
+                os.utime('META/DocumentReference.ndjson', (current_time, current_time))
+
+                run_command('git add MANIFEST/')
+                run_command('git commit -m "migrated from legacy" MANIFEST/ META/ .gitignore')
+                shutil.move(zip_filepath, config.work_dir / zip_filepath.name)
+
         click.secho(f"Cloned {snapshot['file_name']}", fg=INFO_COLOR, file=sys.stderr)
         run_command("git status", no_capture=True)
 
@@ -569,7 +609,7 @@ def ls_cli(config: Config, long_flag: bool, target: str):
                 if not dvc_object:
                     return {}
                 _ = {}
-                if not full:
+                if not full and dvc_object.meta:
                     for k, v in dvc_object.meta.model_dump(exclude_none=True).items():
                         if v:
                             _[k] = v
