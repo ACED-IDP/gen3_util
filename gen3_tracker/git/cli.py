@@ -162,16 +162,19 @@ def add(ctx, target):
     If the TARGET is a file in the local file system:
         - We will automatically calculate the hash, size, modified and mime type of the file
         - You can specify those values with the --<hash>, --size, --modified and --mime options
-        - You can use wildcards to add multiple files at once
+        - As a convenience, you can use wildcards to add multiple files at once.
+          If wildcards are used, the hash, size, modified and mime type are ignored.
     \b
     If the TARGET is a url:
         - You must specify the hash, size, modified and mime type
         - Wildcards are not supported
     \b
-    Valid --<hash> options are: ['md5', 'sha1', 'sha256', 'sha512', 'crc', 'etag']
-    A variety of date formats are supported for the --modified option, see https://tinyurl.com/ysad3rj7
+    --<hash> <value>: Valid options are: ['md5', 'sha1', 'sha256', 'sha512', 'crc', 'etag']
+                      Value must conform to the hash type.
     \b
-    If mime type is not specified, it will be inferred from the file extension.
+    --modified: A variety of date formats are supported, see https://tinyurl.com/ysad3rj7
+    \b
+    --mime: If not specified, it will be inferred from the file extension.
     """
     from gen3_tracker.git.adder import add_file, add_url
 
