@@ -20,6 +20,10 @@ setup(
     url='https://github.com/ACED-IDP/gen3_util',
     packages=find_packages(exclude=['tests', 'tests.*']),
     install_requires=requirements,
+    include_package_data=True,
+    package_data={  # Optional
+        '': ['*.yaml'],
+    },
     extras_require={
         'dtale': ['dtale'],
     },
