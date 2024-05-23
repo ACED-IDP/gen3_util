@@ -1,4 +1,5 @@
 import pathlib
+import uuid
 from datetime import datetime, UTC
 
 import orjson
@@ -16,6 +17,7 @@ from fhir.resources.resource import Resource
 from fhir.resources.specimen import Specimen
 from fhir.resources.task import Task, TaskOutput, TaskInput
 
+from gen3_tracker import ACED_NAMESPACE
 from gen3_tracker.common import create_id, EmitterContextManager
 from gen3_tracker.git import DVC, run_command, dvc_data
 
@@ -92,7 +94,17 @@ def update_document_reference(document_reference: DocumentReference, dvc_data: D
     document_reference.content = [content]
 
 
-def create_skeleton(dvc: dict, project_id: str) -> list[Resource]:
+def create_id_from_strings(resource_type: str, project_id: str, identifier_string: str) -> str:
+    """Create an id from strings."""
+    if not identifier_string:
+        return None
+    # cbds-smmart_labkey_demo/Specimen/https://aced-idp.org/cbds-smmart_labkey_demo|0000321955
+    # cbds-smmart_labkey_demo/Specimen/https://aced-idp.org/cbds-smmart_labkey_demo|0000321955
+    print(f"{project_id}/{resource_type}/{_get_system(identifier_string, project_id)}|{identifier_string}")
+    return str(uuid.uuid5(ACED_NAMESPACE, f"{project_id}/{resource_type}/{_get_system(identifier_string, project_id)}|{identifier_string}"))
+
+
+def create_skeleton(dvc: dict, project_id: str, meta_index: set[str] = []) -> list[Resource]:
     """
     Create a skeleton graph for document and ancestors from a set of identifiers.
     """
@@ -103,6 +115,7 @@ def create_skeleton(dvc: dict, project_id: str) -> list[Resource]:
     task_identifier = dvc.meta.task
     observation_identifier = dvc.meta.observation
     project_id = dvc.project_id or project_id
+
     assert dvc.out, f"out required {dvc}"
     document_reference_id = dvc.out.set_object_id(project_id=project_id)
 
@@ -110,16 +123,33 @@ def create_skeleton(dvc: dict, project_id: str) -> list[Resource]:
     assert project_id.count('-') == 1, "project_id must be of the form program-project"
     program, project = project_id.split('-')
 
-    # create entities
-    research_study = research_subject = observation = specimen = patient = task = None
+    research_study = research_subject = observation = specimen = patient = task = document_reference = None
 
-    research_study = ResearchStudy(status='active')
-    research_study.description = f"Skeleton ResearchStudy for {project_id}"
-    research_study.identifier = [
-        Identifier(value=project_id, system=_get_system(project_id, project_id=project_id),
-                   use='official')]
-    research_study.id = create_id(research_study, project_id)
-    research_study_id = research_study.id
+    # check if we have already created the resources
+
+    research_study_id = create_id_from_strings(resource_type='ResearchStudy', project_id=project_id, identifier_string=project_id)
+    specimen_id = create_id_from_strings(resource_type='Specimen', project_id=project_id, identifier_string=specimen_identifier)
+    patient_id = create_id_from_strings(resource_type='Patient', project_id=project_id, identifier_string=patient_identifier)
+    task_id = create_id_from_strings(resource_type='Task', project_id=project_id, identifier_string=task_identifier)
+    observation_id = create_id_from_strings(resource_type='Observation', project_id=project_id, identifier_string=observation_identifier)
+
+    _ = f'ResearchStudy/{research_study_id}'
+    if _ in meta_index:
+        research_study = meta_index[_]
+    _ = f'Specimen/{specimen_id}'
+    if _ in meta_index:
+        specimen = meta_index[_]
+    _ = f'Patient/{patient_id}'
+    if _ in meta_index:
+        patient = meta_index[_]
+    _ = f'Task/{task_id}'
+    if _ in meta_index:
+        task = meta_index[_]
+    _ = f'Observation/{observation_id}'
+    if _ in meta_index:
+        observation = meta_index[_]
+
+    # create entities
 
     document_reference = DocumentReference(status='current', content=[{'attachment': {'url': "file://"}}])
     document_reference.id = document_reference_id
@@ -128,7 +158,15 @@ def create_skeleton(dvc: dict, project_id: str) -> list[Resource]:
                    use='official')]
     update_document_reference(document_reference, dvc)
 
-    if patient_identifier:
+    if not research_study:
+        research_study = ResearchStudy(status='active')
+        research_study.description = f"Skeleton ResearchStudy for {project_id}"
+        research_study.identifier = [
+            Identifier(value=project_id, system=_get_system(project_id, project_id=project_id),
+                       use='official')]
+        research_study.id = create_id(research_study, project_id)
+
+    if not patient and patient_identifier:
         patient = Patient()
         patient.identifier = [Identifier(value=patient_identifier, system=_get_system(patient_identifier, project_id=project_id), use='official')]
         patient.id = create_id(patient, project_id)
@@ -141,33 +179,40 @@ def create_skeleton(dvc: dict, project_id: str) -> list[Resource]:
         research_subject.identifier = [Identifier(value=patient_identifier, system=_get_system(patient_identifier, project_id=project_id), use='official')]
         research_subject.id = create_id(research_subject, project_id)
 
-    if observation_identifier:
-        assert patient, "patient required for observation"
+    if not observation and observation_identifier:
         observation = Observation(status='final', code={'text': 'unknown'})
         observation.identifier = [Identifier(value=observation_identifier, system=_get_system(observation_identifier, project_id=project_id), use='official')]
-        observation.subject = {'reference': f"Patient/{patient.id}"}
         observation.id = create_id(observation, project_id)
 
-    if specimen_identifier:
+        assert patient, "patient required for observation"
+        observation.subject = {'reference': f"Patient/{patient.id}"}
+        patient_id = patient.id
+
+    if not specimen and specimen_identifier:
+        print(f'{specimen_identifier} Specimen/{specimen_id} not in {[(k, _) for k, _ in meta_index.items() if k.startswith("Specimen")]}')
+        exit(1)
         specimen = Specimen()
         specimen.identifier = [Identifier(value=specimen_identifier, system=_get_system(specimen_identifier, project_id=project_id), use='official')]
         specimen.id = create_id(specimen, project_id)
+        specimen_id = specimen.id
+
         assert patient, "patient required for specimen"
         specimen.subject = {'reference': f"Patient/{patient.id}"}
 
-    if task_identifier:
+    if not task and task_identifier:
         task = Task(intent='unknown', status='completed')
         task.identifier = [Identifier(value=task_identifier, system=_get_system(task_identifier, project_id=project_id),
                                       use='official')]
         task.id = create_id(task, project_id)
+        task_id = task.id
 
     # create relationships
 
     # assign subject, specimen of observation
     if observation and specimen and not observation.specimen:
-        observation.specimen = {'reference': f"Specimen/{specimen.id}"}
+        observation.specimen = {'reference': f"Specimen/{specimen_id}"}
     if observation and patient and not observation.subject:
-        observation.subject = {'reference': f"Patient/{patient.id}"}
+        observation.subject = {'reference': f"Patient/{patient_id}"}
 
     if task:
         task.input = []
@@ -193,15 +238,15 @@ def create_skeleton(dvc: dict, project_id: str) -> list[Resource]:
 
     # assign document reference subject
     if observation:
-        document_reference.subject = {'reference': f"Observation/{observation.id}"}
+        document_reference.subject = {'reference': f"Observation/{observation_id}"}
     if specimen and not document_reference.subject:
-        document_reference.subject = {'reference': f"Specimen/{specimen.id}"}
+        document_reference.subject = {'reference': f"Specimen/{specimen_id}"}
     if patient and not document_reference.subject:
-        document_reference.subject = {'reference': f"Patient/{patient.id}"}
+        document_reference.subject = {'reference': f"Patient/{patient_id}"}
     if not document_reference.subject:
-        document_reference.subject = {'reference': f"ResearchStudy/{research_study.id}"}
+        document_reference.subject = {'reference': f"ResearchStudy/{research_study_id}"}
 
-    return [_ for _ in [research_study, research_subject, patient, observation, specimen, task, document_reference] if _]
+    return [_ for _ in [research_study, research_subject, patient, observation, specimen, task, document_reference] if _ and not isinstance(_, str)]
 
 
 def update_meta_files(dry_run=False, project_id=None) -> list[str]:
@@ -220,7 +265,7 @@ def update_meta_files(dry_run=False, project_id=None) -> list[str]:
 
     with EmitterContextManager('META') as emitter:
         for _ in dvc_data(dvc_files):
-            resources = create_skeleton(_, project_id)
+            resources = create_skeleton(_, project_id, meta_index())
             for resource in resources:
                 key = f"{resource.resource_type}/{resource.id}"
                 if key not in emitted_already:
