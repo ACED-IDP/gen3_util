@@ -102,8 +102,9 @@ def render_graph(config: Config, directory_path: str, output_path: str, browser:
                 type=click.Path(file_okay=True),
                 default="meta.csv", required=False)
 @click.option('--dtale', 'launch_dtale', default=False, show_default=True, is_flag=True, help='Open the graph in a browser using the dtale package for interactive data exploration.')
+@click.option('--data_type', required=True, type=click.Choice(['Patient', 'Specimen', 'Observation', 'DocumentReference']), default=None, show_default=True,  help='Create a data frame for a specific data type.')
 @click.pass_obj
-def render_df(config: Config, directory_path: str, output_path: str, launch_dtale: bool):
+def render_df(config: Config, directory_path: str, output_path: str, launch_dtale: bool, data_type: str):
     """Render a metadata dataframe.
 
     \b
@@ -112,11 +113,10 @@ def render_df(config: Config, directory_path: str, output_path: str, launch_dtal
     """
     try:
         from gen3_tracker.meta.dataframer import create_dataframe
-        with Halo(text='Creating DataFrame', spinner='line', placement='right', color='white'):
-            df = create_dataframe(directory_path, config.work_dir)
+        df = create_dataframe(directory_path, config.work_dir, data_type)
 
         if launch_dtale:
-            from dtale import dtale
+            import dtale
             dtale.show(df, subprocess=False, open_browser=True, port=40000)
         else:
             # export to csv

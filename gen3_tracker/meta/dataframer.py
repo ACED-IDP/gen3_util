@@ -1,12 +1,14 @@
 import json
 import pathlib
 import sqlite3
-from typing import Generator
+from functools import lru_cache
+from typing import Generator, Optional, List, Tuple
 
 import inflection
 import ndjson
 import numpy as np
 import pandas as pd
+from tqdm import tqdm
 
 
 class LocalFHIRDatabase:
@@ -123,24 +125,65 @@ class LocalFHIRDatabase:
         for file_path in pathlib.Path(path).glob(pattern):
             self.load_from_ndjson_file(file_path)
 
+    @lru_cache(maxsize=None)
     def patient_everything(self, patient_id) -> Generator[dict, None, None]:
         """Return all the resources for a patient."""
         cursor = self.connection.cursor()
-        cursor.execute("SELECT * FROM resources WHERE json_extract(resource, '$.subject.reference') = ?",
+        cursor.execute("SELECT * FROM resources WHERE key = ?",
                        (f"Patient/{patient_id}",))
 
         for _ in cursor.fetchall():
             key, resource_type, resource = _
             yield json.loads(resource)
 
+    @lru_cache(maxsize=None)
     def patient(self, patient_id) -> dict:
         """Return the patient resource."""
         cursor = self.connection.cursor()
-        cursor.execute("SELECT * FROM resources WHERE json_extract(resource, '$.id') = ?", (patient_id,))
+        cursor.execute("SELECT * FROM resources WHERE key = ?", (f"Patient/{patient_id}",))
         key, resource_type, resource = cursor.fetchone()
         return json.loads(resource)
 
-    def flattened_procedure(self) -> Generator[dict, None, None]:
+    @lru_cache(maxsize=None)
+    def flattened_procedure(self, procedure_key) -> dict:
+        """Return the procedure with everything resolved."""
+        cursor = self.connection.cursor()
+        cursor.execute("SELECT * FROM resources WHERE key = ?", (procedure_key,))
+        key, resource_type, resource = cursor.fetchone()
+        procedure = json.loads(resource)
+
+        # simplify the identifier
+        procedure['identifier'] = procedure['identifier'][0]['value']
+        # simplify the code
+        procedure['code'] = procedure['code']['coding'][0]['display']
+        # simplify the reason
+        procedure['reason'] = procedure['reason'][0]['reference']['reference']
+        # simplify the occurrenceAge
+        procedure['occurrenceAge'] = procedure['occurrenceAge']['value']
+        # simplify the subject
+        subject = procedure['subject']['reference']
+        procedure['subject'] = subject
+        return procedure
+
+    @lru_cache(maxsize=None)
+    def flattened_condition(self, condition_key) -> dict:
+        """Return the procedure with everything resolved."""
+        cursor = self.connection.cursor()
+        cursor.execute("SELECT * FROM resources WHERE key = ?", (condition_key,))
+        key, resource_type, resource = cursor.fetchone()
+        condition = json.loads(resource)
+
+        # simplify the identifier
+        condition['identifier'] = condition['identifier'][0]['value']
+        # simplify the code
+        condition['code'] = condition['code']['coding'][0]['display']
+        for coding_normalized, coding_source in normalize_coding(condition):
+            condition[coding_source] = coding_normalized
+        # simplify the onsetAge
+        condition['onsetAge'] = condition['onsetAge']['value']
+        return condition
+
+    def flattened_procedures(self) -> Generator[dict, None, None]:
         """Return all the procedures with everything resolved"""
         loaded_db = self
         connection = sqlite3.connect(loaded_db.db_name)
@@ -214,7 +257,74 @@ class LocalFHIRDatabase:
 
         connection.close()
 
-    def flattened_document_reference(self) -> Generator[dict, None, None]:
+    def flattened_observations(self) -> Generator[dict, None, None]:
+        loaded_db = self
+        connection = sqlite3.connect(loaded_db.db_name)
+        cursor = connection.cursor()
+        cursor.execute("SELECT * FROM resources where resource_type = ?", ("Observation",))
+        for _ in tqdm(cursor.fetchall()):
+            key, resource_type, observation_str = _
+            observation = json.loads(observation_str)
+
+            # simplify the subject
+            subject = observation['subject']['reference']
+            observation['subject'] = subject
+
+            # simplify the identifier
+            observation['identifier'] = observation.get('identifier', [{'value': None}])[0]['value']
+
+            # simplify the value
+            value_normalized, value_source = normalize_value(observation)
+            observation['value_normalized'] = value_normalized
+            value_numeric = observation['value_normalized'].split(' ')[0]
+
+            if is_number(value_numeric):
+                observation['value_numeric'] = float(value_numeric)
+            else:
+                observation['value_numeric'] = None
+
+            del observation[value_source]
+
+            # simplify extensions
+            for _ in observation.get('extension', []):
+                value_normalized, value_source = normalize_value(_)
+                observation[_['url'].split('/')[-1]] = value_normalized
+
+            if subject.startswith('Patient/'):
+                _, patient_id = subject.split('/')
+                resource = loaded_db.patient(patient_id)
+                observation['patient'] = resource['identifier'][0]['value']
+                # TODO - add more patient details
+
+            if observation.get('focus'):
+                focus = observation['focus']
+                for f in focus:
+                    if f['reference'].startswith('Procedure/'):
+                        p = self.flattened_procedure(f['reference'])
+                        for k, v in p.items():
+                            if k in ['id', 'subject', 'resourceType']:
+                                continue
+                            observation[f"procedure_{k}"] = v
+                        if "procedure_reason" in observation:
+                            c = self.flattened_condition(observation["procedure_reason"])
+                            for k, v in c.items():
+                                if k in ['id', 'subject', 'resourceType']:
+                                    continue
+                                observation[f"condition_{k}"] = v
+                            del observation["procedure_reason"]
+
+                        del observation['focus']
+                        break
+
+
+            for coding_normalized, coding_source in normalize_coding(observation):
+                observation[coding_source] = coding_normalized
+
+            yield observation
+
+        connection.close()
+
+    def flattened_document_references(self) -> Generator[dict, None, None]:
         loaded_db = self
         connection = sqlite3.connect(loaded_db.db_name)
         cursor = connection.cursor()
@@ -233,7 +343,8 @@ class LocalFHIRDatabase:
 
             # simplify the extensions
             for _ in document_reference['content'][0]['attachment']['extension']:
-                document_reference[_['url'].split('/')[-1]] = _.get('valueString') or _.get('valueUrl')
+                value_normalized, value_source = normalize_value(_)
+                document_reference[_['url'].split('/')[-1]] = value_normalized
 
             for k, v in document_reference['content'][0]['attachment'].items():
                 if k in ['extension']:
@@ -262,16 +373,7 @@ class LocalFHIRDatabase:
                         # TODO - pick first coding, h2 allow user to specify preferred coding
                         code = resource['code']['coding'][0]['code']
 
-                        if 'valueQuantity' in resource:
-                            value = resource['valueQuantity']['value']
-                        elif 'valueCodeableConcept' in resource:
-                            value = resource['valueCodeableConcept']['text']
-                        elif 'valueInteger' in resource:
-                            value = resource['valueInteger']
-                        elif 'valueString' in resource:
-                            value = resource['valueString']
-                        else:
-                            value = None
+                        value = normalize_value(resource)
 
                         assert value is not None, f"no value for {resource['id']}"
                         document_reference[code] = value
@@ -294,7 +396,7 @@ class LocalFHIRDatabase:
         connection.close()
 
 
-def create_dataframe(directory_path: str, work_path: str) -> pd.DataFrame:
+def create_dataframe(directory_path: str, work_path: str, data_type:str) -> pd.DataFrame:
     """Create a dataframe from the FHIR data in the directory."""
     assert pathlib.Path(work_path).exists(), f"Directory {work_path} does not exist."
     work_path = pathlib.Path(work_path)
@@ -304,17 +406,116 @@ def create_dataframe(directory_path: str, work_path: str) -> pd.DataFrame:
     db = LocalFHIRDatabase(db_name=db_path)
     db.load_ndjson_from_dir(path=directory_path)
 
-    df = pd.DataFrame(db.flattened_document_reference())
+    if data_type == "DocumentReference":
+        df = pd.DataFrame(db.flattened_document_reference())
+    elif data_type == "Observation":
+        df = pd.DataFrame(db.flattened_observations())
+    else:
+        raise ValueError(f"{data_type} not supported yet. Supported data types are DocumentReference and Observation")
+    assert not df.empty, "Dataframe is empty, are there any DocumentReference resources?"
+
     front_column_names = ["resourceType", "identifier"]
     if "patient" in df.columns:
         front_column_names = front_column_names + ["patient"]
+
     remaining_columns = [col for col in df.columns if col not in front_column_names]
     rear_column_names = ["status", "id"]
     if "subject" in df.columns:
         rear_column_names = rear_column_names + ["subject"]
+    for c in df.columns:
+        if c.endswith("_identifier"):
+            rear_column_names.append(c)
     remaining_columns = [col for col in remaining_columns if col not in rear_column_names]
 
     reordered_columns = front_column_names + remaining_columns + rear_column_names
     df = df[reordered_columns]
     df = df.replace({np.nan: ''})
     return df
+
+
+def normalize_value(resource_dict: dict) -> tuple[Optional[str], Optional[str]]:
+    """return a tuple containing the normalized value and the name of the field it was derived from"""
+    value_normalized = None
+    value_source = None
+
+    if 'valueQuantity' in resource_dict:
+        value = resource_dict['valueQuantity']
+        value_normalized = f"{value['value']} {value.get('unit', '')}"
+        value_source = 'valueQuantity'
+    elif 'valueCodeableConcept' in resource_dict:
+        value = resource_dict['valueCodeableConcept']
+        value_normalized = ' '.join([coding['display'] for coding in value.get('coding', [])])
+        value_source = 'valueCodeableConcept'
+    elif 'valueString' in resource_dict:
+        value_normalized = resource_dict['valueString']
+        value_source = 'valueString'
+    elif 'valueBoolean' in resource_dict:
+        value_normalized = str(resource_dict['valueBoolean'])
+        value_source = 'valueBoolean'
+    elif 'valueInteger' in resource_dict:
+        value_normalized = str(resource_dict['valueInteger'])
+        value_source = 'valueInteger'
+    elif 'valueRange' in resource_dict:
+        value = resource_dict['valueRange']
+        low = value['low']
+        high = value['high']
+        value_normalized = f"{low['value']} - {high['value']} {low.get('unit', '')}"
+        value_source = 'valueRange'
+    elif 'valueRatio' in resource_dict:
+        value = resource_dict['valueRatio']
+        numerator = value['numerator']
+        denominator = value['denominator']
+        value_normalized = f"{numerator['value']} {numerator.get('unit', '')}/{denominator['value']} {denominator.get('unit', '')}"
+        value_source = 'valueRatio'
+    elif 'valueSampledData' in resource_dict:
+        value = resource_dict['valueSampledData']
+        value_normalized = value['data']
+        value_source = 'valueSampledData'
+    elif 'valueTime' in resource_dict:
+        value_normalized = resource_dict['valueTime']
+        value_source = 'valueTime'
+    elif 'valueDateTime' in resource_dict:
+        value_normalized = resource_dict['valueDateTime']
+        value_source = 'valueDateTime'
+    elif 'valuePeriod' in resource_dict:
+        value = resource_dict['valuePeriod']
+        value_normalized = f"{value['start']} to {value['end']}"
+        value_source = 'valuePeriod'
+
+    return value_normalized, value_source
+
+
+def normalize_coding(resource_dict: dict) -> List[Tuple[str, str]]:
+    def extract_coding(coding_list):
+        return ' '.join([coding.get('display', '') for coding in coding_list if 'display' in coding])
+
+    def find_codings_in_dict(d: dict, parent_key: str = '') -> List[Tuple[str, str]]:
+        codings = []
+        for key, value in d.items():
+            if isinstance(value, list):
+                for item in value:
+                    if isinstance(item, dict):
+                        # Check if the dict contains a 'coding' list
+                        if 'coding' in item and isinstance(item['coding'], list):
+                            coding_string = extract_coding(item['coding'])
+                            codings.append((coding_string, key))
+                        # Recursively search in the dict
+                        codings.extend(find_codings_in_dict(item, key))
+            elif isinstance(value, dict):
+                # Check if the dict contains a 'coding' list
+                if 'coding' in value and isinstance(value['coding'], list):
+                    coding_string = extract_coding(value['coding'])
+                    codings.append((coding_string, key))
+                # Recursively search in the dict
+                codings.extend(find_codings_in_dict(value, key))
+        return codings
+
+    return find_codings_in_dict(resource_dict)
+
+def is_number(s):
+    """ Returns True if string is a number. """
+    try:
+        complex(s)
+        return True
+    except ValueError:
+        return False
