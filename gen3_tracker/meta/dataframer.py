@@ -9,6 +9,7 @@ import ndjson
 import numpy as np
 import pandas as pd
 from tqdm import tqdm
+from copy import deepcopy
 
 
 class LocalFHIRDatabase:
@@ -166,6 +167,28 @@ class LocalFHIRDatabase:
         return procedure
 
     @lru_cache(maxsize=None)
+    def flattened_specimen(self, specimen_key) -> dict:
+        """Return the procedure with everything resolved."""
+        cursor = self.connection.cursor()
+        cursor.execute("SELECT * FROM resources WHERE key = ?", (specimen_key,))
+        key, resource_type, resource = cursor.fetchone()
+        specimen = json.loads(resource)
+
+        # simplify the identifier
+        specimen['identifier'] = specimen['identifier'][0]['value']
+
+        for coding_normalized, coding_source in normalize_coding(specimen['collection']):
+            specimen[f"collection_{coding_source}"] = coding_normalized
+        del specimen['collection']
+        for processing in specimen.get('processing', []):
+            for coding_normalized, coding_source in normalize_coding(processing):
+                specimen[f"processing_{coding_source}"] = coding_normalized
+            break # TODO - only first one
+        del specimen['processing']
+
+        return specimen
+
+    @lru_cache(maxsize=None)
     def flattened_condition(self, condition_key) -> dict:
         """Return the procedure with everything resolved."""
         cursor = self.connection.cursor()
@@ -312,14 +335,40 @@ class LocalFHIRDatabase:
                                     continue
                                 observation[f"condition_{k}"] = v
                             del observation["procedure_reason"]
+                    if f['reference'].startswith('Specimen/'):
+                        p = self.flattened_specimen(f['reference'])
+                        for k, v in p.items():
+                            if k in ['id', 'subject', 'resourceType']:
+                                continue
+                            observation[f"specimen_{k}"] = v
 
-                        del observation['focus']
-                        break
-
+                del observation['focus']
 
             for coding_normalized, coding_source in normalize_coding(observation):
                 observation[coding_source] = coding_normalized
 
+            # renormalize the value in components
+            for component in observation.get('component', []):
+                # simplify the value
+                observation = deepcopy(observation)
+                value_normalized, value_source = normalize_value(component)
+                observation['code'] = component['code']['coding'][0]['code']
+                observation['value_numeric'] = None
+                observation['value_normalized'] = None
+                if value_normalized:
+                    observation['value_normalized'] = value_normalized
+                    value_numeric = observation['value_normalized'].split(' ')[0]
+
+                    if is_number(value_numeric):
+                        observation['value_numeric'] = float(value_numeric)
+                    else:
+                        observation['value_numeric'] = None
+                if 'component' in observation:
+                    del observation['component']
+                yield observation
+
+            if 'component' in observation:
+                del observation['component']
             yield observation
 
         connection.close()
