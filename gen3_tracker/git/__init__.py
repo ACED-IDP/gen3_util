@@ -163,9 +163,16 @@ class DVC(BaseModel):
         attachment: Attachment = document_reference.content[0].attachment
         assert attachment.extension, document_reference
         source_path = [_.valueUrl for _ in attachment.extension if _.url.endswith('source_path')][0]
-        md5 = [_.valueString for _ in attachment.extension if _.url.endswith('md5')][0]
+
+        for k in ACCEPTABLE_HASHES.keys():
+            if [_.valueString for _ in attachment.extension if _.url.endswith(k)]:
+                hash_value = [_.valueString for _ in attachment.extension if _.url.endswith(k)][0]
+                hash_name = k
+                break
+
         assert source_path, document_reference
-        assert md5, document_reference
+        assert hash_value, document_reference
+
         dvc_object = DVC(
             project_id=config.gen3.project_id,
             outs=[
@@ -175,9 +182,8 @@ class DVC(BaseModel):
                     size=attachment.size,
                     realpath=source_path.replace('file:///', ''),
                     mime=attachment.contentType,
-                    md5=md5,
-                    hash='md5',
-                    object_id=document_reference.id
+                    object_id=document_reference.id,
+                    **{hash_name: hash_value, 'hash': hash_name}
                 )
             ],
         )
