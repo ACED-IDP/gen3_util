@@ -56,7 +56,7 @@ def test_simple_workflow(runner: CliRunner, project_id, tmpdir) -> None:
     run(runner, ["--debug", "meta", "graph"], expected_files=["meta.html"])
 
     # create a dataframe
-    run(runner,  ["--debug", "meta", "dataframe"], expected_files=["meta.csv"])
+    run(runner,  ["--debug", "meta", "dataframe", '--data_type', 'DocumentReference'], expected_files=["meta.csv"])
 
     # push to the server
     run(runner, ["--debug", "push"])

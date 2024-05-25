@@ -456,7 +456,7 @@ def create_dataframe(directory_path: str, work_path: str, data_type:str) -> pd.D
     db.load_ndjson_from_dir(path=directory_path)
 
     if data_type == "DocumentReference":
-        df = pd.DataFrame(db.flattened_document_reference())
+        df = pd.DataFrame(db.flattened_document_references())
     elif data_type == "Observation":
         df = pd.DataFrame(db.flattened_observations())
     else:
