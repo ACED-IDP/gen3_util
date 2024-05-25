@@ -122,6 +122,9 @@ def init(config: Config, project_id: str, approve: bool, no_server: bool):
 
 def ensure_git_repo(config):
     # ensure a git repo
+    if pathlib.Path('.git').exists():
+        return
+
     if not pathlib.Path('.git').exists():
         command = 'git init'
         run_command(command, dry_run=config.dry_run, no_capture=True)
@@ -150,8 +153,9 @@ def ensure_git_repo(config):
 
 @cli.command(context_settings=dict(ignore_unknown_options=True, allow_extra_args=True))
 @click.argument('target')
+@click.option('--no-git-add', default=False, is_flag=True, help="Do not automatically add the file to git.  I'll add it manually." )
 @click.pass_context
-def add(ctx, target):
+def add(ctx, target, no_git_add: bool):
     """
     Update references to data files to the repository.
 
@@ -206,7 +210,7 @@ def add(ctx, target):
         # if it is an update, we do not need to add the file to git
         #
         adds = [str(_) for _ in all_changed_files if _ not in updates]
-        if adds:
+        if adds and not no_git_add:
             adds.append('.gitignore')
             run_command(f'git add {" ".join([str(_) for _ in adds])}', dry_run=config.dry_run, no_capture=True)
 
@@ -404,7 +408,7 @@ def push(ctx, step: str, transfer_method: str, overwrite: bool, re_run: bool, wa
 
         if step in ['upload', 'all']:
 
-            click.secho(f'Uploading {len(dvc_objects)} files via {transfer_method}', fg=INFO_COLOR, file=sys.stderr)
+            click.secho(f'Checking {len(dvc_objects)} files for upload via {transfer_method}', fg=INFO_COLOR, file=sys.stderr)
             to_remote(
                 upload_method=transfer_method,
                 dvc_objects=dvc_objects,
