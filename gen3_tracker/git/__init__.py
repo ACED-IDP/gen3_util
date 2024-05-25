@@ -13,6 +13,7 @@ from abc import abstractmethod
 from datetime import datetime
 from typing import NamedTuple
 
+import inflection
 import pydantic
 import pytz
 import yaml
@@ -173,8 +174,16 @@ class DVC(BaseModel):
         assert source_path, document_reference
         assert hash_value, document_reference
 
+        resource_type, resource_id = document_reference.subject.reference.split('/')
+        meta = DVCMeta()
+        if not resource_type == 'ResearchStudy':
+            resource_type = inflection.underscore(resource_type)
+            identifier = references[document_reference.subject.reference]
+            meta = DVCMeta(**{resource_type: identifier})
+
         dvc_object = DVC(
             project_id=config.gen3.project_id,
+            meta=meta,
             outs=[
                 DVCItem(
                     modified=attachment.creation.isoformat(),
@@ -573,16 +582,20 @@ class Gen3ClientRemoteWriter(LoggingWriter):
         self.manifest = []
 
     def save(self, dvc: DVC) -> str:
-        self.logger.info(f'Saving to {self.remote} {dvc}')
-        self.manifest.append(to_manifest(dvc))
+        if dvc.out.realpath:
+            self.logger.info(f'Saving to {self.remote} {dvc}')
+            self.manifest.append(to_manifest(dvc))
         return 'OK'
 
     def commit(self, dry_run=False, profile=None, upload_path=None, bucket_name=None, worker_count=(multiprocessing.cpu_count() - 1)):
         with open(self.manifest_file_path, 'w') as f:
             json.dump(self.manifest, f)
-        cmd = f"gen3-client upload-multiple --manifest {self.manifest_file_path} --profile {profile} --upload-path {upload_path} --bucket {bucket_name} --numparallel {worker_count}"
-        print(cmd)
-        run_command(cmd, dry_run=dry_run, raise_on_err=True, no_capture=True)
+        if len(self.manifest) > 0:
+            cmd = f"gen3-client upload-multiple --manifest {self.manifest_file_path} --profile {profile} --upload-path {upload_path} --bucket {bucket_name} --numparallel {worker_count}"
+            print(cmd)
+            run_command(cmd, dry_run=dry_run, raise_on_err=True, no_capture=True)
+        else:
+            print(f'No files to upload to {self.remote} by gen3-client.')
         return 'OK'
 
 

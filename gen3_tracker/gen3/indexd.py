@@ -86,6 +86,9 @@ def write_indexd(auth: Gen3Auth,
 def create_hashes_metadata(dvc: DVC, program, project):
     meta: DVCMeta = dvc.meta
 
+    if not meta:
+        meta = DVCMeta()
+
     hashes = {dvc.out.hash: getattr(dvc.out, dvc.out.hash)}
     metadata = {
         **{
