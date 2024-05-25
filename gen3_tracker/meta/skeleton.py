@@ -44,7 +44,7 @@ def meta_index():
                 _id = record.get('id')
                 resource_type = record.get('resourceType')
                 if resource_type == 'Bundle':
-                    continue
+                    break
                 official_identifier = next((identifier.get('value') for identifier in record.get('identifier', []) if identifier.get('use') == 'official'), None)
                 if not official_identifier and record.get('identifier'):
                     official_identifier = record['identifier'][0]['value']
@@ -98,9 +98,6 @@ def create_id_from_strings(resource_type: str, project_id: str, identifier_strin
     """Create an id from strings."""
     if not identifier_string:
         return None
-    # cbds-smmart_labkey_demo/Specimen/https://aced-idp.org/cbds-smmart_labkey_demo|0000321955
-    # cbds-smmart_labkey_demo/Specimen/https://aced-idp.org/cbds-smmart_labkey_demo|0000321955
-    print(f"{project_id}/{resource_type}/{_get_system(identifier_string, project_id)}|{identifier_string}")
     return str(uuid.uuid5(ACED_NAMESPACE, f"{project_id}/{resource_type}/{_get_system(identifier_string, project_id)}|{identifier_string}"))
 
 
@@ -189,8 +186,11 @@ def create_skeleton(dvc: dict, project_id: str, meta_index: set[str] = []) -> li
         patient_id = patient.id
 
     if not specimen and specimen_identifier:
-        print(f'{specimen_identifier} Specimen/{specimen_id} not in {[(k, _) for k, _ in meta_index.items() if k.startswith("Specimen")]}')
-        exit(1)
+
+        # TODO:?
+        # print(f'{specimen_identifier} Specimen/{specimen_id} not in {[(k, _) for k, _ in meta_index.items() if k.startswith("Specimen")]}')
+        # exit(1)
+
         specimen = Specimen()
         specimen.identifier = [Identifier(value=specimen_identifier, system=_get_system(specimen_identifier, project_id=project_id), use='official')]
         specimen.id = create_id(specimen, project_id)
@@ -260,7 +260,6 @@ def update_meta_files(dry_run=False, project_id=None) -> list[str]:
 
     before_meta_files = [_ for _ in pathlib.Path('META').glob('*.ndjson')]
     before_meta_index = set(list(meta_index().keys()))
-
     emitted_already = []
 
     with EmitterContextManager('META') as emitter:
@@ -272,31 +271,32 @@ def update_meta_files(dry_run=False, project_id=None) -> list[str]:
                     emitter.emit(resource.resource_type).write(
                         resource.json(option=orjson.OPT_APPEND_NEWLINE)
                     )
-                    emitted_already.append(f"{resource.resource_type}/{resource.id}")
+                    emitted_already.append(key)
 
-        after_meta_index = set(emitted_already)
+    after_meta_index = set(list(meta_index().keys()))
+    orphaned_meta_index = before_meta_index - after_meta_index
 
-        orphaned_meta_index = before_meta_index - after_meta_index
-        if orphaned_meta_index:
-            # create a bundle to tell server about deletes
-            now = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%S.%fZ")
-            bundle = Bundle(type='transaction', timestamp=now)
+    if orphaned_meta_index:
+        # create a bundle to tell server about deletes
+        now = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+        bundle = Bundle(type='transaction', timestamp=now)
 
-            bundle.identifier = Identifier(value=now, system=_get_system(project_id, project_id=project_id), use='official')
-            bundle.id = create_id(bundle, project_id)
+        bundle.identifier = Identifier(value=now, system=_get_system(project_id, project_id=project_id), use='official')
+        bundle.id = create_id(bundle, project_id)
 
-            bundle.entry = []
-            outcome = OperationOutcome(issue=[{'severity': 'warning', 'code': 'processing', 'diagnostics': 'Meta data items no longer in study.'}])
-            bundle.issues = outcome
+        bundle.entry = []
+        outcome = OperationOutcome(issue=[{'severity': 'warning', 'code': 'processing', 'diagnostics': 'Meta data items no longer in study.'}])
+        bundle.issues = outcome
 
-            for _ in orphaned_meta_index:
-                bundle_entry = BundleEntry()
-                bundle_entry.request = BundleEntryRequest(url=_, method='DELETE')
-                bundle.entry.append(bundle_entry)
+        for _ in orphaned_meta_index:
+            bundle_entry = BundleEntry()
+            bundle_entry.request = BundleEntryRequest(url=_, method='DELETE')
+            bundle.entry.append(bundle_entry)
 
+        with EmitterContextManager('META') as emitter:
             emitter.emit(bundle.resource_type, file_mode='a').write(
-                        bundle.json(option=orjson.OPT_APPEND_NEWLINE)
-                    )
+                    bundle.json(option=orjson.OPT_APPEND_NEWLINE)
+                )
 
     after_meta_files = [_ for _ in pathlib.Path('META').glob('*.ndjson')]
     new_meta_files = [str(_) for _ in after_meta_files if _ not in before_meta_files]

@@ -47,6 +47,7 @@ def test_change_patient(runner: CliRunner, project_id, tmpdir) -> None:
         run(runner, _.split())
 
     for _ in read_ndjson_file(pathlib.Path("META/Bundle.ndjson")):
+        print(_)
         bundle = Bundle(**_)
         break  # only one bundle
 
@@ -75,6 +76,7 @@ def test_change_file(runner: CliRunner, project_id, tmpdir) -> None:
         run(runner, _.split())
 
     for _ in read_ndjson_file(pathlib.Path("META/Bundle.ndjson")):
+        print(_)
         bundle = Bundle(**_)
         break  # only one bundle
 
