@@ -50,9 +50,11 @@ def validate(ctx, directory):
     """Validate FHIR data"""
     try:
         from gen3_tracker.meta.validator import validate as validate_dir
-
-        result = validate_dir(directory)
-        click.secho(result, fg=INFO_COLOR, file=sys.stderr)
+        with Halo(text='Validating', spinner='line', placement='right', color='white'):
+            result = validate_dir(directory)
+        click.secho(result.resources, fg=INFO_COLOR, file=sys.stderr)
+        for _ in result.exceptions:
+            click.secho(f"{_.path}:{_.offset} {_.exception}", fg=ERROR_COLOR, file=sys.stderr)
     except Exception as e:
         click.secho(str(e), fg=ERROR_COLOR, file=sys.stderr)
         raise

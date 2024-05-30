@@ -11,6 +11,7 @@ from nested_lookup import nested_lookup
 from pydantic import BaseModel, ConfigDict
 
 from gen3_tracker.meta import ParseResult, directory_reader
+from collections import Counter
 
 
 class ValidateDirectoryResult(BaseModel):
@@ -93,9 +94,19 @@ def validate(directory_path: pathlib.Path) -> ValidateDirectoryResult:
 
     # assert references exist
     references = set(references)
+    ids_list = ids
     ids = set(ids)
     if not references.issubset(ids):
         _ = Exception(f"references not found {references - ids}")
+        _ = ParseResult(resource=None, exception=_, path=directory_path, resource_id=None)
+        exceptions.append(_)
+    if len(ids) != len(ids_list):
+        # Create a Counter object from ids_list
+        counter = Counter(ids_list)
+        # Get the duplicate ids
+        duplicate_ids = [id_ for id_, count in counter.items() if count > 1]
+        # log it
+        _ = Exception(f"Duplicate ids found {duplicate_ids}")
         _ = ParseResult(resource=None, exception=_, path=directory_path, resource_id=None)
         exceptions.append(_)
 
