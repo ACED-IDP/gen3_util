@@ -269,8 +269,11 @@ def status(config):
                 # Get the modification time
                 document_reference_mtime = os.path.getmtime('META/DocumentReference.ndjson')
 
-            if document_reference_mtime < os.path.getmtime(latest_file):
-                click.secho(f"DocumentReference.ndjson is out of date. The most recently changed file is {latest_file}.  Please run `g3t meta init`", fg=INFO_COLOR, file=sys.stderr)
+            latest_file_mtime = os.path.getmtime(latest_file)
+            if document_reference_mtime < latest_file_mtime:
+                document_reference_mtime = datetime.fromtimestamp(document_reference_mtime).isoformat()
+                latest_file_mtime = datetime.fromtimestamp(latest_file_mtime).isoformat()
+                click.secho(f"WARNING: DocumentReference.ndjson is out of date {document_reference_mtime}. The most recently changed file is {latest_file} {latest_file_mtime}.  Please check DocumentReferences.ndjson", fg=INFO_COLOR, file=sys.stderr)
                 soft_error = True
 
             if changes:
@@ -371,7 +374,7 @@ def push(ctx, step: str, transfer_method: str, overwrite: bool, re_run: bool, wa
             if step != 'publish':
                 if not overwrite:
                     dvc_objects = new_dvc_objects + updated_dvc_objects
-                    assert dvc_objects, f"No new files to index."
+                    assert dvc_objects, f"No new files to index.  Use --overwrite to force"
 
         click.secho(f'Scanned new: {len(new_dvc_objects)}, updated: {len(updated_dvc_objects)} files', fg=INFO_COLOR, file=sys.stderr)
         if updated_dvc_objects:
