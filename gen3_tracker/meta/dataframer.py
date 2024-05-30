@@ -105,6 +105,16 @@ class LocalFHIRDatabase:
             '''
             new_cursor = self.cursor.executemany(sql, _iterate(_resources=resources))
 
+        except sqlite3.IntegrityError as e:
+            for resource in resources:
+                prepared_resource = _prepare(resource)
+                try:
+                    self.cursor.execute(sql, prepared_resource)
+                except sqlite3.IntegrityError:
+                    print(f"Error inserting resource: {prepared_resource}")
+                    print(f"Exception: {e}")
+            raise
+
         finally:
             self.connection.commit()
             # self.disconnect()
@@ -142,7 +152,11 @@ class LocalFHIRDatabase:
         """Return the patient resource."""
         cursor = self.connection.cursor()
         cursor.execute("SELECT * FROM resources WHERE key = ?", (f"Patient/{patient_id}",))
-        key, resource_type, resource = cursor.fetchone()
+        _ = cursor.fetchone()
+        if _ is None:
+            print(f"Patient {patient_id} not found")
+            return None
+        key, resource_type, resource = _
         return json.loads(resource)
 
     @lru_cache(maxsize=None)
@@ -298,15 +312,25 @@ class LocalFHIRDatabase:
 
             # simplify the value
             value_normalized, value_source = normalize_value(observation)
-            observation['value_normalized'] = value_normalized
-            value_numeric = observation['value_normalized'].split(' ')[0]
 
-            if is_number(value_numeric):
-                observation['value_numeric'] = float(value_numeric)
+            observation['value_normalized'] = value_normalized
+
+            if value_normalized:
+                value_numeric = observation['value_normalized'].split(' ')[0]
+                if is_number(value_numeric):
+                    observation['value_numeric'] = float(value_numeric)
+                else:
+                    observation['value_numeric'] = None
             else:
                 observation['value_numeric'] = None
 
-            del observation[value_source]
+            if value_source:
+                del observation[value_source]
+
+            ignored_fields = ['meta', 'encounter']
+            for _ in ignored_fields:
+                if _ in observation:
+                    del observation[_]
 
             # simplify extensions
             for _ in observation.get('extension', []):
@@ -316,8 +340,9 @@ class LocalFHIRDatabase:
             if subject.startswith('Patient/'):
                 _, patient_id = subject.split('/')
                 resource = loaded_db.patient(patient_id)
-                observation['patient'] = resource['identifier'][0]['value']
-                # TODO - add more patient details
+                if resource:
+                    observation['patient'] = resource['identifier'][0]['value']
+                    # TODO - add more patient details
 
             if observation.get('focus'):
                 focus = observation['focus']
@@ -348,28 +373,50 @@ class LocalFHIRDatabase:
                 observation[coding_source] = coding_normalized
 
             # renormalize the value in components
-            for component in observation.get('component', []):
-                # simplify the value
-                observation = deepcopy(observation)
-                value_normalized, value_source = normalize_value(component)
-                observation['code'] = component['code']['coding'][0]['code']
-                observation['value_numeric'] = None
-                observation['value_normalized'] = None
-                if value_normalized:
-                    observation['value_normalized'] = value_normalized
-                    value_numeric = observation['value_normalized'].split(' ')[0]
+            if observation.get('component', []):
+                for component in observation.get('component', []):
+                    # simplify the value
+                    observation_ = deepcopy(observation)
+                    codings = normalize_coding(component)
+                    for _ in codings:
+                        coding_normalized, coding_source = _
+                        if coding_source == 'code':
+                            observation['code'] = coding_normalized
+                            break
+                    value_normalized, value_source = normalize_value(component)
+
+                    observation_['value_numeric'] = None
+                    observation_['value_normalized'] = None
+
+                    if not value_normalized:
+                        continue
+
+                    value_numeric = value_normalized.split(' ')[0]
+
+                    if value_source in observation_:
+                        del observation_[value_source]
+
+                    # remove any value[x] from parent observation
+                    delete_value_x = [k for k in observation_ if k.startswith('value')]
+                    for _ in delete_value_x:
+                        del observation_[_]
+
+                    observation_['value_normalized'] = value_normalized
 
                     if is_number(value_numeric):
-                        observation['value_numeric'] = float(value_numeric)
+                        observation_['value_numeric'] = float(value_numeric)
                     else:
-                        observation['value_numeric'] = None
+                        observation_['value_numeric'] = None
+
+                    if 'component' in observation_:
+                        del observation_['component']
+
+                    yield observation_
+            else:
                 if 'component' in observation:
                     del observation['component']
-                yield observation
-
-            if 'component' in observation:
-                del observation['component']
-            yield observation
+                else:
+                    yield observation
 
         connection.close()
 
