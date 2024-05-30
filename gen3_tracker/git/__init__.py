@@ -163,7 +163,9 @@ class DVC(BaseModel):
         """
         attachment: Attachment = document_reference.content[0].attachment
         assert attachment.extension, document_reference
-        source_path = [_.valueUrl for _ in attachment.extension if _.url.endswith('source_path')][0]
+        source_path = next(iter([_.valueUrl for _ in attachment.extension if _.url.endswith('source_path')]), None)
+        if not source_path:
+            source_path = attachment.url
 
         for k in ACCEPTABLE_HASHES.keys():
             if [_.valueString for _ in attachment.extension if _.url.endswith(k)]:
@@ -171,22 +173,31 @@ class DVC(BaseModel):
                 hash_name = k
                 break
 
-        assert source_path, document_reference
-        assert hash_value, document_reference
+        assert source_path, ("missing source_path", document_reference)
+        assert hash_value, ("missing hash_value", document_reference)
 
         resource_type, resource_id = document_reference.subject.reference.split('/')
         meta = DVCMeta()
+
         if not resource_type == 'ResearchStudy':
             resource_type = inflection.underscore(resource_type)
             identifier = references[document_reference.subject.reference]
             meta = DVCMeta(**{resource_type: identifier})
+
+        modified = None
+        if attachment.creation:
+            modified = attachment.creation.isoformat()
+        elif document_reference.date:
+            modified = document_reference.date.isoformat()
+
+        assert modified, ("missing attachment.creation, document_reference.date", document_reference)
 
         dvc_object = DVC(
             project_id=config.gen3.project_id,
             meta=meta,
             outs=[
                 DVCItem(
-                    modified=attachment.creation.isoformat(),
+                    modified=modified,
                     path=attachment.url.replace('file:///', ''),
                     size=attachment.size,
                     realpath=source_path.replace('file:///', ''),
@@ -196,6 +207,7 @@ class DVC(BaseModel):
                 )
             ],
         )
+
         if document_reference.subject:
 
             if document_reference.subject.reference in references:
