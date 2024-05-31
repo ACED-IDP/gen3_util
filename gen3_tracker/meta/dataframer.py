@@ -190,6 +190,9 @@ class LocalFHIRDatabase:
 
         # simplify the identifier
         specimen['identifier'] = specimen['identifier'][0]['value']
+        # simplify parent
+        if 'parent' in specimen.keys():
+            specimen['parent'] = specimen['parent'][0]
 
         for coding_normalized, coding_source in normalize_coding(specimen['collection']):
             specimen[f"collection_{coding_source}"] = coding_normalized
