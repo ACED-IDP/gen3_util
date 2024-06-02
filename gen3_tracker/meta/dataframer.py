@@ -157,7 +157,24 @@ class LocalFHIRDatabase:
             print(f"Patient {patient_id} not found")
             return None
         key, resource_type, resource = _
-        return json.loads(resource)
+        resource = json.loads(resource)
+
+        resource = self.simplify_extensions(resource)
+
+        return resource
+
+    @staticmethod
+    def simplify_extensions(resource: dict) -> dict:
+        """Extract extension values, derive key from extension url"""
+        for _ in resource.get('extension', []):
+            value_normalized, value_source = normalize_value(_)
+            extension_key = _['url'].split('/')[-1]
+            extension_key = inflection.underscore(extension_key)
+            resource[extension_key] = value_normalized
+            assert value_normalized, f"extension: {extension_key} = {value_normalized}"
+        if 'extension' in resource:
+            del resource['extension']
+        return resource
 
     @lru_cache(maxsize=None)
     def flattened_procedure(self, procedure_key) -> dict:
@@ -332,17 +349,17 @@ class LocalFHIRDatabase:
                 if _ in observation:
                     del observation[_]
 
-            # simplify extensions
-            for _ in observation.get('extension', []):
-                value_normalized, value_source = normalize_value(_)
-                observation[_['url'].split('/')[-1]] = value_normalized
+            observation = self.simplify_extensions(observation)
 
             if subject.startswith('Patient/'):
                 _, patient_id = subject.split('/')
                 resource = loaded_db.patient(patient_id)
                 if resource:
                     observation['patient'] = resource['identifier'][0]['value']
-                    # TODO - add more patient details
+                    for k, v in resource.items():
+                        if k in ['id', 'subject', 'resourceType', 'identifier']:
+                            continue
+                        observation[f"patient_{k}"] = v
 
             if observation.get('focus'):
                 focus = observation['focus']
@@ -534,6 +551,9 @@ def normalize_value(resource_dict: dict) -> tuple[Optional[str], Optional[str]]:
     value_normalized = None
     value_source = None
 
+    if set(resource_dict.keys()) == set(['url', 'extension']):
+        assert len(resource_dict['extension']) > 0, f"Expected at least on extension, in {resource_dict}"
+        return normalize_value(resource_dict['extension'][0])
     if 'valueQuantity' in resource_dict:
         value = resource_dict['valueQuantity']
         value_normalized = f"{value['value']} {value.get('unit', '')}"
@@ -542,9 +562,16 @@ def normalize_value(resource_dict: dict) -> tuple[Optional[str], Optional[str]]:
         value = resource_dict['valueCodeableConcept']
         value_normalized = ' '.join([coding['display'] for coding in value.get('coding', [])])
         value_source = 'valueCodeableConcept'
+    elif 'valueCoding' in resource_dict:
+        value = resource_dict['valueCoding']
+        value_normalized = value['display']
+        value_source = 'valueCoding'
     elif 'valueString' in resource_dict:
         value_normalized = resource_dict['valueString']
         value_source = 'valueString'
+    elif 'valueCode' in resource_dict:
+        value_normalized = resource_dict['valueCode']
+        value_source = 'valueCode'
     elif 'valueBoolean' in resource_dict:
         value_normalized = str(resource_dict['valueBoolean'])
         value_source = 'valueBoolean'
@@ -577,6 +604,9 @@ def normalize_value(resource_dict: dict) -> tuple[Optional[str], Optional[str]]:
         value = resource_dict['valuePeriod']
         value_normalized = f"{value['start']} to {value['end']}"
         value_source = 'valuePeriod'
+    # for debugging...
+    # else:
+    #     raise ValueError(f"value[x] not found in {resource_dict}")
 
     return value_normalized, value_source
 
