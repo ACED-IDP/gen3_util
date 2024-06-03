@@ -326,15 +326,6 @@ class LocalFHIRDatabase:
 
         connection.close()
 
-    def join_observation_to_condition(self, dict):
-        """Joining Observation and Condition where
-        observation.subject == condition.subject"""
-
-        connection = sqlite3.connect(self.db_name)
-        cursor = connection.cursor()
-        cursor.execute("SELECT * FROM resources where resource_type = ?", ("Observation",))
-        pass
-
     def flattened_observations(self) -> Generator[dict, None, None]:
         loaded_db = self
         connection = sqlite3.connect(loaded_db.db_name)
@@ -379,10 +370,13 @@ class LocalFHIRDatabase:
                 _, patient_id = subject.split('/')
                 resources = [_ for _ in loaded_db.condition_everything()]
                 matching_dict = next((d for d in resources if d.get("subject").get("reference") == subject), None)
-                for k, v in matching_dict.items():
-                    if k in ['id', 'subject', 'resourceType']:
-                        continue
-                    observation[f"condition_{k}"] = v
+                if matching_dict is not None:
+                    for k, v in matching_dict.items():
+                        if k in ['id', 'subject', 'resourceType']:
+                            continue
+                        observation[f"condition_{k}"] = v
+                else:
+                    print(f"No foreign key found to joing condition and observation on {subject}")
 
                 resource = loaded_db.patient(patient_id)
                 if resource:
