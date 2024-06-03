@@ -2,7 +2,7 @@ import json
 import pathlib
 import sqlite3
 from functools import lru_cache
-from typing import Generator, Optional, List, Tuple
+from typing import Generator, Optional, List, Tuple, Dict
 
 import inflection
 import ndjson
@@ -148,6 +148,19 @@ class LocalFHIRDatabase:
             yield json.loads(resource)
 
     @lru_cache(maxsize=None)
+    def condition_everything(self) -> List[Dict]:
+        """Return all the resources for a Condition."""
+        cursor = self.connection.cursor()
+        cursor.execute(" SELECT * FROM resources where resource_type = ?", ("Condition",))
+
+        resources = []
+        for row in cursor.fetchall():
+            key, resource_type, resource = row
+            resources.append(json.loads(resource))
+
+        return resources
+
+    @lru_cache(maxsize=None)
     def patient(self, patient_id) -> dict:
         """Return the patient resource."""
         cursor = self.connection.cursor()
@@ -210,12 +223,14 @@ class LocalFHIRDatabase:
 
         for coding_normalized, coding_source in normalize_coding(specimen['collection']):
             specimen[f"collection_{coding_source}"] = coding_normalized
-        del specimen['collection']
+        if 'collection' in specimen:
+            del specimen['collection']
         for processing in specimen.get('processing', []):
             for coding_normalized, coding_source in normalize_coding(processing):
                 specimen[f"processing_{coding_source}"] = coding_normalized
-            break # TODO - only first one
-        del specimen['processing']
+            break  # TODO - only first one
+        if 'processing' in specimen:
+            del specimen['processing']
 
         return specimen
 
@@ -311,6 +326,15 @@ class LocalFHIRDatabase:
 
         connection.close()
 
+    def join_observation_to_condition(self, dict):
+        """Joining Observation and Condition where
+        observation.subject == condition.subject"""
+
+        connection = sqlite3.connect(self.db_name)
+        cursor = connection.cursor()
+        cursor.execute("SELECT * FROM resources where resource_type = ?", ("Observation",))
+        pass
+
     def flattened_observations(self) -> Generator[dict, None, None]:
         loaded_db = self
         connection = sqlite3.connect(loaded_db.db_name)
@@ -353,6 +377,13 @@ class LocalFHIRDatabase:
 
             if subject.startswith('Patient/'):
                 _, patient_id = subject.split('/')
+                resources = [_ for _ in loaded_db.condition_everything()]
+                matching_dict = next((d for d in resources if d.get("subject").get("reference") == subject), None)
+                for k, v in matching_dict.items():
+                    if k in ['id', 'subject', 'resourceType']:
+                        continue
+                    observation[f"condition_{k}"] = v
+
                 resource = loaded_db.patient(patient_id)
                 if resource:
                     observation['patient'] = resource['identifier'][0]['value']
@@ -376,7 +407,8 @@ class LocalFHIRDatabase:
                                 if k in ['id', 'subject', 'resourceType']:
                                     continue
                                 observation[f"condition_{k}"] = v
-                            del observation["procedure_reason"]
+                            if 'procedure_reason' in observation:
+                                del observation["procedure_reason"]
                     if f['reference'].startswith('Specimen/'):
                         p = self.flattened_specimen(f['reference'])
                         for k, v in p.items():
@@ -503,14 +535,16 @@ class LocalFHIRDatabase:
                         document_reference[resource_type] = []
                     document_reference[resource_type].append(resource)
 
-            del document_reference['content']
+            if "content" in document_reference:
+                del document_reference['content']
             yield document_reference
 
         connection.close()
 
 
-def create_dataframe(directory_path: str, work_path: str, data_type:str) -> pd.DataFrame:
+def create_dataframe(directory_path: str, work_path: str, data_type: str) -> pd.DataFrame:
     """Create a dataframe from the FHIR data in the directory."""
+
     assert pathlib.Path(work_path).exists(), f"Directory {work_path} does not exist."
     work_path = pathlib.Path(work_path)
     db_path = (work_path / "local_fhir.db")
@@ -637,6 +671,7 @@ def normalize_coding(resource_dict: dict) -> List[Tuple[str, str]]:
         return codings
 
     return find_codings_in_dict(resource_dict)
+
 
 def is_number(s):
     """ Returns True if string is a number. """

@@ -175,7 +175,7 @@ async def async_run_job_and_wait(self, job_name, job_input, spinner=None, _ssl=N
             logging.info(f"{status}")
 
     if not spinner:
-        logging.info(f"Job is finished!")
+        logging.info("Job is finished!")
     else:
         spinner.text = f"{status.get('name')} {status.get('status')}"
 
