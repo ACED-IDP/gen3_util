@@ -1,6 +1,7 @@
 import json
 import pathlib
 import sqlite3
+import uuid
 from functools import lru_cache
 from typing import Generator, Optional, List, Tuple
 
@@ -427,6 +428,8 @@ class LocalFHIRDatabase:
 
                     if 'component' in observation_:
                         del observation_['component']
+                    observation_['parent_observation'] = observation_['id']
+                    observation_['id'] = uuid.uuid3(uuid.NAMESPACE_DNS, observation_['id'] + '/' + json.dumps(component, separators=(',', ':'))).hex
 
                     yield observation_
             else:
