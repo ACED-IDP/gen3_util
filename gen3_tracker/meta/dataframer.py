@@ -616,7 +616,10 @@ def normalize_value(resource_dict: dict) -> tuple[Optional[str], Optional[str]]:
 
 def normalize_coding(resource_dict: dict) -> List[Tuple[str, str]]:
     def extract_coding(coding_list):
-        return ' '.join([coding.get('display', '') for coding in coding_list if 'display' in coding])
+        # return a concatenated string
+        # return ','.join([coding.get('display', '') for coding in coding_list if 'display' in coding])
+        # or alternatively return an array
+        return [coding.get('display', coding.get('code', '')) for coding in coding_list]
 
     def find_codings_in_dict(d: dict, parent_key: str = '') -> List[Tuple[str, str]]:
         codings = []
