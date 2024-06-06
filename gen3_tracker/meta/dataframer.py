@@ -326,6 +326,7 @@ class LocalFHIRDatabase:
             observation['subject'] = subject
 
             # simplify the identifier
+            
             observation['identifier'] = observation.get('identifier', [{'value': None}])[0]['value']
 
             # simplify the value
@@ -455,17 +456,22 @@ class LocalFHIRDatabase:
             document_reference['subject'] = subject
 
             # simplify the identifier
+
             document_reference['identifier'] = document_reference.get('identifier', [{'value': None}])[0]['value']
+
+            for elem in normalize_coding(document_reference):
+                document_reference[elem[1]] = elem[0][0]
 
             # simplify the extensions
             for _ in document_reference['content'][0]['attachment']['extension']:
                 value_normalized, value_source = normalize_value(_)
                 document_reference[_['url'].split('/')[-1]] = value_normalized
 
-            for k, v in document_reference['content'][0]['attachment'].items():
-                if k in ['extension']:
-                    continue
-                document_reference[k] = v
+            if "content" in document_reference:
+                for k, v in document_reference['content'][0]['attachment'].items():
+                    if k in ['extension']:
+                        continue
+                    document_reference[k] = v
 
             if subject.startswith('Patient/'):
                 _, patient_id = subject.split('/')
