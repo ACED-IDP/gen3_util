@@ -209,14 +209,16 @@ class LocalFHIRDatabase:
         # simplify the identifier
         specimen['identifier'] = specimen['identifier'][0]['value']
 
-        for coding_normalized, coding_source in normalize_coding(specimen['collection']):
-            specimen[f"collection_{coding_source}"] = coding_normalized
-        del specimen['collection']
-        for processing in specimen.get('processing', []):
-            for coding_normalized, coding_source in normalize_coding(processing):
-                specimen[f"processing_{coding_source}"] = coding_normalized
-            break # TODO - only first one
-        del specimen['processing']
+        if 'collection' in specimen:
+            for coding_normalized, coding_source in normalize_coding(specimen['collection']):
+                specimen[f"collection_{coding_source}"] = coding_normalized
+            del specimen['collection']
+        if 'processing' in specimen:
+            for processing in specimen.get('processing', []):
+                for coding_normalized, coding_source in normalize_coding(processing):
+                    specimen[f"processing_{coding_source}"] = coding_normalized
+                break # TODO - only first one
+            del specimen['processing']
 
         return specimen
 
