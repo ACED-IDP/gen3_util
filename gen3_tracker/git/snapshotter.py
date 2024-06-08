@@ -37,13 +37,13 @@ def push_snapshot(config: Config, auth: Gen3Auth, project_id: str = None, from_:
         if not isinstance(from_, pathlib.Path):
             from_ = pathlib.Path(from_)
 
-        with tempfile.TemporaryDirectory() as temp_dir:
-            if from_.is_dir():
-                temp_dir = pathlib.Path(temp_dir)
-                zipfile_path = temp_dir / object_name
-                with ZipFile(zipfile_path, 'w') as zip_object:
-                    for _ in from_.glob("*.ndjson"):
-                        zip_object.write(_)
+        temp_dir = tempfile.mkdtemp()
+        if from_.is_dir():
+            temp_dir = pathlib.Path(temp_dir)
+            zipfile_path = temp_dir / object_name
+            with ZipFile(zipfile_path, 'w') as zip_object:
+                for _ in from_.glob("*.ndjson"):
+                    zip_object.write(_)
 
     else:
         zipfile_path = str(config.work_dir / f'{config.gen3.project_id}.git.zip')
