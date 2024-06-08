@@ -56,7 +56,7 @@ def push_snapshot(config: Config, auth: Gen3Auth, project_id: str = None, from_:
         project_id=proj_id,
         outs=[
             DVCItem(
-                path=zipfile_path,
+                path=str(zipfile_path),
                 md5=md5_sum,
                 hash='md5',
                 modified=modified_date(zipfile_path),
@@ -91,7 +91,7 @@ def push_snapshot(config: Config, auth: Gen3Auth, project_id: str = None, from_:
     # this url needs to be unquoted
     signed_url = urllib.parse.unquote(url)
     with open(zipfile_path, 'rb') as f:
-        files = {'file': (zipfile_path, f)}
+        files = {'file': (str(zipfile_path), f)}
         # this needs to be a PUT
         response = requests.put(signed_url, files=files)
         response.raise_for_status()
