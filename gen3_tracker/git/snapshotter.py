@@ -6,6 +6,7 @@ import requests
 from gen3.auth import Gen3Auth
 from gen3.file import Gen3File
 from zipfile import ZipFile
+from urllib.parse import urlparse
 
 import gen3_tracker
 from gen3_tracker import Config
@@ -13,6 +14,12 @@ from gen3_tracker.gen3.buckets import get_program_bucket
 from gen3_tracker.gen3.indexd import write_indexd
 from gen3_tracker.git import calculate_hash, DVC, DVCMeta, DVCItem, git_archive, modified_date, run_command
 
+
+def _validate_parameters(from_: str) -> pathlib.Path:
+
+    assert len(urlparse(from_).scheme) == 0, f"{from_} appears to be an url. url to url cp not supported"
+
+    return from_
 
 def push_snapshot(config: Config, auth: Gen3Auth, project_id: str = None, from_: str = None, object_name: str = None):
     """Zip the git repo and push it to the server."""
@@ -24,7 +31,12 @@ def push_snapshot(config: Config, auth: Gen3Auth, project_id: str = None, from_:
     program, _ = proj_id.split('-')
 
     # provide support for server provided path name
+
     if object_name and from_:
+        from_ = _validate_parameters(str(from_))
+        if not isinstance(from_, pathlib.Path):
+            from_ = pathlib.Path(from_)
+
         with tempfile.TemporaryDirectory() as temp_dir:
             if from_.is_dir():
                 temp_dir = pathlib.Path(temp_dir)
