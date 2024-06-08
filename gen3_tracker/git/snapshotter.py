@@ -12,22 +12,27 @@ from gen3_tracker.gen3.indexd import write_indexd
 from gen3_tracker.git import calculate_hash, DVC, DVCMeta, DVCItem, git_archive, modified_date, run_command
 
 
-def push_snapshot(config: Config, auth: Gen3Auth):
+def push_snapshot(config: Config, auth: Gen3Auth, project_id: str = None, object_name: str = None):
     """Zip the git repo and push it to the server."""
     # create a zip of the git repo and associate it with the project
     # TODO should we query git to get the list of files to zip?
     files_to_zip = ['.git', 'MANIFEST', 'META', '.gitignore', '.g3t']
 
-    # timestamp_str = datetime.now().strftime("%Y%m%d_%H%M%S")
-    # We have a simple project_id.git.zip? (no timestamp) _{timestamp_str}
-    zipfile_path = str(config.work_dir / f'{config.gen3.project_id}.git.zip')
-    git_archive(zipfile_path)
+    proj_id = project_id or config.gen3.project_id
+    program, _ = proj_id.split('-')
+
+    # provide support for server provided path name
+    if object_name:
+        zipfile_path =  object_name
+    else:
+        zipfile_path = str(config.work_dir / f'{config.gen3.project_id}.git.zip')
+        git_archive(zipfile_path)
 
     # this version simply adds the file to indexd and uploads it
     md5_sum = calculate_hash('md5', zipfile_path)
     my_dvc = DVC(
         meta=DVCMeta(),
-        project_id=config.gen3.project_id,
+        project_id=proj_id,
         outs=[
             DVCItem(
                 path=zipfile_path,
@@ -42,10 +47,10 @@ def push_snapshot(config: Config, auth: Gen3Auth):
     if not auth:
         auth = gen3_tracker.config.ensure_auth(config=config)
 
-    bucket_name = get_program_bucket(config=config, auth=auth)
+    bucket_name = get_program_bucket(config=config, program=program, auth=auth)
     metadata = write_indexd(
         auth=auth,
-        project_id=config.gen3.project_id,
+        project_id=proj_id,
         bucket_name=bucket_name,
         overwrite=True,
         restricted_project_id=None,
@@ -69,6 +74,8 @@ def push_snapshot(config: Config, auth: Gen3Auth):
         # this needs to be a PUT
         response = requests.put(signed_url, files=files)
         response.raise_for_status()
+
+    return {"msg": str(response), "object_id": my_dvc.object_id}
 
     # cmd = f"gen3-client upload-single --bucket {bucket_name} --guid {my_dvc.object_id} --file {zipfile_path} --profile {config.gen3.profile}",
     # print(cmd)

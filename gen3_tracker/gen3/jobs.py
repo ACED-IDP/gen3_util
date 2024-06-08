@@ -32,7 +32,6 @@ def cp(config: Config,
        object_name=None,
        bucket_name=None,
        metadata: dict = {},
-       workdir: str = None
        ):
     """Copy meta to bucket, used by etl_pod job"""
     from_ = _validate_parameters(str(from_))
@@ -51,11 +50,7 @@ def cp(config: Config,
 
     assert bucket_name, f"could not find bucket for {program}"
 
-    if workdir is None:
-        temp_dir = config.work_dir
-    elif workdir is not None:
-        temp_dir = workdir
-        pathlib.Path(workdir).mkdir(parents=True, exist_ok=True)
+    temp_dir = config.work_dir
 
     temp_dir = pathlib.Path(temp_dir)
 
