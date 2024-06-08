@@ -1,9 +1,11 @@
 import urllib
 from os import stat
-
+import tempfile
+import pathlib
 import requests
 from gen3.auth import Gen3Auth
 from gen3.file import Gen3File
+from zipfile import ZipFile
 
 import gen3_tracker
 from gen3_tracker import Config
@@ -12,7 +14,7 @@ from gen3_tracker.gen3.indexd import write_indexd
 from gen3_tracker.git import calculate_hash, DVC, DVCMeta, DVCItem, git_archive, modified_date, run_command
 
 
-def push_snapshot(config: Config, auth: Gen3Auth, project_id: str = None, object_name: str = None):
+def push_snapshot(config: Config, auth: Gen3Auth, project_id: str = None, from_: str = None, object_name: str = None):
     """Zip the git repo and push it to the server."""
     # create a zip of the git repo and associate it with the project
     # TODO should we query git to get the list of files to zip?
@@ -22,8 +24,15 @@ def push_snapshot(config: Config, auth: Gen3Auth, project_id: str = None, object
     program, _ = proj_id.split('-')
 
     # provide support for server provided path name
-    if object_name:
-        zipfile_path =  object_name
+    if object_name and from_:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            if from_.is_dir():
+                temp_dir = pathlib.Path(temp_dir)
+                zipfile_path = temp_dir / object_name
+                with ZipFile(zipfile_path, 'w') as zip_object:
+                    for _ in from_.glob("*.ndjson"):
+                        zip_object.write(_)
+
     else:
         zipfile_path = str(config.work_dir / f'{config.gen3.project_id}.git.zip')
         git_archive(zipfile_path)
