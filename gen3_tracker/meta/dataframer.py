@@ -170,7 +170,7 @@ class LocalFHIRDatabase:
         for _ in resource.get('extension', []):
             value_normalized, value_source = normalize_value(_)
             extension_key = _['url'].split('/')[-1]
-            extension_key = inflection.underscore(extension_key)
+            extension_key = inflection.underscore(extension_key).rstrip(".json")
             resource[extension_key] = value_normalized
             assert value_normalized, f"extension: {extension_key} = {value_normalized}"
         if 'extension' in resource:
@@ -408,6 +408,10 @@ class LocalFHIRDatabase:
                             if k in ['id', 'subject', 'resourceType']:
                                 continue
 
+                            if k == "parent":
+                                observation[f"specimen_{k}"] = v[0]["reference"]
+                                continue
+
                             observation[f"specimen_{k}"] = v
 
                 del observation['focus']
@@ -491,9 +495,9 @@ class LocalFHIRDatabase:
                 if "extension" in document_reference['content'][0]['attachment']:
                     for _ in document_reference['content'][0]['attachment']['extension']:
                         value_normalized, value_source = normalize_value(_)
-                        document_reference[_['url'].split('/')[-1]] = value_normalized
+                        document_reference[(_['url'].split('/')[-1])] = value_normalized
 
-                content_url = self.get_nested_value(document_reference, ['content', 0,'attachment', 'url'])
+                content_url = self.get_nested_value(document_reference, ['content', 0, 'attachment', 'url'])
                 if content_url is not None:
                     document_reference['source_url'] = content_url
 
@@ -502,6 +506,10 @@ class LocalFHIRDatabase:
                     if k in ['extension']:
                         continue
                     document_reference[k] = v
+
+            if "basedOn" in document_reference:
+                for i, dict_ in enumerate(document_reference['basedOn']):
+                    document_reference['basedOn'][i] = dict_["reference"]
 
             if subject is not None and subject.startswith('Patient/'):
                 _, patient_id = subject.split('/')
