@@ -105,8 +105,9 @@ def render_graph(config: Config, directory_path: str, output_path: str, browser:
                 default="meta.csv", required=False)
 @click.option('--dtale', 'launch_dtale', default=False, show_default=True, is_flag=True, help='Open the graph in a browser using the dtale package for interactive data exploration.')
 @click.option('--data_type', required=True, type=click.Choice(['Patient', 'Specimen', 'Observation', 'DocumentReference']), default=None, show_default=True,  help='Create a data frame for a specific data type.')
+@click.option('--debug', is_flag=True)
 @click.pass_obj
-def render_df(config: Config, directory_path: str, output_path: str, launch_dtale: bool, data_type: str):
+def render_df(config: Config, directory_path: str, output_path: str, launch_dtale: bool, data_type: str, debug: bool):
     """Render a metadata dataframe.
 
     \b
@@ -126,5 +127,5 @@ def render_df(config: Config, directory_path: str, output_path: str, launch_dtal
             click.secho(f"Saved {output_path}", fg=INFO_COLOR, file=sys.stderr)
     except Exception as e:
         click.secho(str(e), fg=ERROR_COLOR, file=sys.stderr)
-        if config.debug:
+        if config.debug or debug:
             raise

@@ -240,6 +240,14 @@ class LocalFHIRDatabase:
         condition['onsetAge'] = condition['onsetAge']['value']
         return condition
 
+    def get_nested_value(self, d: dict, keys: list):
+        for key in keys:
+            try:
+                d = d[key]
+            except (KeyError, IndexError, TypeError):
+                return None
+        return d
+
     def flattened_procedures(self) -> Generator[dict, None, None]:
         """Return all the procedures with everything resolved"""
         loaded_db = self
@@ -328,7 +336,7 @@ class LocalFHIRDatabase:
             observation['subject'] = subject
 
             # simplify the identifier
-            
+
             observation['identifier'] = observation.get('identifier', [{'value': None}])[0]['value']
 
             # simplify the value
@@ -354,6 +362,19 @@ class LocalFHIRDatabase:
                     del observation[_]
 
             observation = self.simplify_extensions(observation)
+
+            if observation.get('specimen'):
+                specimen = observation["specimen"]
+                observation["specimen"] = specimen["reference"]
+                """
+                Hard to judge which specimen to flatten to observation guessing not this one
+                p = self.flattened_specimen(specimen['reference'])
+                for k, v in p.items():
+                    print("HELLO: ", k ,v )
+                    if k in ['id', 'subject', 'resourceType']:
+                        continue
+                    observation[f"specimen_{k}"] = v
+                """
 
             if subject.startswith('Patient/'):
                 _, patient_id = subject.split('/')
@@ -386,6 +407,7 @@ class LocalFHIRDatabase:
                         for k, v in p.items():
                             if k in ['id', 'subject', 'resourceType']:
                                 continue
+
                             observation[f"specimen_{k}"] = v
 
                 del observation['focus']
@@ -454,20 +476,26 @@ class LocalFHIRDatabase:
             document_reference = json.loads(procedure)
 
             # simplify the subject
-            subject = document_reference['subject']['reference']
+
+            subject = document_reference.get('subject', {'reference': None})['reference']
             document_reference['subject'] = subject
 
-            # simplify the identifier
-
+            #In some places like TCGA-LUAD there is more than one identifier that could be displayed
             document_reference['identifier'] = document_reference.get('identifier', [{'value': None}])[0]['value']
 
             for elem in normalize_coding(document_reference):
                 document_reference[elem[1]] = elem[0][0]
 
             # simplify the extensions
-            for _ in document_reference['content'][0]['attachment']['extension']:
-                value_normalized, value_source = normalize_value(_)
-                document_reference[_['url'].split('/')[-1]] = value_normalized
+            if self.get_nested_value(document_reference, ['content', 0, 'attachment']) is not None:
+                if "extension" in document_reference['content'][0]['attachment']:
+                    for _ in document_reference['content'][0]['attachment']['extension']:
+                        value_normalized, value_source = normalize_value(_)
+                        document_reference[_['url'].split('/')[-1]] = value_normalized
+
+                content_url = self.get_nested_value(document_reference, ['content', 0,'attachment', 'url'])
+                if content_url is not None:
+                    document_reference['source_url'] = content_url
 
             if "content" in document_reference:
                 for k, v in document_reference['content'][0]['attachment'].items():
@@ -475,7 +503,7 @@ class LocalFHIRDatabase:
                         continue
                     document_reference[k] = v
 
-            if subject.startswith('Patient/'):
+            if subject is not None and subject.startswith('Patient/'):
                 _, patient_id = subject.split('/')
                 resources = [_ for _ in loaded_db.patient_everything(patient_id)]
                 resources.append(loaded_db.patient(patient_id))
