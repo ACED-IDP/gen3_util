@@ -121,9 +121,11 @@ def publish_commits(config: Config, wait: bool, auth: Gen3Auth, bucket_name: str
     push = Push(config=config)
     jobs_client = Gen3Jobs(auth_provider=auth)
 
+    # create "legacy" commit object, read by fhir-import-export job
     push.commits.append(Commit(object_id=object_id, message='From g3t-git', meta_path=upload_result['object_name'], commit_id=object_id))
     args = {'push': push.model_dump(), 'project_id': config.gen3.project_id, 'method': 'put'}
 
+    # capture logging from gen3.jobs
     from cdislogging import get_logger  # noqa
     cdis_logging = get_logger("__name__")
     cdis_logging.setLevel(logging.WARN)
