@@ -21,6 +21,7 @@ def _validate_parameters(from_: str) -> pathlib.Path:
 
     return from_
 
+
 def push_snapshot(config: Config, auth: Gen3Auth, project_id: str = None, from_: str = None, object_name: str = None):
     """Zip the git repo and push it to the server."""
     # create a zip of the git repo and associate it with the project
@@ -41,6 +42,8 @@ def push_snapshot(config: Config, auth: Gen3Auth, project_id: str = None, from_:
         if from_.is_dir():
             temp_dir = pathlib.Path(temp_dir)
             zipfile_path = temp_dir / object_name
+            # double slashes create problems in an s3 environment
+            zipfile_path = zipfile_path.name.replace('//', '/')
             with ZipFile(zipfile_path, 'w') as zip_object:
                 for _ in from_.glob("*.ndjson"):
                     zip_object.write(_)
