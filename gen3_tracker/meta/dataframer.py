@@ -170,7 +170,7 @@ class LocalFHIRDatabase:
         for _ in resource.get('extension', []):
             value_normalized, value_source = normalize_value(_)
             extension_key = _['url'].split('/')[-1]
-            extension_key = inflection.underscore(extension_key).rstrip(".json")
+            extension_key = inflection.underscore(extension_key).removesuffix(".json").removeprefix("structure_definition_")
             resource[extension_key] = value_normalized
             assert value_normalized, f"extension: {extension_key} = {value_normalized}"
         if 'extension' in resource:
@@ -360,6 +360,9 @@ class LocalFHIRDatabase:
             for _ in ignored_fields:
                 if _ in observation:
                     del observation[_]
+
+            if "note" in observation:
+                observation["note"] = [elem["text"] for elem in observation["note"] if "text" in elem]
 
             observation = self.simplify_extensions(observation)
 
@@ -687,6 +690,7 @@ def normalize_coding(resource_dict: dict) -> List[Tuple[str, str]]:
         return codings
 
     return find_codings_in_dict(resource_dict)
+
 
 def is_number(s):
     """ Returns True if string is a number. """
