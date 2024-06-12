@@ -11,6 +11,7 @@ import numpy as np
 import pandas as pd
 from tqdm import tqdm
 from copy import deepcopy
+from collections import defaultdict
 
 
 class LocalFHIRDatabase:
@@ -177,6 +178,20 @@ class LocalFHIRDatabase:
             del resource['extension']
         return resource
 
+    @staticmethod
+    def attach_extension(resource: dict, target_dict: dict) -> dict:
+        """Extract extension values, derive key from extension url"""
+        print("RESOURCE: ", resource)
+        for _ in resource.get('extension', []):
+            value_normalized, value_source = normalize_value(_)
+            extension_key = _['url'].split('/')[-1]
+            extension_key = inflection.underscore(extension_key).removesuffix(".json").removeprefix("structure_definition_")
+            target_dict[extension_key] = value_normalized
+            assert value_normalized, f"extension: {extension_key} = {value_normalized}"
+        if 'extension' in resource:
+            del resource['extension']
+        return target_dict
+
     @lru_cache(maxsize=None)
     def flattened_procedure(self, procedure_key) -> dict:
         """Return the procedure with everything resolved."""
@@ -326,149 +341,50 @@ class LocalFHIRDatabase:
         loaded_db = self
         connection = sqlite3.connect(loaded_db.db_name)
         cursor = connection.cursor()
-        cursor.execute("SELECT * FROM resources where resource_type = ?", ("Observation",))
-        for _ in tqdm(cursor.fetchall()):
-            key, resource_type, observation_str = _
-            observation = json.loads(observation_str)
+        cursor.execute('''
+            SELECT
+                json_extract(resource, '$.subject') as subject,
+                json(resource) as observation
+            FROM resources
+            WHERE resource_type = ?
+            ORDER BY subject
+        ''', ("Observation",))
 
-            # simplify the subject
-            subject = observation['subject']['reference']
-            observation['subject'] = subject
+        # Initialize an empty list to store the dictionaries
+        # Fetch rows one by one and process them
 
-            # simplify the identifier
+        previous_observation, patient = {}, {}
+        for i, row in enumerate(cursor):
+            observation = json.loads(row[1])
+            if i == 0:
+                patient_id = str(observation["subject"]["reference"]).removeprefix("Patient/")
+                patient = loaded_db.patient(patient_id)
+                patient['identifier'] = self.get_nested_value(patient, ['identifier', 0, 'value'])
 
-            observation['identifier'] = observation.get('identifier', [{'value': None}])[0]['value']
+            if i > 0 and observation["subject"] != previous_observation["subject"]:
+                yield patient
+                patient_id = str(observation["subject"]["reference"]).removeprefix("Patient/")
+                patient = loaded_db.patient(patient_id)
+                patient['identifier'] = self.get_nested_value(patient, ['identifier', 0, 'value'])
 
-            # simplify the value
-            value_normalized, value_source = normalize_value(observation)
-
-            observation['value_normalized'] = value_normalized
-
-            if value_normalized:
-                value_numeric = observation['value_normalized'].split(' ')[0]
-                if is_number(value_numeric):
-                    observation['value_numeric'] = float(value_numeric)
-                else:
-                    observation['value_numeric'] = None
-            else:
-                observation['value_numeric'] = None
-
-            if value_source:
-                del observation[value_source]
-
-            ignored_fields = ['meta', 'encounter']
-            for _ in ignored_fields:
-                if _ in observation:
-                    del observation[_]
-
-            if "note" in observation:
-                observation["note"] = [elem["text"] for elem in observation["note"] if "text" in elem]
-
-            observation = self.simplify_extensions(observation)
-
-            if observation.get('specimen'):
-                specimen = observation["specimen"]
-                observation["specimen"] = specimen["reference"]
-                """
-                Hard to judge which specimen to flatten to observation guessing not this one
-                p = self.flattened_specimen(specimen['reference'])
-                for k, v in p.items():
-                    print("HELLO: ", k ,v )
-                    if k in ['id', 'subject', 'resourceType']:
-                        continue
-                    observation[f"specimen_{k}"] = v
-                """
-
-            if subject.startswith('Patient/'):
-                _, patient_id = subject.split('/')
-                resource = loaded_db.patient(patient_id)
-                if resource:
-                    observation['patient'] = resource['identifier'][0]['value']
-                    for k, v in resource.items():
-                        if k in ['id', 'subject', 'resourceType', 'identifier']:
-                            continue
-                        observation[f"patient_{k}"] = v
-
-            if observation.get('focus'):
-                focus = observation['focus']
-                for f in focus:
-                    if f['reference'].startswith('Procedure/'):
-                        p = self.flattened_procedure(f['reference'])
-                        for k, v in p.items():
-                            if k in ['id', 'subject', 'resourceType']:
-                                continue
-                            observation[f"procedure_{k}"] = v
-                        if "procedure_reason" in observation:
-                            c = self.flattened_condition(observation["procedure_reason"])
-                            for k, v in c.items():
-                                if k in ['id', 'subject', 'resourceType']:
-                                    continue
-                                observation[f"condition_{k}"] = v
-                            del observation["procedure_reason"]
-                    if f['reference'].startswith('Specimen/'):
-                        p = self.flattened_specimen(f['reference'])
-                        for k, v in p.items():
-                            if k in ['id', 'subject', 'resourceType']:
-                                continue
-
-                            if k == "parent":
-                                observation[f"specimen_{k}"] = v[0]["reference"]
-                                continue
-
-                            observation[f"specimen_{k}"] = v
-
-                del observation['focus']
-
+            value_normalized, _ = normalize_value(observation)
             for coding_normalized, coding_source in normalize_coding(observation):
-                observation[coding_source] = coding_normalized
+                patient[coding_normalized[0]] = value_normalized
 
             # renormalize the value in components
             if observation.get('component', []):
                 for component in observation.get('component', []):
-                    # simplify the value
-                    observation_ = deepcopy(observation)
                     codings = normalize_coding(component)
                     for _ in codings:
                         coding_normalized, coding_source = _
                         if coding_source == 'code':
-                            observation['code'] = coding_normalized
+                            value_normalized, value_source = normalize_value(component)
+                            if isinstance(coding_normalized, list) and len(coding_normalized) > 1:
+                                print("CODING NORMALIZED: ", coding_normalized)
+                            patient[coding_normalized[0]] = value_normalized
                             break
-                    value_normalized, value_source = normalize_value(component)
 
-                    observation_['value_numeric'] = None
-                    observation_['value_normalized'] = None
-
-                    if not value_normalized:
-                        continue
-
-                    value_numeric = value_normalized.split(' ')[0]
-
-                    if value_source in observation_:
-                        del observation_[value_source]
-
-                    # remove any value[x] from parent observation
-                    delete_value_x = [k for k in observation_ if k.startswith('value')]
-                    for _ in delete_value_x:
-                        del observation_[_]
-
-                    observation_['value_normalized'] = value_normalized
-
-                    if is_number(value_numeric):
-                        observation_['value_numeric'] = float(value_numeric)
-                    else:
-                        observation_['value_numeric'] = None
-
-                    if 'component' in observation_:
-                        del observation_['component']
-                    observation_['parent_observation'] = observation_['id']
-                    observation_['id'] = uuid.uuid3(uuid.NAMESPACE_DNS, observation_['id'] + '/' + json.dumps(component, separators=(',', ':'))).hex
-
-                    yield observation_
-            else:
-                if 'component' in observation:
-                    del observation['component']
-                else:
-                    yield observation
+            previous_observation = observation
 
         connection.close()
 
@@ -559,7 +475,7 @@ class LocalFHIRDatabase:
         connection.close()
 
 
-def create_dataframe(directory_path: str, work_path: str, data_type:str) -> pd.DataFrame:
+def create_dataframe(directory_path: str, work_path: str, data_type: str) -> pd.DataFrame:
     """Create a dataframe from the FHIR data in the directory."""
     assert pathlib.Path(work_path).exists(), f"Directory {work_path} does not exist."
     work_path = pathlib.Path(work_path)
@@ -582,7 +498,7 @@ def create_dataframe(directory_path: str, work_path: str, data_type:str) -> pd.D
         front_column_names = front_column_names + ["patient"]
 
     remaining_columns = [col for col in df.columns if col not in front_column_names]
-    rear_column_names = ["status", "id"]
+    rear_column_names = ["id"]  # removed status for the purpose of not needing it for the demo
     if "subject" in df.columns:
         rear_column_names = rear_column_names + ["subject"]
     for c in df.columns:
