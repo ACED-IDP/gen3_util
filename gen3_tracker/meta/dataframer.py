@@ -488,6 +488,10 @@ class LocalFHIRDatabase:
                 for k, v in document_reference['content'][0]['attachment'].items():
                     if k in ['extension']:
                         continue
+                    # Quick fix for now gdc file sizes were greater than elastic int data floating point limit
+                    if k == "size":
+                        document_reference[k] = str(v)
+                        continue
                     document_reference[k] = v
 
             if "basedOn" in document_reference:
