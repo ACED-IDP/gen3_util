@@ -181,7 +181,6 @@ class LocalFHIRDatabase:
     @staticmethod
     def attach_extension(resource: dict, target_dict: dict) -> dict:
         """Extract extension values, derive key from extension url"""
-        print("RESOURCE: ", resource)
         for _ in resource.get('extension', []):
             value_normalized, value_source = normalize_value(_)
             extension_key = _['url'].split('/')[-1]
@@ -246,13 +245,13 @@ class LocalFHIRDatabase:
         condition = json.loads(resource)
 
         # simplify the identifier
-        condition['identifier'] = condition['identifier'][0]['value']
+        condition['identifier'] = self.get_nested_value(condition, ['identifier', 0, 'value'])
         # simplify the code
-        condition['code'] = condition['code']['coding'][0]['display']
+        condition['code'] = self.get_nested_value(condition, ['code', 'coding', 0, 'display'])
         for coding_normalized, coding_source in normalize_coding(condition):
             condition[coding_source] = coding_normalized
         # simplify the onsetAge
-        condition['onsetAge'] = condition['onsetAge']['value']
+        condition['onsetAge'] = self.get_nested_value(condition, ['onsetAge', 'value'])
         return condition
 
     def get_nested_value(self, d: dict, keys: list):
@@ -350,10 +349,23 @@ class LocalFHIRDatabase:
             ORDER BY subject
         ''', ("Observation",))
 
-        # Initialize an empty list to store the dictionaries
-        # Fetch rows one by one and process them
-
         previous_observation, patient = {}, {}
+        normalize_table = str.maketrans({
+             ".": "",
+             " ": "_",
+             "[": "",
+             "]": "",
+             "'": "",
+             ")": "",
+             "(": "",
+             ",": "",
+             "/": "_per_",
+             "-": "to",
+             "#": "number",
+             "+": "_plus_",
+             "%": "percent",
+             "&": "_and_"
+        })
         for i, row in enumerate(cursor):
             observation = json.loads(row[1])
             if i == 0:
@@ -369,7 +381,8 @@ class LocalFHIRDatabase:
 
             value_normalized, _ = normalize_value(observation)
             for coding_normalized, coding_source in normalize_coding(observation):
-                patient[coding_normalized[0]] = value_normalized
+                formatted_coding = coding_normalized[0].translate(normalize_table)
+                patient[formatted_coding] = value_normalized
 
             # renormalize the value in components
             if observation.get('component', []):
@@ -378,11 +391,62 @@ class LocalFHIRDatabase:
                     for _ in codings:
                         coding_normalized, coding_source = _
                         if coding_source == 'code':
-                            value_normalized, value_source = normalize_value(component)
-                            if isinstance(coding_normalized, list) and len(coding_normalized) > 1:
-                                print("CODING NORMALIZED: ", coding_normalized)
-                            patient[coding_normalized[0]] = value_normalized
+                            value_normalized, _ = normalize_value(component)
+                            formatted_coding = coding_normalized[0].translate(normalize_table)
+                            patient[formatted_coding] = value_normalized
                             break
+
+            if observation.get('focus'):
+                focus = observation['focus']
+                for f in focus:
+                    if f['reference'].startswith('Procedure/'):
+                        p = self.flattened_procedure(f['reference'])
+                        for k, v in p.items():
+                            if k in ['id', 'subject', 'resourceType']:
+                                continue
+                            patient[f"procedure_{k}"] = v
+                        if "procedure_reason" in observation:
+                            c = self.flattened_condition(observation["procedure_reason"])
+                            for k, v in c.items():
+                                if k in ['id', 'subject', 'resourceType']:
+                                    continue
+                                patient[f"condition_{k}"] = v
+                            del observation["procedure_reason"]
+
+                    if f['reference'].startswith('Specimen/'):
+                        p = self.flattened_specimen(f['reference'])
+                        for k, v in p.items():
+                            if k in ['id', 'subject', 'resourceType']:
+                                continue
+                            if k == "parent":
+                                patient[f"specimen_{k}"] = v[0]["reference"]
+                                continue
+                            if k == "type":
+                                specimen_type = self.get_nested_value(v, ['coding', 0, 'display'])
+                                patient[f"specimen_{k}"] = specimen_type
+                                continue
+
+                            patient[f"specimen_{k}"] = v
+
+                    if f['reference'].startswith('Condition/'):
+                        c = self.flattened_condition(f["reference"])
+                        for k, v in c.items():
+                            if k in ['id', 'subject', 'resourceType', 'encounter']:
+                                continue
+
+                            if k == "stage":
+                                for i, stage in enumerate(v):
+                                    stage_coding = self.get_nested_value(stage, ['type', "coding", 0, 'display'])
+                                    patient[f"stage_summary_{i}"] = stage_coding
+
+                                    # Probably don't need system information
+                                    # stage_system = self.get_nested_value(stage, ['type', "coding", 0, 'system'])
+                                    # patient[f"stage_summary_{i}_system"] = stage_system
+                                continue
+
+                            patient[f"condition_{k}"] = v
+
+                del observation['focus']
 
             previous_observation = observation
 
@@ -437,7 +501,9 @@ class LocalFHIRDatabase:
                 for resource in resources:
 
                     if resource['resourceType'] == 'Patient':
-                        document_reference['patient'] = resource['identifier'][0]['value']
+                        identifier = self.get_nested_value(resource, ['identifier', 0, 'value'])
+                        if identifier is not None:
+                            document_reference['patient'] = identifier
                         continue
 
                     if resource['resourceType'] == 'Condition' and f"Condition/{resource['id']}" == procedure['reason']:
