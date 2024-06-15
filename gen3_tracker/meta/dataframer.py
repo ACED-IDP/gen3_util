@@ -1,7 +1,6 @@
 import json
 import pathlib
 import sqlite3
-import uuid
 from functools import lru_cache
 from typing import Generator, Optional, List, Tuple
 
@@ -340,6 +339,8 @@ class LocalFHIRDatabase:
         loaded_db = self
         connection = sqlite3.connect(loaded_db.db_name)
         cursor = connection.cursor()
+        # This gets really problematic when you have patients that have no observations but have
+        # Document references that are attached to them. Ex: Synthea breast cancer 73 Patients, 55 Observable Patients
         cursor.execute('''
             SELECT
                 json_extract(resource, '$.subject') as subject,
@@ -380,9 +381,13 @@ class LocalFHIRDatabase:
                 patient['identifier'] = self.get_nested_value(patient, ['identifier', 0, 'value'])
 
             value_normalized, _ = normalize_value(observation)
+
             for coding_normalized, coding_source in normalize_coding(observation):
-                formatted_coding = coding_normalized[0].translate(normalize_table)
-                patient[formatted_coding] = value_normalized
+                # Not interested in categories currently, and they're being used as code:value when they're not. This is a hacK
+                if coding_source != "category":
+                    formatted_coding = coding_normalized[0].translate(normalize_table)
+                    if value_normalized is not None:
+                        patient[formatted_coding] = value_normalized
 
             # renormalize the value in components
             if observation.get('component', []):
@@ -393,7 +398,8 @@ class LocalFHIRDatabase:
                         if coding_source == 'code':
                             value_normalized, _ = normalize_value(component)
                             formatted_coding = coding_normalized[0].translate(normalize_table)
-                            patient[formatted_coding] = value_normalized
+                            if value_normalized is not None:
+                                patient[formatted_coding] = value_normalized
                             break
 
             if observation.get('focus'):
@@ -465,9 +471,12 @@ class LocalFHIRDatabase:
             # simplify the subject
 
             subject = document_reference.get('subject', {'reference': None})['reference']
-            document_reference['subject'] = subject
+            if subject is not None:
+                subject_type, subject_id = subject.split("/")
+                document_reference['subject'] = subject_id
+                document_reference['subject_type'] = subject_type
 
-            #In some places like TCGA-LUAD there is more than one identifier that could be displayed
+            # In some places like TCGA-LUAD there is more than one identifier that could be displayed
             document_reference['identifier'] = document_reference.get('identifier', [{'value': None}])[0]['value']
 
             for elem in normalize_coding(document_reference):
@@ -553,7 +562,7 @@ def create_dataframe(directory_path: str, work_path: str, data_type: str) -> pd.
     db_path.unlink(missing_ok=True)
 
     db = LocalFHIRDatabase(db_name=db_path)
-    db.load_ndjson_from_dir(path=directory_path)
+    tqdm(db.load_ndjson_from_dir(path=directory_path))
 
     if data_type == "DocumentReference":
         df = pd.DataFrame(db.flattened_document_references())
