@@ -1,6 +1,7 @@
 import json
 import pathlib
 import sqlite3
+import uuid
 from functools import lru_cache
 from typing import Generator, Optional, List, Tuple
 
@@ -177,19 +178,6 @@ class LocalFHIRDatabase:
             del resource['extension']
         return resource
 
-    @staticmethod
-    def attach_extension(resource: dict, target_dict: dict) -> dict:
-        """Extract extension values, derive key from extension url"""
-        for _ in resource.get('extension', []):
-            value_normalized, value_source = normalize_value(_)
-            extension_key = _['url'].split('/')[-1]
-            extension_key = inflection.underscore(extension_key).removesuffix(".json").removeprefix("structure_definition_")
-            target_dict[extension_key] = value_normalized
-            assert value_normalized, f"extension: {extension_key} = {value_normalized}"
-        if 'extension' in resource:
-            del resource['extension']
-        return target_dict
-
     @lru_cache(maxsize=None)
     def flattened_procedure(self, procedure_key) -> dict:
         """Return the procedure with everything resolved."""
@@ -245,12 +233,15 @@ class LocalFHIRDatabase:
 
         # simplify the identifier
         condition['identifier'] = self.get_nested_value(condition, ['identifier', 0, 'value'])
+
         # simplify the code
         condition['code'] = self.get_nested_value(condition, ['code', 'coding', 0, 'display'])
+
         for coding_normalized, coding_source in normalize_coding(condition):
             condition[coding_source] = coding_normalized
         # simplify the onsetAge
         condition['onsetAge'] = self.get_nested_value(condition, ['onsetAge', 'value'])
+
         return condition
 
     def get_nested_value(self, d: dict, keys: list):
@@ -335,6 +326,16 @@ class LocalFHIRDatabase:
 
         connection.close()
 
+    def handle_units(self, value_normalized: str):
+        if value_normalized is not None:
+            value_normalized_split = value_normalized.split(' ')
+            if isinstance(value_normalized_split, list):
+                value_numeric = value_normalized_split[0]
+                if is_number(value_numeric):
+                    value_normalized = float(value_numeric)
+            return value_normalized
+        return None
+
     def flattened_observations(self) -> Generator[dict, None, None]:
         loaded_db = self
         connection = sqlite3.connect(loaded_db.db_name)
@@ -350,23 +351,27 @@ class LocalFHIRDatabase:
             ORDER BY subject
         ''', ("Observation",))
 
+        # Initialize an empty list to store the dictionaries
+        # Fetch rows one by one and process them
+
         previous_observation, patient = {}, {}
         normalize_table = str.maketrans({
-             ".": "",
-             " ": "_",
-             "[": "",
-             "]": "",
-             "'": "",
-             ")": "",
-             "(": "",
-             ",": "",
-             "/": "_per_",
-             "-": "to",
-             "#": "number",
-             "+": "_plus_",
-             "%": "percent",
-             "&": "_and_"
+            ".": "",
+            " ": "_",
+            "[": "",
+            "]": "",
+            "'": "",
+            ")": "",
+            "(": "",
+            ",": "",
+            "/": "_per_",
+            "-": "to",
+            "#": "number",
+            "+": "_plus_",
+            "%": "percent",
+            "&": "_and_"
         })
+
         for i, row in enumerate(cursor):
             observation = json.loads(row[1])
             if i == 0:
@@ -381,7 +386,8 @@ class LocalFHIRDatabase:
                 patient['identifier'] = self.get_nested_value(patient, ['identifier', 0, 'value'])
 
             value_normalized, _ = normalize_value(observation)
-
+            value_normalized = self.handle_units(value_normalized)
+            # print("VALUE NORMALIZED: ", value_normalized)
             for coding_normalized, coding_source in normalize_coding(observation):
                 # Not interested in categories currently, and they're being used as code:value when they're not. This is a hacK
                 if coding_source != "category":
@@ -396,7 +402,10 @@ class LocalFHIRDatabase:
                     for _ in codings:
                         coding_normalized, coding_source = _
                         if coding_source == 'code':
-                            value_normalized, _ = normalize_value(component)
+                            value_normalized, value_source = normalize_value(component)
+                            value_normalized = self.handle_units(value_normalized)
+                            # print("VALUE NORMALIZED: ", value_normalized)
+
                             formatted_coding = coding_normalized[0].translate(normalize_table)
                             if value_normalized is not None:
                                 patient[formatted_coding] = value_normalized
@@ -452,8 +461,6 @@ class LocalFHIRDatabase:
 
                             patient[f"condition_{k}"] = v
 
-                del observation['focus']
-
             previous_observation = observation
 
         connection.close()
@@ -471,12 +478,13 @@ class LocalFHIRDatabase:
             # simplify the subject
 
             subject = document_reference.get('subject', {'reference': None})['reference']
+
             if subject is not None:
                 subject_type, subject_id = subject.split("/")
                 document_reference['subject'] = subject_id
                 document_reference['subject_type'] = subject_type
 
-            # In some places like TCGA-LUAD there is more than one identifier that could be displayed
+            #In some places like TCGA-LUAD there is more than one identifier that could be displayed
             document_reference['identifier'] = document_reference.get('identifier', [{'value': None}])[0]['value']
 
             for elem in normalize_coding(document_reference):
@@ -497,7 +505,6 @@ class LocalFHIRDatabase:
                 for k, v in document_reference['content'][0]['attachment'].items():
                     if k in ['extension']:
                         continue
-                    # Quick fix for now gdc file sizes were greater than elastic int data floating point limit
                     if k == "size":
                         document_reference[k] = str(v)
                         continue
@@ -517,6 +524,7 @@ class LocalFHIRDatabase:
                         identifier = self.get_nested_value(resource, ['identifier', 0, 'value'])
                         if identifier is not None:
                             document_reference['patient'] = identifier
+                        #document_reference['patient'] = resource['identifier'][0]['value']
                         continue
 
                     if resource['resourceType'] == 'Condition' and f"Condition/{resource['id']}" == procedure['reason']:
@@ -562,7 +570,7 @@ def create_dataframe(directory_path: str, work_path: str, data_type: str) -> pd.
     db_path.unlink(missing_ok=True)
 
     db = LocalFHIRDatabase(db_name=db_path)
-    tqdm(db.load_ndjson_from_dir(path=directory_path))
+    db.load_ndjson_from_dir(path=directory_path)
 
     if data_type == "DocumentReference":
         df = pd.DataFrame(db.flattened_document_references())
