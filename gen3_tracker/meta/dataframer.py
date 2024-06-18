@@ -439,7 +439,7 @@ class LocalFHIRDatabase:
                             patient[f"procedure_{k}"] = v
 
                         if "procedure_occurrenceAge" in patient:
-                            years = math.floor(observation["procedure_occurrenceAge"] / 60)
+                            years = math.floor(patient["procedure_occurrenceAge"] / 60)
                             match years:
                                 case 9:
                                     patient["Age_at_procedure"] = "45-50"
@@ -459,7 +459,6 @@ class LocalFHIRDatabase:
                                     patient["Age_at_procedure"] = "80-85"
                                 case 17:
                                     patient["Age_at_procedure"] = "85-90"
-                            print(patient["Age_at_procedure"])
 
                         if "procedure_reason" in observation:
                             c = self.flattened_condition(observation["procedure_reason"])
