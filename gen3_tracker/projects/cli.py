@@ -5,6 +5,7 @@ import click
 from gen3_tracker.collaborator.access.submitter import ensure_program_project
 from gen3_tracker.common import CLIOutput, assert_config, ERROR_COLOR
 from gen3_tracker.config import Config, ensure_auth
+from gen3_tracker.gen3.buckets import get_buckets
 from gen3_tracker.projects.lister import ls
 from gen3_tracker.projects.remover import rm, empty
 from gen3_tracker import NaturalOrderGroup, ENV_VARIABLE_PREFIX
@@ -117,6 +118,30 @@ def project_rm(config: Config, project_id: str):
     with CLIOutput(config=config) as output:
         try:
             output.update(rm(config, project_id))
+        except Exception as e:
+            output.update({'msg': str(e)})
+            output.exit_code = 1
+            if config.debug:
+                raise e
+
+
+@project_group.command(name="bucket")
+@click.option('--project_id', default=None, show_default=True,
+              help="Gen3 program-project", envvar=f"{ENV_VARIABLE_PREFIX}PROJECT_ID")
+@click.pass_obj
+def project_bucket(config: Config, project_id: str):
+    """Show project bucket."""
+    if not project_id:
+        project_id = config.gen3.project_id
+        click.secho(f"No project_id provided, using current project {project_id}", fg='yellow', file=sys.stderr)
+    with CLIOutput(config=config) as output:
+        try:
+            program, project = project_id.split('-')
+            buckets = get_buckets(config=config)
+            for k, v in buckets['S3_BUCKETS'].items():
+                assert 'programs' in v, f"no configured programs in fence buckets {v} {buckets}"
+                if program in v['programs']:
+                    output.update({k: v})
         except Exception as e:
             output.update({'msg': str(e)})
             output.exit_code = 1

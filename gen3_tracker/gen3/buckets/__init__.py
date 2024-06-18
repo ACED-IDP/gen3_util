@@ -25,11 +25,14 @@ def get_buckets(config: Config = None, auth: Gen3Auth = None) -> dict:
     return response.json()
 
 
-def get_program_bucket(config: Config, auth: Gen3Auth = None) -> str:
+def get_program_bucket(config: Config, program: str = None, auth: Gen3Auth = None) -> str:
     """Get the bucket for a program."""
     buckets = get_buckets(config=config, auth=auth)
     bucket_name = None
-    program = config.gen3.program
+    if program is None:
+        program = config.gen3.program
+
+    print("Value of Program in get_program_bucket function: ", program)
     for k, v in buckets['S3_BUCKETS'].items():
         assert 'programs' in v, f"no configured programs in fence buckets {v} {buckets}"
         if program in v['programs']:

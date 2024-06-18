@@ -1,6 +1,7 @@
 import json
 import pathlib
 import sqlite3
+import uuid
 from functools import lru_cache
 from typing import Generator, Optional, List, Tuple, Dict
 
@@ -182,7 +183,7 @@ class LocalFHIRDatabase:
         for _ in resource.get('extension', []):
             value_normalized, value_source = normalize_value(_)
             extension_key = _['url'].split('/')[-1]
-            extension_key = inflection.underscore(extension_key)
+            extension_key = inflection.underscore(extension_key).removesuffix(".json").removeprefix("structure_definition_")
             resource[extension_key] = value_normalized
             assert value_normalized, f"extension: {extension_key} = {value_normalized}"
         if 'extension' in resource:
@@ -221,6 +222,7 @@ class LocalFHIRDatabase:
         # simplify the identifier
         specimen['identifier'] = specimen['identifier'][0]['value']
 
+
         for coding_normalized, coding_source in normalize_coding(specimen['collection']):
             specimen[f"collection_{coding_source}"] = coding_normalized
         if 'collection' in specimen:
@@ -251,6 +253,14 @@ class LocalFHIRDatabase:
         # simplify the onsetAge
         condition['onsetAge'] = condition['onsetAge']['value']
         return condition
+
+    def get_nested_value(self, d: dict, keys: list):
+        for key in keys:
+            try:
+                d = d[key]
+            except (KeyError, IndexError, TypeError):
+                return None
+        return d
 
     def flattened_procedures(self) -> Generator[dict, None, None]:
         """Return all the procedures with everything resolved"""
@@ -340,6 +350,7 @@ class LocalFHIRDatabase:
             observation['subject'] = subject
 
             # simplify the identifier
+
             observation['identifier'] = observation.get('identifier', [{'value': None}])[0]['value']
 
             # simplify the value
@@ -364,7 +375,23 @@ class LocalFHIRDatabase:
                 if _ in observation:
                     del observation[_]
 
+            if "note" in observation:
+                observation["note"] = [elem["text"] for elem in observation["note"] if "text" in elem]
+
             observation = self.simplify_extensions(observation)
+
+            if observation.get('specimen'):
+                specimen = observation["specimen"]
+                observation["specimen"] = specimen["reference"]
+                """
+                Hard to judge which specimen to flatten to observation guessing not this one
+                p = self.flattened_specimen(specimen['reference'])
+                for k, v in p.items():
+                    print("HELLO: ", k ,v )
+                    if k in ['id', 'subject', 'resourceType']:
+                        continue
+                    observation[f"specimen_{k}"] = v
+                """
 
             if subject.startswith('Patient/'):
                 _, patient_id = subject.split('/')
@@ -408,6 +435,11 @@ class LocalFHIRDatabase:
                         for k, v in p.items():
                             if k in ['id', 'subject', 'resourceType']:
                                 continue
+
+                            if k == "parent":
+                                observation[f"specimen_{k}"] = v[0]["reference"]
+                                continue
+
                             observation[f"specimen_{k}"] = v
 
                 del observation['focus']
@@ -453,6 +485,8 @@ class LocalFHIRDatabase:
 
                     if 'component' in observation_:
                         del observation_['component']
+                    observation_['parent_observation'] = observation_['id']
+                    observation_['id'] = uuid.uuid3(uuid.NAMESPACE_DNS, observation_['id'] + '/' + json.dumps(component, separators=(',', ':'))).hex
 
                     yield observation_
             else:
@@ -474,23 +508,38 @@ class LocalFHIRDatabase:
             document_reference = json.loads(procedure)
 
             # simplify the subject
-            subject = document_reference['subject']['reference']
+
+            subject = document_reference.get('subject', {'reference': None})['reference']
             document_reference['subject'] = subject
 
-            # simplify the identifier
+            #In some places like TCGA-LUAD there is more than one identifier that could be displayed
             document_reference['identifier'] = document_reference.get('identifier', [{'value': None}])[0]['value']
 
+            for elem in normalize_coding(document_reference):
+                document_reference[elem[1]] = elem[0][0]
+
             # simplify the extensions
-            for _ in document_reference['content'][0]['attachment']['extension']:
-                value_normalized, value_source = normalize_value(_)
-                document_reference[_['url'].split('/')[-1]] = value_normalized
+            if self.get_nested_value(document_reference, ['content', 0, 'attachment']) is not None:
+                if "extension" in document_reference['content'][0]['attachment']:
+                    for _ in document_reference['content'][0]['attachment']['extension']:
+                        value_normalized, value_source = normalize_value(_)
+                        document_reference[(_['url'].split('/')[-1])] = value_normalized
 
-            for k, v in document_reference['content'][0]['attachment'].items():
-                if k in ['extension']:
-                    continue
-                document_reference[k] = v
+                content_url = self.get_nested_value(document_reference, ['content', 0, 'attachment', 'url'])
+                if content_url is not None:
+                    document_reference['source_url'] = content_url
 
-            if subject.startswith('Patient/'):
+            if "content" in document_reference:
+                for k, v in document_reference['content'][0]['attachment'].items():
+                    if k in ['extension']:
+                        continue
+                    document_reference[k] = v
+
+            if "basedOn" in document_reference:
+                for i, dict_ in enumerate(document_reference['basedOn']):
+                    document_reference['basedOn'][i] = dict_["reference"]
+
+            if subject is not None and subject.startswith('Patient/'):
                 _, patient_id = subject.split('/')
                 resources = [_ for _ in loaded_db.patient_everything(patient_id)]
                 resources.append(loaded_db.patient(patient_id))
@@ -641,7 +690,10 @@ def normalize_value(resource_dict: dict) -> tuple[Optional[str], Optional[str]]:
 
 def normalize_coding(resource_dict: dict) -> List[Tuple[str, str]]:
     def extract_coding(coding_list):
-        return ' '.join([coding.get('display', '') for coding in coding_list if 'display' in coding])
+        # return a concatenated string
+        # return ','.join([coding.get('display', '') for coding in coding_list if 'display' in coding])
+        # or alternatively return an array
+        return [coding.get('display', coding.get('code', '')) for coding in coding_list]
 
     def find_codings_in_dict(d: dict, parent_key: str = '') -> List[Tuple[str, str]]:
         codings = []

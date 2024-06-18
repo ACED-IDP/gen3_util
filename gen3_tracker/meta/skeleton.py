@@ -1,6 +1,7 @@
 import pathlib
 import uuid
-from datetime import datetime, UTC
+from datetime import datetime
+from pytz import UTC
 
 import orjson
 from fhir.resources.attachment import Attachment
