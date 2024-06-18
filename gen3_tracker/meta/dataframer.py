@@ -9,9 +9,11 @@ import inflection
 import ndjson
 import numpy as np
 import pandas as pd
+import math
 from tqdm import tqdm
 from copy import deepcopy
 from collections import defaultdict
+
 
 
 class LocalFHIRDatabase:
@@ -339,9 +341,9 @@ class LocalFHIRDatabase:
     def flattened_observations(self) -> Generator[dict, None, None]:
         loaded_db = self
         connection = sqlite3.connect(loaded_db.db_name)
-        cursor = connection.cursor()
         # This gets really problematic when you have patients that have no observations but have
         # Document references that are attached to them. Ex: Synthea breast cancer 73 Patients, 55 Observable Patients
+        cursor = connection.cursor()
         cursor.execute('''
             SELECT
                 json_extract(resource, '$.subject') as subject,
@@ -387,13 +389,29 @@ class LocalFHIRDatabase:
 
             value_normalized, _ = normalize_value(observation)
             value_normalized = self.handle_units(value_normalized)
-            # print("VALUE NORMALIZED: ", value_normalized)
             for coding_normalized, coding_source in normalize_coding(observation):
                 # Not interested in categories currently, and they're being used as code:value when they're not. This is a hacK
                 if coding_source != "category":
                     formatted_coding = coding_normalized[0].translate(normalize_table)
                     if value_normalized is not None:
                         patient[formatted_coding] = value_normalized
+                        # Hardcode for demo. Do this in the frontend in the future
+                        if formatted_coding == "Months_that_elapsed_since_prostate_cancer_diagnosis":
+                            years = math.ceil(value_normalized / 24)
+                            match years:
+                                case 1:
+                                    patient["Years_Since_Prostate_Cancer_Diagnosis"] = "0-2"
+                                case 2:
+                                    patient["Years_Since_Prostate_Cancer_Diagnosis"] = "2-4"
+                                case 3:
+                                    patient["Years_Since_Prostate_Cancer_Diagnosis"] = "4-6"
+                                case 4:
+                                    patient["Years_Since_Prostate_Cancer_Diagnosis"] = "6-8"
+                                case 5:
+                                    patient["Years_Since_Prostate_Cancer_Diagnosis"] = "8-10"
+
+                            print(patient["Years_Since_Prostate_Cancer_Diagnosis"])
+
 
             # renormalize the value in components
             if observation.get('component', []):
@@ -404,7 +422,6 @@ class LocalFHIRDatabase:
                         if coding_source == 'code':
                             value_normalized, value_source = normalize_value(component)
                             value_normalized = self.handle_units(value_normalized)
-                            # print("VALUE NORMALIZED: ", value_normalized)
 
                             formatted_coding = coding_normalized[0].translate(normalize_table)
                             if value_normalized is not None:
@@ -420,6 +437,30 @@ class LocalFHIRDatabase:
                             if k in ['id', 'subject', 'resourceType']:
                                 continue
                             patient[f"procedure_{k}"] = v
+
+                        if "procedure_occurrenceAge" in patient:
+                            years = math.floor(observation["procedure_occurrenceAge"] / 60)
+                            match years:
+                                case 9:
+                                    patient["Age_at_procedure"] = "45-50"
+                                case 10:
+                                    patient["Age_at_procedure"] = "50-55"
+                                case 11:
+                                    patient["Age_at_procedure"] = "55-60"
+                                case 12:
+                                    patient["Age_at_procedure"] = "60-65"
+                                case 13:
+                                    patient["Age_at_procedure"] = "65-70"
+                                case 14:
+                                    patient["Age_at_procedure"] = "70-75"
+                                case 15:
+                                    patient["Age_at_procedure"] = "75-80"
+                                case 16:
+                                    patient["Age_at_procedure"] = "80-85"
+                                case 17:
+                                    patient["Age_at_procedure"] = "85-90"
+                            print(patient["Age_at_procedure"])
+
                         if "procedure_reason" in observation:
                             c = self.flattened_condition(observation["procedure_reason"])
                             for k, v in c.items():
@@ -484,7 +525,7 @@ class LocalFHIRDatabase:
                 document_reference['subject'] = subject_id
                 document_reference['subject_type'] = subject_type
 
-            #In some places like TCGA-LUAD there is more than one identifier that could be displayed
+            # In some places like TCGA-LUAD there is more than one identifier that could be displayed
             document_reference['identifier'] = document_reference.get('identifier', [{'value': None}])[0]['value']
 
             for elem in normalize_coding(document_reference):
@@ -524,7 +565,7 @@ class LocalFHIRDatabase:
                         identifier = self.get_nested_value(resource, ['identifier', 0, 'value'])
                         if identifier is not None:
                             document_reference['patient'] = identifier
-                        #document_reference['patient'] = resource['identifier'][0]['value']
+                        # document_reference['patient'] = resource['identifier'][0]['value']
                         continue
 
                     if resource['resourceType'] == 'Condition' and f"Condition/{resource['id']}" == procedure['reason']:
