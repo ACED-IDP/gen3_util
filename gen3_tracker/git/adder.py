@@ -10,7 +10,9 @@ import pytz
 import yaml
 from dateutil.tz import tzutc
 
+from gen3_tracker import Config
 from gen3_tracker.common import ACCEPTABLE_HASHES
+from gen3_tracker.git import DVC
 
 
 def is_valid_url(target):
@@ -63,6 +65,7 @@ def add_url(ctx, target) -> tuple[list[pathlib.Path], list[str]]:
     files_already_in_repo = git_files()
     updates = []  # only updates
     all_changed_files = []  # new and updates
+    config: Config = ctx.obj
 
     target = url_path(url)
 
@@ -110,6 +113,7 @@ def add_url(ctx, target) -> tuple[list[pathlib.Path], list[str]]:
             break
 
     # create reference to the file
+    metadata['project_id'] = config.gen3.project_id
     yaml_data = create_dvc_for_url(metadata, target=target)
     yaml_data.update(metadata)
     yaml_data['outs'][0]['source_url'] = url
@@ -143,6 +147,7 @@ def url_path(url):
 
 def add_file(ctx, target) -> tuple[list[pathlib.Path], list[str]]:
     from gen3_tracker.common import INFO_COLOR
+    config: Config = ctx.obj
 
     """Add a real file to the repository. Expand wildcards. If the file is already in the repository, it will be updated."""
     from gen3_tracker.git import git_files
@@ -197,8 +202,10 @@ def add_file(ctx, target) -> tuple[list[pathlib.Path], list[str]]:
 
         yaml_data = create_dvc(metadata, target_path)
         yaml_data.update(metadata)
-
-        dvc_file = write_dvc_file(target, yaml_data)
+        yaml_data['project_id'] = config.gen3.project_id
+        _ = DVC(**yaml_data).model_dump()
+        assert _['outs'][0]['object_id'], 'object_id should be in dvc created from files.'
+        dvc_file = write_dvc_file(target, _)
 
         # add the target root to the gitignore
         git_ignore_path = pathlib.Path.cwd() / '.gitignore'
@@ -297,6 +304,9 @@ def create_dvc_for_url(metadata: dict, target: str) -> dict:
     # we follow this convention for the dvc file
     # see https://dvc.org/doc/user-guide/project-structure/dvc-files#dvc-files
     yaml_data = {
+        'project_id': metadata['project_id'],
         'outs': [info]
     }
-    return yaml_data
+    _ = DVC(**yaml_data).model_dump()
+    assert _['outs'][0]['object_id'], f'object_id should be in dvc created for url. {metadata}'
+    return _

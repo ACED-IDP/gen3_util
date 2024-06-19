@@ -32,7 +32,6 @@ def get_program_bucket(config: Config, program: str = None, auth: Gen3Auth = Non
     if program is None:
         program = config.gen3.program
 
-    print("Value of Program in get_program_bucket function: ", program)
     for k, v in buckets['S3_BUCKETS'].items():
         assert 'programs' in v, f"no configured programs in fence buckets {v} {buckets}"
         if program in v['programs']:

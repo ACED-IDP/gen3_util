@@ -15,6 +15,8 @@ from urllib.parse import urlparse
 
 import click
 import dateutil
+from dateutil import parser as dateutil_parser
+
 import orjson
 import yaml
 from dateutil.tz import tzutc
@@ -524,7 +526,7 @@ def assert_config(config: Config):
 def parse_iso_tz_date(date_str: str) -> str:
     """Parse an iso date string."""
     # parse the string into a datetime object
-    date_obj = dateutil.parser.parse(date_str)
+    date_obj = dateutil_parser.parse(date_str)
     # if the date string doesn't have a timezone, you can add one
     if date_obj.tzinfo is None:
         date_obj = date_obj.replace(tzinfo=tzutc())
