@@ -153,7 +153,7 @@ def ensure_git_repo(config):
 
 @cli.command(context_settings=dict(ignore_unknown_options=True, allow_extra_args=True))
 @click.argument('target')
-@click.option('--no-git-add', default=False, is_flag=True, help="Do not automatically add the file to git.  I'll add it manually." )
+@click.option('--no-git-add', default=False, is_flag=True, hidden=True)
 @click.pass_context
 def add(ctx, target, no_git_add: bool):
     """
@@ -175,10 +175,10 @@ def add(ctx, target, no_git_add: bool):
     \b
     --<hash> <value>: Valid options are: ['md5', 'sha1', 'sha256', 'sha512', 'crc', 'etag']
                       Value must conform to the hash type.
-    \b
     --modified: A variety of date formats are supported, see https://tinyurl.com/ysad3rj7
-    \b
     --mime: If not specified, it will be inferred from the file extension.
+    --no-bucket: If specified, the file will not be uploaded to the bucket, and user will access via scp or symlink.
+    --no-git-add: If specified, the file will not be automatically added to git. Avoids locking, useful for parallel adds .
     \b
     Identifiers:
     In order to link a file with associated Patient, Specimen, Observation or Task, you can use one of the following identifiers:
@@ -341,7 +341,8 @@ def push(ctx, step: str, transfer_method: str, overwrite: bool, re_run: bool, wa
             raise NotImplementedError("Re-run not implemented")
 
         try:
-            run_command("g3t status")
+            with Halo(text='Checking', spinner='line', placement='right', color='white'):
+                run_command("g3t status")
         except Exception as e:
             click.secho("Please correct issues before pushing.", fg=ERROR_COLOR, file=sys.stderr)
             click.secho(str(e), fg=ERROR_COLOR, file=sys.stderr)
@@ -457,10 +458,10 @@ def manifest(project_id) -> tuple[list[str], list[DVC]]:
 
 @cli.command()
 @click.option('--remote',
-              type=click.Choice(['gen3', 's3']),
+              type=click.Choice(['gen3', 's3', 'ln', 'scp']),
               default='gen3',
               show_default=True,
-              help='Specify the remote storage type.'
+              help='Specify the remote storage type. gen3:download, s3:s3 cp, ln: symbolic link, scp: scp copy'
               )
 @click.option('--worker_count', '-w', default=(multiprocessing.cpu_count() - 1), show_default=True,
               type=int,
@@ -512,6 +513,9 @@ def pull(config: Config, remote: str, worker_count: int, data_only: bool):
             for _ in results['records']:
                 if _['did'] in object_ids:
                     print('aws s3 cp ', _['urls'][0], _['file_name'])
+        elif remote == 'ln':
+            for _ in dvc_objects:
+                print(f"ln -s {_.out.realpath} {_.out.path}")
         else:
             raise NotImplementedError(f"Remote {remote} not supported.")
 
