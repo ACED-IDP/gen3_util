@@ -77,6 +77,8 @@ def add_url(ctx, target) -> tuple[list[pathlib.Path], list[str]]:
     # process args to DVC
     _args = ctx.args
     metadata = {'meta': dict(map(lambda i: (_args[i].replace('--', ''), _args[i + 1]), range(len(_args) - 1)[::2]))}
+    if '--no-bucket' in _args or '--no_bucket' in _args:
+        metadata['meta']['no_bucket'] = True
 
     required_keys = ['size', 'modified']
     required_keys_msg = []
@@ -155,7 +157,7 @@ def add_file(ctx, target) -> tuple[list[pathlib.Path], list[str]]:
     targets = glob.glob(target, recursive=True)
     if not targets:
         # not a wildcard, check if it is a file
-        assert pathlib.Path(target).exists(), f'{pathlib.Path(target).resolve()} does not exist.'
+        # assert pathlib.Path(target).exists(), f'{pathlib.Path(target).resolve()} does not exist.'
         targets = [target]
 
     files_already_in_repo = git_files()
@@ -184,13 +186,15 @@ def add_file(ctx, target) -> tuple[list[pathlib.Path], list[str]]:
             continue
 
         # final checks
-        assert target_path.resolve().exists(), f'{pathlib.Path(target).resolve()} does not exist.'
+        # assert target_path.resolve().exists(), f'{pathlib.Path(target).resolve()} does not exist.'
         assert target_path.resolve().is_relative_to(pathlib.Path.cwd()), 'Target should be relative to the project root.'
 
         # create reference to the file
         # convert --arguments to metadata
         _args = ctx.args
         metadata = {'meta': dict(map(lambda i: (_args[i].replace('--', ''), _args[i + 1]), range(len(_args) - 1)[::2]))}
+        if '--no-bucket' in _args or '--no_bucket' in _args:
+            metadata['meta']['no_bucket'] = True
 
         if 'hash' in metadata['meta']:
             hash_type = metadata['meta']['hash']
@@ -263,6 +267,9 @@ def create_dvc(metadata: dict, target_path: pathlib.Path) -> dict:
         'realpath': str(target_path.resolve()),
         'is_symlink': target_path.is_symlink()
     }
+    if 'realpath' in metadata['meta']:
+        info['realpath'] = metadata['meta']['realpath']
+        del metadata['meta']['realpath']
     # did they provide a hash?
 
     for k in ACCEPTABLE_HASHES.keys():
@@ -270,7 +277,8 @@ def create_dvc(metadata: dict, target_path: pathlib.Path) -> dict:
             info[k] = metadata['meta'][k]
             info['hash'] = k
             del metadata['meta'][k]
-            del metadata['meta']['hash']
+            if 'hash' in metadata['meta']:
+                del metadata['meta']['hash']
     # no?, use md5
     if 'hash' not in info:
         info['hash'] = 'md5'
