@@ -594,7 +594,7 @@ class Gen3ClientRemoteWriter(LoggingWriter):
         self.manifest = []
 
     def save(self, dvc: DVC) -> str:
-        if dvc.out.realpath:
+        if dvc.out.realpath and not dvc.meta.no_bucket:
             self.logger.info(f'Saving to {self.remote} {dvc}')
             self.manifest.append(to_manifest(dvc))
         return 'OK'
