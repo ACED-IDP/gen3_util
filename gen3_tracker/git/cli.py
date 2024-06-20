@@ -516,6 +516,10 @@ def pull(config: Config, remote: str, worker_count: int, data_only: bool):
         elif remote == 'ln':
             for _ in dvc_objects:
                 print(f"ln -s {_.out.realpath} {_.out.path}")
+        elif remote == 'scp':
+            for _ in dvc_objects:
+                print(f"scp USER@HOST:{_.out.realpath} {_.out.path}")
+
         else:
             raise NotImplementedError(f"Remote {remote} not supported.")
 
