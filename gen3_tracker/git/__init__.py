@@ -24,6 +24,9 @@ from pydantic import BaseModel, ConfigDict, field_validator
 from gen3_tracker import ACED_NAMESPACE
 from gen3_tracker.common import ACCEPTABLE_HASHES, parse_iso_tz_date
 
+import mimetypes
+
+
 # constants ---------------------------------------------------------------------
 INIT_MESSAGE = 'Initializing a new repository...'
 ADD_MESSAGE = 'Adding files to the repository...'
@@ -38,8 +41,12 @@ DIFF_MESSAGE = 'Showing details of changed files...'
 
 LOGGED_ALREADY = set()
 
+mimetypes.add_type('text/fastq', '.fastq')
+mimetypes.add_type('text/fastq', '.fq')
 
 # process helpers ---------------------------------------------------------------
+
+
 class CommandResult(NamedTuple):
     """
     A NamedTuple that represents the result of a command execution.
@@ -323,7 +330,6 @@ def git_files(dry_run=False) -> list[str]:
 # file helpers ------------------------------------------------------------------
 def get_mime_type(file_name):
     """Get mime type from file name."""
-    import mimetypes
     return mimetypes.guess_type(file_name, strict=False)[0] or 'application/octet-stream'
 
 
