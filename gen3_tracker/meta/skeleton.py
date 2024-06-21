@@ -72,6 +72,8 @@ def update_document_reference(document_reference: DocumentReference, dvc_data: D
     else:
         source_path = dvc_data.out.source_url
 
+    source_path = source_path.replace('////', '///')
+
     attachment.extension = [
         {
             "url": f"http://aced-idp.org/fhir/StructureDefinition/{dvc_data.out.hash}",
