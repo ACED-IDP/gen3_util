@@ -11,7 +11,7 @@ with open('README.md', 'r') as f:
 
 setup(
     name='gen3_tracker',
-    version='0.0.4rc33',
+    version='0.0.4rc35',
     description='A CLI for adding version control to Gen3 data submission projects.',
     long_description=long_description,
     long_description_content_type='text/markdown',
