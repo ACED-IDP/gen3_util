@@ -446,6 +446,11 @@ class LocalFHIRDatabase:
 
         observations_by_focus = defaultdict(list)
 
+        if cursor.rowcount < 0:
+            print("0 results returned from focus, subject observation query selection")
+            self.connection.close()
+            return None
+
         for row in cursor:
             observation = json.loads(row[2])
             selected_focus = json.dumps(observation["focus"][0]["reference"])
