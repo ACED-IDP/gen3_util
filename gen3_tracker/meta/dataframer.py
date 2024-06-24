@@ -9,8 +9,11 @@ import inflection
 import ndjson
 import numpy as np
 import pandas as pd
+import math
 from tqdm import tqdm
 from copy import deepcopy
+from collections import defaultdict
+
 
 
 class LocalFHIRDatabase:
@@ -231,13 +234,16 @@ class LocalFHIRDatabase:
         condition = json.loads(resource)
 
         # simplify the identifier
-        condition['identifier'] = condition['identifier'][0]['value']
+        condition['identifier'] = self.get_nested_value(condition, ['identifier', 0, 'value'])
+
         # simplify the code
-        condition['code'] = condition['code']['coding'][0]['display']
+        condition['code'] = self.get_nested_value(condition, ['code', 'coding', 0, 'display'])
+
         for coding_normalized, coding_source in normalize_coding(condition):
             condition[coding_source] = coding_normalized
         # simplify the onsetAge
-        condition['onsetAge'] = condition['onsetAge']['value']
+        condition['onsetAge'] = self.get_nested_value(condition, ['onsetAge', 'value'])
+
         return condition
 
     def get_nested_value(self, d: dict, keys: list):
@@ -322,72 +328,105 @@ class LocalFHIRDatabase:
 
         connection.close()
 
+    def handle_units(self, value_normalized: str):
+        if value_normalized is not None:
+            value_normalized_split = value_normalized.split(' ')
+            if isinstance(value_normalized_split, list):
+                value_numeric = value_normalized_split[0]
+                if is_number(value_numeric):
+                    value_normalized = float(value_numeric)
+            return value_normalized
+        return None
+
     def flattened_observations(self) -> Generator[dict, None, None]:
         loaded_db = self
         connection = sqlite3.connect(loaded_db.db_name)
+        # This gets really problematic when you have patients that have no observations but have
+        # Document references that are attached to them. Ex: Synthea breast cancer 73 Patients, 55 Observable Patients
         cursor = connection.cursor()
-        cursor.execute("SELECT * FROM resources where resource_type = ?", ("Observation",))
-        for _ in tqdm(cursor.fetchall()):
-            key, resource_type, observation_str = _
-            observation = json.loads(observation_str)
+        cursor.execute('''
+            SELECT
+                json_extract(resource, '$.subject') as subject,
+                json(resource) as observation
+            FROM resources
+            WHERE resource_type = ?
+            ORDER BY subject
+        ''', ("Observation",))
 
-            # simplify the subject
-            subject = observation['subject']['reference']
-            observation['subject'] = subject
+        # Initialize an empty list to store the dictionaries
+        # Fetch rows one by one and process them
 
-            # simplify the identifier
+        previous_observation, patient = {}, {}
+        normalize_table = str.maketrans({
+            ".": "",
+            " ": "_",
+            "[": "",
+            "]": "",
+            "'": "",
+            ")": "",
+            "(": "",
+            ",": "",
+            "/": "_per_",
+            "-": "to",
+            "#": "number",
+            "+": "_plus_",
+            "%": "percent",
+            "&": "_and_"
+        })
 
-            observation['identifier'] = observation.get('identifier', [{'value': None}])[0]['value']
+        for i, row in enumerate(cursor):
+            observation = json.loads(row[1])
+            if i == 0:
+                patient_id = str(observation["subject"]["reference"]).removeprefix("Patient/")
+                patient = loaded_db.patient(patient_id)
+                patient['identifier'] = self.get_nested_value(patient, ['identifier', 0, 'value'])
 
-            # simplify the value
-            value_normalized, value_source = normalize_value(observation)
+            if i > 0 and observation["subject"] != previous_observation["subject"]:
+                yield patient
+                patient_id = str(observation["subject"]["reference"]).removeprefix("Patient/")
+                patient = loaded_db.patient(patient_id)
+                patient['identifier'] = self.get_nested_value(patient, ['identifier', 0, 'value'])
 
-            observation['value_normalized'] = value_normalized
+            value_normalized, _ = normalize_value(observation)
+            value_normalized = self.handle_units(value_normalized)
+            for coding_normalized, coding_source in normalize_coding(observation):
+                # Not interested in categories currently, and they're being used as code:value when they're not. This is a hacK
+                if coding_source != "category":
+                    formatted_coding = coding_normalized[0].translate(normalize_table)
+                    if value_normalized is not None:
+                        patient[formatted_coding] = value_normalized
+                        # Hardcode for demo. Do this in the frontend in the future
+                        if formatted_coding == "Months_that_elapsed_since_prostate_cancer_diagnosis":
+                            years = math.ceil(value_normalized / 24)
+                            match years:
+                                case 1:
+                                    patient["Years_Since_Prostate_Cancer_Diagnosis"] = "0-2"
+                                case 2:
+                                    patient["Years_Since_Prostate_Cancer_Diagnosis"] = "2-4"
+                                case 3:
+                                    patient["Years_Since_Prostate_Cancer_Diagnosis"] = "4-6"
+                                case 4:
+                                    patient["Years_Since_Prostate_Cancer_Diagnosis"] = "6-8"
+                                case 5:
+                                    patient["Years_Since_Prostate_Cancer_Diagnosis"] = "8-10"
 
-            if value_normalized:
-                value_numeric = observation['value_normalized'].split(' ')[0]
-                if is_number(value_numeric):
-                    observation['value_numeric'] = float(value_numeric)
-                else:
-                    observation['value_numeric'] = None
-            else:
-                observation['value_numeric'] = None
+                            print(patient["Years_Since_Prostate_Cancer_Diagnosis"])
 
-            if value_source:
-                del observation[value_source]
 
-            ignored_fields = ['meta', 'encounter']
-            for _ in ignored_fields:
-                if _ in observation:
-                    del observation[_]
+            # renormalize the value in components
+            if observation.get('component', []):
+                for component in observation.get('component', []):
+                    codings = normalize_coding(component)
+                    for _ in codings:
+                        coding_normalized, coding_source = _
+                        if coding_source == 'code':
+                            value_normalized, value_source = normalize_value(component)
+                            value_normalized = self.handle_units(value_normalized)
 
-            if "note" in observation:
-                observation["note"] = [elem["text"] for elem in observation["note"] if "text" in elem]
-
-            observation = self.simplify_extensions(observation)
-
-            if observation.get('specimen'):
-                specimen = observation["specimen"]
-                observation["specimen"] = specimen["reference"]
-                """
-                Hard to judge which specimen to flatten to observation guessing not this one
-                p = self.flattened_specimen(specimen['reference'])
-                for k, v in p.items():
-                    print("HELLO: ", k ,v )
-                    if k in ['id', 'subject', 'resourceType']:
-                        continue
-                    observation[f"specimen_{k}"] = v
-                """
-
-            if subject.startswith('Patient/'):
-                _, patient_id = subject.split('/')
-                resource = loaded_db.patient(patient_id)
-                if resource:
-                    observation['patient'] = resource['identifier'][0]['value']
-                    for k, v in resource.items():
-                        if k in ['id', 'subject', 'resourceType', 'identifier']:
-                            continue
-                        observation[f"patient_{k}"] = v
+                            formatted_coding = coding_normalized[0].translate(normalize_table)
+                            if value_normalized is not None:
+                                patient[formatted_coding] = value_normalized
+                            break
 
             if observation.get('focus'):
                 focus = observation['focus']
@@ -397,78 +436,72 @@ class LocalFHIRDatabase:
                         for k, v in p.items():
                             if k in ['id', 'subject', 'resourceType']:
                                 continue
-                            observation[f"procedure_{k}"] = v
+                            patient[f"procedure_{k}"] = v
+
+                        if "procedure_occurrenceAge" in patient:
+                            years = math.floor(patient["procedure_occurrenceAge"] / 60)
+                            match years:
+                                case 9:
+                                    patient["Age_at_procedure"] = "45-50"
+                                case 10:
+                                    patient["Age_at_procedure"] = "50-55"
+                                case 11:
+                                    patient["Age_at_procedure"] = "55-60"
+                                case 12:
+                                    patient["Age_at_procedure"] = "60-65"
+                                case 13:
+                                    patient["Age_at_procedure"] = "65-70"
+                                case 14:
+                                    patient["Age_at_procedure"] = "70-75"
+                                case 15:
+                                    patient["Age_at_procedure"] = "75-80"
+                                case 16:
+                                    patient["Age_at_procedure"] = "80-85"
+                                case 17:
+                                    patient["Age_at_procedure"] = "85-90"
+
                         if "procedure_reason" in observation:
                             c = self.flattened_condition(observation["procedure_reason"])
                             for k, v in c.items():
                                 if k in ['id', 'subject', 'resourceType']:
                                     continue
-                                observation[f"condition_{k}"] = v
+                                patient[f"condition_{k}"] = v
                             del observation["procedure_reason"]
+
                     if f['reference'].startswith('Specimen/'):
                         p = self.flattened_specimen(f['reference'])
                         for k, v in p.items():
                             if k in ['id', 'subject', 'resourceType']:
                                 continue
-
                             if k == "parent":
-                                observation[f"specimen_{k}"] = v[0]["reference"]
+                                patient[f"specimen_{k}"] = v[0]["reference"]
+                                continue
+                            if k == "type":
+                                specimen_type = self.get_nested_value(v, ['coding', 0, 'display'])
+                                patient[f"specimen_{k}"] = specimen_type
                                 continue
 
-                            observation[f"specimen_{k}"] = v
+                            patient[f"specimen_{k}"] = v
 
-                del observation['focus']
+                    if f['reference'].startswith('Condition/'):
+                        c = self.flattened_condition(f["reference"])
+                        for k, v in c.items():
+                            if k in ['id', 'subject', 'resourceType', 'encounter']:
+                                continue
 
-            for coding_normalized, coding_source in normalize_coding(observation):
-                observation[coding_source] = coding_normalized
+                            if k == "stage":
+                                for i, stage in enumerate(v):
+                                    stage_coding = self.get_nested_value(stage, ['type', "coding", 0, 'display'])
+                                    patient[f"stage_summary_{i}"] = stage_coding
 
-            # renormalize the value in components
-            if observation.get('component', []):
-                for component in observation.get('component', []):
-                    # simplify the value
-                    observation_ = deepcopy(observation)
-                    codings = normalize_coding(component)
-                    for _ in codings:
-                        coding_normalized, coding_source = _
-                        if coding_source == 'code':
-                            observation['code'] = coding_normalized
-                            break
-                    value_normalized, value_source = normalize_value(component)
+                                    # Probably don't need system information
+                                    # stage_system = self.get_nested_value(stage, ['type', "coding", 0, 'system'])
+                                    # patient[f"stage_summary_{i}_system"] = stage_system
+                                continue
 
-                    observation_['value_numeric'] = None
-                    observation_['value_normalized'] = None
+                            patient[f"condition_{k}"] = v
 
-                    if not value_normalized:
-                        continue
-
-                    value_numeric = value_normalized.split(' ')[0]
-
-                    if value_source in observation_:
-                        del observation_[value_source]
-
-                    # remove any value[x] from parent observation
-                    delete_value_x = [k for k in observation_ if k.startswith('value')]
-                    for _ in delete_value_x:
-                        del observation_[_]
-
-                    observation_['value_normalized'] = value_normalized
-
-                    if is_number(value_numeric):
-                        observation_['value_numeric'] = float(value_numeric)
-                    else:
-                        observation_['value_numeric'] = None
-
-                    if 'component' in observation_:
-                        del observation_['component']
-                    observation_['parent_observation'] = observation_['id']
-                    observation_['id'] = uuid.uuid3(uuid.NAMESPACE_DNS, observation_['id'] + '/' + json.dumps(component, separators=(',', ':'))).hex
-
-                    yield observation_
-            else:
-                if 'component' in observation:
-                    del observation['component']
-                else:
-                    yield observation
+            previous_observation = observation
 
         connection.close()
 
@@ -485,9 +518,13 @@ class LocalFHIRDatabase:
             # simplify the subject
 
             subject = document_reference.get('subject', {'reference': None})['reference']
-            document_reference['subject'] = subject
 
-            #In some places like TCGA-LUAD there is more than one identifier that could be displayed
+            if subject is not None:
+                subject_type, subject_id = subject.split("/")
+                document_reference['subject'] = subject_id
+                document_reference['subject_type'] = subject_type
+
+            # In some places like TCGA-LUAD there is more than one identifier that could be displayed
             document_reference['identifier'] = document_reference.get('identifier', [{'value': None}])[0]['value']
 
             for elem in normalize_coding(document_reference):
@@ -508,6 +545,9 @@ class LocalFHIRDatabase:
                 for k, v in document_reference['content'][0]['attachment'].items():
                     if k in ['extension']:
                         continue
+                    if k == "size":
+                        document_reference[k] = str(v)
+                        continue
                     document_reference[k] = v
 
             if "basedOn" in document_reference:
@@ -521,7 +561,10 @@ class LocalFHIRDatabase:
                 for resource in resources:
 
                     if resource['resourceType'] == 'Patient':
-                        document_reference['patient'] = resource['identifier'][0]['value']
+                        identifier = self.get_nested_value(resource, ['identifier', 0, 'value'])
+                        if identifier is not None:
+                            document_reference['patient'] = identifier
+                        # document_reference['patient'] = resource['identifier'][0]['value']
                         continue
 
                     if resource['resourceType'] == 'Condition' and f"Condition/{resource['id']}" == procedure['reason']:
@@ -559,7 +602,7 @@ class LocalFHIRDatabase:
         connection.close()
 
 
-def create_dataframe(directory_path: str, work_path: str, data_type:str) -> pd.DataFrame:
+def create_dataframe(directory_path: str, work_path: str, data_type: str) -> pd.DataFrame:
     """Create a dataframe from the FHIR data in the directory."""
     assert pathlib.Path(work_path).exists(), f"Directory {work_path} does not exist."
     work_path = pathlib.Path(work_path)
@@ -582,7 +625,7 @@ def create_dataframe(directory_path: str, work_path: str, data_type:str) -> pd.D
         front_column_names = front_column_names + ["patient"]
 
     remaining_columns = [col for col in df.columns if col not in front_column_names]
-    rear_column_names = ["status", "id"]
+    rear_column_names = ["id"]  # removed status for the purpose of not needing it for the demo
     if "subject" in df.columns:
         rear_column_names = rear_column_names + ["subject"]
     for c in df.columns:

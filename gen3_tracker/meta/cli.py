@@ -45,8 +45,9 @@ def init(ctx, project_id):
 
 @meta.command()
 @click.argument('directory', type=click.Path(exists=True), default='META')
+@click.option('--debug', is_flag=True)
 @click.pass_obj
-def validate(ctx, directory):
+def validate(ctx, directory, debug):
     """Validate FHIR data"""
     try:
         from gen3_tracker.meta.validator import validate as validate_dir
