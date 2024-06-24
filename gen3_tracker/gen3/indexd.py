@@ -1,5 +1,5 @@
 import logging
-from socket import socket
+import socket
 from urllib.parse import urlparse
 
 import requests
