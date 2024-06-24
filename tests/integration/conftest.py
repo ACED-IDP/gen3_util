@@ -1,48 +1,26 @@
-import os
-import pathlib
-
+import uuid
 import pytest
-from gen3.submission import Gen3Submission
-
-import gen3_util
-from gen3_util import Config
-from gen3_util.repo import ENV_VARIABLE_PREFIX
-from gen3_util.config import ensure_auth
+from click.testing import CliRunner
 
 
 @pytest.fixture
-def dependency() -> str:
-    """Include fixtures here."""
-    return "TODO"
-
-
-@pytest.fixture
-def profile() -> str:
-    """gen3-client profile to use for testing."""
-    env_var = f"{ENV_VARIABLE_PREFIX}PROFILE"
-    if env_var in os.environ:
-        return os.environ[env_var]
-    print(f"{env_var} not set, using profile 'local'")
-    return "local"
+def runner() -> CliRunner:
+    """Fixture for creating a CliRunner instance."""
+    return CliRunner()
 
 
 @pytest.fixture
 def program() -> str:
-    """program to use for testing projects i.e. program-projects"""
-    return "test"
+    return "cbds"
 
 
 @pytest.fixture
-def config(profile, tmp_path) -> Config:
-    """A config"""
-    _ = gen3_util.config.default()
-    _.gen3.profile = profile
-    _.state_dir = pathlib.Path(tmp_path) / 'state'
-    return _
+def project() -> str:
+    project = uuid.uuid4().hex.replace('-', '_')
+    return project
 
 
 @pytest.fixture
-def submission_client(config) -> str:
-    """Gen3Submission client"""
-    auth = ensure_auth(config=config)
-    return Gen3Submission(auth_provider=auth)
+def project_id(program, project) -> str:
+    project_id = f"{program}-{project}"
+    return project_id

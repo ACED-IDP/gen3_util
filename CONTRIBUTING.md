@@ -111,6 +111,7 @@ export TWINE_PASSWORD=  # the password to use for authentication to the reposito
 
 # this could be maintained as so: export $(cat .env | xargs)
 
+rm -r build/
 rm -r dist/
 python3  setup.py sdist bdist_wheel
 twine upload dist/*
