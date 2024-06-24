@@ -163,7 +163,6 @@ class LocalFHIRDatabase:
     # @lru_cache(maxsize=None) this cache was giving updated lookup results when I di
     def patient(self, patient_id) -> dict:
         """Return the patient resource."""
-        self.connect()
         cursor = self.cursor
         self.cursor.execute(
             "SELECT * FROM resources WHERE key = ?", (f"Patient/{patient_id}",)
@@ -176,7 +175,6 @@ class LocalFHIRDatabase:
         resource = json.loads(resource)
 
         resource = self.simplify_extensions(resource)
-        self.connection.close()
 
         return resource
 
@@ -216,7 +214,6 @@ class LocalFHIRDatabase:
     # @lru_cache(maxsize=None)
     def flattened_procedure(self, procedure_key) -> dict:
         """Return the procedure with everything resolved."""
-        self.connect()
         cursor = self.cursor
         cursor.execute("SELECT * FROM resources WHERE key = ?", (procedure_key,))
         key, resource_type, resource = cursor.fetchone()
@@ -233,14 +230,12 @@ class LocalFHIRDatabase:
         # simplify the subject
         subject = procedure["subject"]["reference"]
         procedure["subject"] = subject
-        self.connection.close()
 
         return procedure
 
     @lru_cache(maxsize=None)
     def flattened_specimen(self, specimen_key) -> dict:
         """Return the procedure with everything resolved."""
-        self.connect()
         cursor = self.connection.cursor()
         cursor.execute("SELECT * FROM resources WHERE key = ?", (specimen_key,))
         key, resource_type, resource = cursor.fetchone()
@@ -262,13 +257,11 @@ class LocalFHIRDatabase:
                 break  # TODO - only first one
             del specimen["processing"]
 
-        self.connection.close()
         return specimen
 
     @lru_cache(maxsize=None)
     def flattened_condition(self, condition_key) -> dict:
         """Return the procedure with everything resolved."""
-        self.connect()
         cursor = self.connection.cursor()
         cursor.execute("SELECT * FROM resources WHERE key = ?", (condition_key,))
         key, resource_type, resource = cursor.fetchone()
@@ -288,7 +281,6 @@ class LocalFHIRDatabase:
             condition[coding_source] = coding_normalized
         # simplify the onsetAge
         condition["onsetAge"] = self.get_nested_value(condition, ["onsetAge", "value"])
-        self.connection.close()
 
         return condition
 
@@ -446,16 +438,10 @@ class LocalFHIRDatabase:
 
         observations_by_focus = defaultdict(list)
 
-        if cursor.rowcount < 0:
-            print("0 results returned from focus, subject observation query selection")
-            self.connection.close()
-            return None
-
         for row in cursor:
             observation = json.loads(row[2])
             selected_focus = json.dumps(observation["focus"][0]["reference"])
             observations_by_focus[selected_focus].append(observation)
-        self.connection.close()
 
         # since observations are grouped by patient this works
         for _, observations in observations_by_focus.items():
@@ -542,6 +528,12 @@ class LocalFHIRDatabase:
                 subject_type, subject_id = subject.split("/")
                 document_reference["subject"] = subject_id
                 document_reference["subject_type"] = subject_type
+
+            docref_category = self.get_nested_value(
+                document_reference, ["category", 0, "coding", 0, "code"]
+            )
+            if docref_category is not None:
+                document_reference["category"] = docref_category
 
             # In some places like TCGA-LUAD there is more than one identifier that could be displayed
             document_reference["identifier"] = document_reference.get(
