@@ -8,7 +8,7 @@ import inflection
 import ndjson
 import numpy as np
 import pandas as pd
-from copy import deepcopy
+import uuid
 from collections import defaultdict
 
 
@@ -448,8 +448,12 @@ class LocalFHIRDatabase:
             observations_by_focus[selected_focus].append(observation)
 
         # since observations are grouped by patient this works
-        for _, observations in observations_by_focus.items():
+        for focus, observations in observations_by_focus.items():
             patient, _ = get_patient_and_id(observations[0])
+            # keep patient id as an artifact, but the id field needs to be unique
+            patient["patient_id"] = patient["id"]
+            # Better way to mint 'patient' ids for ease of display in elastic
+            patient["id"] = uuid.uuid5(uuid.uuid3(uuid.NAMESPACE_DNS, 'aced-idp.org'), str(focus))
             for observation in observations:
                 value_normalized, _ = normalize_value(observation)
                 value_normalized = self.handle_units(value_normalized)
@@ -488,7 +492,7 @@ class LocalFHIRDatabase:
                         for k, v in self.flattened_specimen(f["reference"]).items():
                             if k not in ["id", "subject", "resourceType"]:
                                 if k == "parent":
-                                    patient[f"specimen_{k}"] = v[0]["reference"]
+                                    patient[f"specimen_{k}"] = self.get_nested_value(v, ["parent", 0, "reference"])
                                 elif k == "type":
                                     specimen_type = self.get_nested_value(
                                         v, ["coding", 0, "display"]
