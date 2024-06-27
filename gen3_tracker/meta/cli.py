@@ -20,8 +20,9 @@ def meta(ctx, project_id):
 @meta.command()
 @click.option('--project_id', default=None, show_default=True,
               help="Gen3 program-project", envvar=f"{ENV_VARIABLE_PREFIX}PROJECT_ID")
+@click.option('--debug', is_flag=True)
 @click.pass_context
-def init(ctx, project_id):
+def init(ctx, project_id, debug):
     """Initialize the META directory based on the MANIFEST."""
     try:
         from gen3_tracker.common import INFO_COLOR, ERROR_COLOR
@@ -39,7 +40,7 @@ def init(ctx, project_id):
 
     except Exception as e:
         click.secho(str(e), fg=ERROR_COLOR, file=sys.stderr)
-        if ctx.obj.debug:
+        if ctx.obj.debug or debug:
             raise
 
 
