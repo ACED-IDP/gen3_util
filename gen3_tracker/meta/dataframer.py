@@ -252,12 +252,14 @@ class LocalFHIRDatabase:
             for coding_normalized, coding_source in normalize_coding(
                 specimen["collection"]
             ):
-                specimen[f"collection_{coding_source}"] = coding_normalized
+                specimen[f"collection_{coding_source}"] = coding_normalized[0]
             del specimen["collection"]
         if "processing" in specimen:
             for processing in specimen.get("processing", []):
                 for coding_normalized, coding_source in normalize_coding(processing):
-                    specimen[f"processing_{coding_source}"] = coding_normalized
+                    # if coding_normalized is a list how to map multiple normalized codings to one coding source?
+                    # Getting errors in guppy when coding normalized is a list of > 1 elements
+                    specimen[f"processing_{coding_source}"] = coding_normalized[0]
                 break  # TODO - only first one
             del specimen["processing"]
 
@@ -433,7 +435,7 @@ class LocalFHIRDatabase:
                 "Patient/"
             )
             patient = loaded_db.patient(patient_id)
-            if isinstance(patient["identifier"], list):
+            if "identifier" in patient and isinstance(patient["identifier"], list):
                 patient["identifier"] = self.get_nested_value(
                     patient, ["identifier", 0, "value"]
                 )
@@ -457,11 +459,13 @@ class LocalFHIRDatabase:
             for observation in observations:
                 value_normalized, _ = normalize_value(observation)
                 value_normalized = self.handle_units(value_normalized)
-
+                print("NORMALIZED VALUE: ", value_normalized, "ID: " , observation["id"])
                 for coding_normalized, _ in normalize_coding(observation):
                     formatted_coding = coding_normalized[0].translate(normalize_table)
                     if value_normalized is not None:
                         patient[formatted_coding] = value_normalized
+                        print("FORMATTED CODING: ", formatted_coding)
+                print("BREAK ___________________________________________________________")
 
                 observation_category = self.get_nested_value(
                     observation, ["category", 0, "coding", 0, "code"]
@@ -580,7 +584,8 @@ class LocalFHIRDatabase:
 
             if "basedOn" in document_reference:
                 for i, dict_ in enumerate(document_reference["basedOn"]):
-                    document_reference["basedOn"][i] = dict_["reference"]
+                    document_reference[f"basedOn_{i}"] = dict_["reference"]
+                del document_reference["basedOn"]
 
             if subject is not None and subject.startswith("Patient/"):
                 _, patient_id = subject.split("/")
@@ -768,12 +773,15 @@ def normalize_coding(resource_dict: dict) -> List[Tuple[str, str]]:
     def find_codings_in_dict(d: dict, parent_key: str = "") -> List[Tuple[str, str]]:
         codings = []
         for key, value in d.items():
+            if "valueCodeableConcept" in key:
+                continue
             if isinstance(value, list):
                 # categories are values not codings in the pivot.
                 if "category" in key:
                     continue
                 for item in value:
                     if isinstance(item, dict):
+                        # valudeCodeableConcept is a value in the pivot not a coding
                         # Check if the dict contains a 'coding' list
                         if "coding" in item and isinstance(item["coding"], list):
                             coding_string = extract_coding(item["coding"])
