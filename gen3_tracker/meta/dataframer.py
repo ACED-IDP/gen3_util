@@ -2,7 +2,7 @@ import json
 import pathlib
 import sqlite3
 from functools import lru_cache
-from typing import Generator, Optional, List, Tuple
+from typing import Generator, Optional, List, Tuple, Dict
 
 import inflection
 import ndjson
@@ -177,6 +177,19 @@ class LocalFHIRDatabase:
         resource = self.simplify_extensions(resource)
 
         return resource
+
+    @lru_cache(maxsize=None)
+    def condition_everything(self) -> List[Dict]:
+        """Return all the resources for a Condition."""
+        cursor = self.connection.cursor()
+        cursor.execute(" SELECT * FROM resources where resource_type = ?", ("Condition",))
+
+        resources = []
+        for row in cursor.fetchall():
+            key, resource_type, resource = row
+            resources.append(json.loads(resource))
+
+        return resources
 
     @lru_cache(maxsize=None)
     def resource(self, resourceType, id) -> dict:
@@ -456,16 +469,17 @@ class LocalFHIRDatabase:
             patient["patient_id"] = patient["id"]
             # Better way to mint 'patient' ids for ease of display in elastic
             patient["id"] = uuid.uuid5(uuid.uuid3(uuid.NAMESPACE_DNS, 'aced-idp.org'), str(focus))
+            condition_found = False
             for observation in observations:
                 value_normalized, _ = normalize_value(observation)
                 value_normalized = self.handle_units(value_normalized)
-                print("NORMALIZED VALUE: ", value_normalized, "ID: " , observation["id"])
+                #print("NORMALIZED VALUE: ", value_normalized, "ID: " , observation["id"])
                 for coding_normalized, _ in normalize_coding(observation):
                     formatted_coding = coding_normalized[0].translate(normalize_table)
                     if value_normalized is not None:
                         patient[formatted_coding] = value_normalized
-                        print("FORMATTED CODING: ", formatted_coding)
-                print("BREAK ___________________________________________________________")
+                        #print("FORMATTED CODING: ", formatted_coding)
+                #print("BREAK ___________________________________________________________")
 
                 observation_category = self.get_nested_value(
                     observation, ["category", 0, "coding", 0, "code"]
@@ -506,6 +520,7 @@ class LocalFHIRDatabase:
                                     patient[f"specimen_{k}"] = v
 
                     elif f["reference"].startswith("Condition/"):
+                        condition_found = True
                         for k, v in self.flattened_condition(f["reference"]).items():
                             if k not in ["id", "subject", "resourceType", "encounter"]:
                                 if k == "stage":
@@ -516,6 +531,17 @@ class LocalFHIRDatabase:
                                         patient[f"stage_summary_{j}"] = stage_coding
                                 else:
                                     patient[f"condition_{k}"] = v
+
+            # For current patient if condition is not found as a reference from observation,
+            # attempt to go looking for condition via condition -> subject(patient) linkage and add it to the current patient
+            # if observation -> focus(condition) exists, this code should fill in patient rows that have observations with the same subject
+            if condition_found is False:
+                resources = [_ for _ in loaded_db.condition_everything()]
+                matching_dict = next((d for d in resources if d.get("subject").get("reference").removeprefix("Patient/") == patient["patient_id"]), None)
+                if matching_dict is not None:
+                    for coding_normalized, coding_source in normalize_coding(matching_dict):
+                        patient[f"condition_{coding_source}"] = coding_normalized
+
             yield patient
 
     def flattened_document_references(self) -> Generator[dict, None, None]:
@@ -710,9 +736,14 @@ def normalize_value(resource_dict: dict) -> tuple[Optional[str], Optional[str]]:
         value_source = "valueQuantity"
     elif "valueCodeableConcept" in resource_dict:
         value = resource_dict["valueCodeableConcept"]
-        value_normalized = " ".join(
-            [coding["display"] for coding in value.get("coding", [])]
-        )
+        # For the labkey dataset, the values from the "display" keys had system specific metadata, so first check for
+        # text key populated before going for that sub optimal display value
+        if "text" in value:
+            value_normalized = value["text"]
+        else:
+            value_normalized = " ".join(
+                [coding["display"] for coding in value.get("coding", [])]
+            )
         value_source = "valueCodeableConcept"
     elif "valueCoding" in resource_dict:
         value = resource_dict["valueCoding"]
