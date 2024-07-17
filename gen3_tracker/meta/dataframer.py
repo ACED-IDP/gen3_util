@@ -292,9 +292,8 @@ class LocalFHIRDatabase:
         )
 
         # simplify the code
-        condition["code"] = self.get_nested_value(
-            condition, ["code", "coding", 0, "display"]
-        )
+        condition["code"] = self.select_coding(condition)
+        condition["category"] = self.select_category(condition)
 
         for coding_normalized, coding_source in normalize_coding(condition):
             condition[coding_source] = coding_normalized
@@ -406,6 +405,65 @@ class LocalFHIRDatabase:
             return value_normalized
         return None
 
+    def select_category(self, resource):
+        if self.get_nested_value(
+                resource, ["category", 0, "coding", 0]
+        ):
+            selected_coding = None
+
+            # Loop through each coding entry
+            for coding in resource['category'][0]['coding']:
+                # Check if coding system is SNOMED CT
+                if coding.get('system') == 'http://snomed.info/sct':
+                    selected_coding = coding['display']
+                    break  # Found SNOMED code, exit loop
+
+                # If SNOMED code not found, select the first coding
+                if selected_coding is None:
+                    selected_coding = coding['display']
+
+            # Now selected_coding contains the desired coding entry
+            # Proceed with further actions or return selected_coding
+            return selected_coding
+        else:
+            # Handle case where no coding entries exist
+            return None
+
+    def select_coding(self, resource):
+        """
+        Selects and returns a coding entry from a FHIR Condition resource based on the following priority:
+        1. Selects a coding entry with system 'http://snomed.info/sct' if present.
+        2. If no SNOMED coding is found, selects the first coding entry.
+
+        Args:
+            condition (dict): The FHIR Condition resource containing 'code' and 'code.coding' fields.
+
+        Returns:
+            dict or None: The selected coding entry dictionary if found, or None if no coding entries exist.
+        """
+        if self.get_nested_value(
+                resource, ["code", "coding", 0]
+        ):
+            selected_coding = None
+
+            # Loop through each coding entry
+            for coding in resource['code']['coding']:
+                # Check if coding system is SNOMED CT
+                if coding.get('system') == 'http://snomed.info/sct':
+                    selected_coding = coding['display']
+                    break  # Found SNOMED code, exit loop
+
+                # If SNOMED code not found, select the first coding
+                if selected_coding is None:
+                    selected_coding = coding['display']
+
+            # Now selected_coding contains the desired coding entry
+            # Proceed with further actions or return selected_coding
+            return selected_coding
+        else:
+            # Handle case where no coding entries exist
+            return None
+
     def flattened_observations(self) -> Generator[dict, None, None]:
         normalize_table = str.maketrans(
             {
@@ -469,7 +527,6 @@ class LocalFHIRDatabase:
             patient["patient_id"] = patient["id"]
             # Better way to mint 'patient' ids for ease of display in elastic
             patient["id"] = uuid.uuid5(uuid.uuid3(uuid.NAMESPACE_DNS, 'aced-idp.org'), str(focus))
-            condition_found = False
             for observation in observations:
                 value_normalized, _ = normalize_value(observation)
                 value_normalized = self.handle_units(value_normalized)
@@ -520,7 +577,6 @@ class LocalFHIRDatabase:
                                     patient[f"specimen_{k}"] = v
 
                     elif f["reference"].startswith("Condition/"):
-                        condition_found = True
                         for k, v in self.flattened_condition(f["reference"]).items():
                             if k not in ["id", "subject", "resourceType", "encounter"]:
                                 if k == "stage":
@@ -531,16 +587,6 @@ class LocalFHIRDatabase:
                                         patient[f"stage_summary_{j}"] = stage_coding
                                 else:
                                     patient[f"condition_{k}"] = v
-
-            # For current patient if condition is not found as a reference from observation,
-            # attempt to go looking for condition via condition -> subject(patient) linkage and add it to the current patient
-            # if observation -> focus(condition) exists, this code should fill in patient rows that have observations with the same subject
-            if condition_found is False:
-                resources = [_ for _ in loaded_db.condition_everything()]
-                matching_dict = next((d for d in resources if d.get("subject").get("reference").removeprefix("Patient/") == patient["patient_id"]), None)
-                if matching_dict is not None:
-                    for coding_normalized, coding_source in normalize_coding(matching_dict):
-                        patient[f"condition_{coding_source}"] = coding_normalized
 
             yield patient
 
@@ -564,8 +610,15 @@ class LocalFHIRDatabase:
 
             if subject is not None:
                 subject_type, subject_id = subject.split("/")
-                document_reference["subject"] = subject_id
-                document_reference["subject_type"] = subject_type
+                # Look for the patient reference in specimen if it is not in docref
+                if subject_type != "Patient":
+                    document_reference[f"{inflection.underscore(subject_type)}_subject"] = subject_id
+                if subject_type == "Specimen":
+                    for k, v in self.flattened_specimen(subject).items():
+                        if k == "subject":
+                            subject_type, subject_id = v["reference"].split("/")
+                            if subject_type == "Patient":
+                                document_reference["subject"] = subject_id
 
             docref_category = self.get_nested_value(
                 document_reference, ["category", 0, "coding", 0, "code"]
