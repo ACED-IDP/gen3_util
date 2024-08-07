@@ -887,7 +887,7 @@ def normalize_coding(resource_dict: dict) -> List[Tuple[str, str]]:
 def is_number(s):
     """Returns True if string is a number."""
     try:
-        complex(s)
+        int(s)
         return True
     except ValueError:
         return False

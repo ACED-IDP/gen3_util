@@ -77,8 +77,9 @@ def cli():
 @click.argument('project_id', default=None, required=False, envvar=f"{gen3_tracker.ENV_VARIABLE_PREFIX}PROJECT_ID")
 @click.option('--approve', '-a', help='Approve the addition (privileged)', is_flag=True, default=False, show_default=True)
 @click.option('--no-server', help='Skip server setup (testing)', is_flag=True, default=False, show_default=True, hidden=True)
+@click.option('--debug', is_flag=True, envvar='G3T_DEBUG', help='Enable debug mode. G3T_DEBUG environment variable can also be used.')
 @click.pass_obj
-def init(config: Config, project_id: str, approve: bool, no_server: bool):
+def init(config: Config, project_id: str, approve: bool, no_server: bool, debug: bool):
     """Initialize a new repository."""
     try:
         # uncomment if we want to check for a git remote
@@ -116,7 +117,7 @@ def init(config: Config, project_id: str, approve: bool, no_server: bool):
 
     except Exception as e:
         click.secho(str(e), fg=ERROR_COLOR, file=sys.stderr)
-        if config.debug:
+        if config.debug or debug:
             raise
 
 
