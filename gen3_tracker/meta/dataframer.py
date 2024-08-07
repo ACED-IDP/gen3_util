@@ -396,11 +396,18 @@ class LocalFHIRDatabase:
         connection.close()
 
     def handle_units(self, value_normalized: str):
+        """This function is designed to attempt to remove units string suffixes
+        and attempt to store values as float. The issue arises when elastic sees
+        string and float data in the same column and gives errors because it is expecting
+        only one data type per column"""
+
+        print("UNITS: ", value_normalized)
         if value_normalized is not None:
             value_normalized_split = value_normalized.split(" ")
             if isinstance(value_normalized_split, list):
                 value_numeric = value_normalized_split[0]
                 if is_number(value_numeric):
+                    #print("VALUE NUMERIC: ", float(value_numeric))
                     value_normalized = float(value_numeric)
             return value_normalized
         return None
@@ -529,7 +536,7 @@ class LocalFHIRDatabase:
             patient["id"] = uuid.uuid5(uuid.uuid3(uuid.NAMESPACE_DNS, 'aced-idp.org'), str(focus))
             for observation in observations:
                 value_normalized, _ = normalize_value(observation)
-                value_normalized = self.handle_units(value_normalized)
+                # value_normalized = self.handle_units(value_normalized)
                 #print("NORMALIZED VALUE: ", value_normalized, "ID: " , observation["id"])
                 for coding_normalized, _ in normalize_coding(observation):
                     formatted_coding = coding_normalized[0].translate(normalize_table)
@@ -548,7 +555,7 @@ class LocalFHIRDatabase:
                     for coding_normalized, coding_source in normalize_coding(component):
                         if coding_source == "code":
                             value_normalized, _ = normalize_value(component)
-                            value_normalized = self.handle_units(value_normalized)
+                            # value_normalized = self.handle_units(value_normalized)
                             formatted_coding = coding_normalized[0].translate(
                                 normalize_table
                             )
