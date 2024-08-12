@@ -597,6 +597,39 @@ class LocalFHIRDatabase:
 
             yield patient
 
+    def flattened_research_subjects(self) -> Generator[dict, None, None]:
+        loaded_db = self
+        connection = sqlite3.connect(loaded_db.db_name)
+        cursor = connection.cursor()
+        cursor.execute(
+            "SELECT * FROM resources where resource_type = ResearchSubject"
+        )
+
+        # TODO: fill it out 
+        for entry in cursor.fetchall():
+            _, resource_type, raw_research_subject = entry
+            research_subject = json.loads(raw_research_subject)
+
+            # flatten subject and study (eg Patient)
+            subject = self.get_nested_value(
+                research_subject, ["subject", "reference"]
+            )
+            research_subject["subject_type"], research_subject["subject_id"] = subject.split("/")
+
+            study = self.get_nested_value(
+                research_subject, ["subject", "reference"]
+            )
+            research_subject["study_reference"] = study.split("/")[1]
+
+            # flatten identifier
+            research_subject["identifier"] = self.get_nested_value(
+                research_subject, ["identifier", 0, "value"]
+            )
+
+            yield research_subject
+
+        connection.close()
+
     def flattened_document_references(self) -> Generator[dict, None, None]:
         loaded_db = self
         connection = sqlite3.connect(loaded_db.db_name)
