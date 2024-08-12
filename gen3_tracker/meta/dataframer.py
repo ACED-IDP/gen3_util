@@ -783,6 +783,9 @@ def create_dataframe(
         df = pd.DataFrame(db.flattened_document_references())
     elif data_type == "Observation":
         df = pd.DataFrame(db.flattened_observations())
+    elif data_type == "ResearchSubject":
+        df = pd.DataFrame(db.flattened_research_subjects())
+        print(df)
     else:
         raise ValueError(
             f"{data_type} not supported yet. Supported data types are DocumentReference and Observation"
