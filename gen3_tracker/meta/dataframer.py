@@ -602,7 +602,7 @@ class LocalFHIRDatabase:
         connection = sqlite3.connect(loaded_db.db_name)
         cursor = connection.cursor()
         cursor.execute(
-            "SELECT * FROM resources where resource_type = ResearchSubject"
+            "SELECT * FROM resources where resource_type = ?", ("ResearchSubject",)
         )
 
         # TODO: fill it out 
