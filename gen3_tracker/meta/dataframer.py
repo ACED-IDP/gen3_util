@@ -615,11 +615,12 @@ class LocalFHIRDatabase:
                 research_subject, ["subject", "reference"]
             )
             research_subject["subject_type"], research_subject["subject_id"] = subject.split("/")
+            del research_subject["subject"]
 
             study = self.get_nested_value(
-                research_subject, ["subject", "reference"]
+                research_subject, ["study", "reference"]
             )
-            research_subject["study_reference"] = study.split("/")[1]
+            research_subject["study"] = study.split("/")[1]
 
             # flatten identifier
             research_subject["identifier"] = self.get_nested_value(
