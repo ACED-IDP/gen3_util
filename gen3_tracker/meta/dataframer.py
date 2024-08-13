@@ -605,9 +605,8 @@ class LocalFHIRDatabase:
             "SELECT * FROM resources where resource_type = ?", ("ResearchSubject",)
         )
 
-        # TODO: fill it out 
-        for entry in cursor.fetchall():
-            _, resource_type, raw_research_subject = entry
+        # for each research subject row
+        for _, _, raw_research_subject in cursor.fetchall():
             research_subject = json.loads(raw_research_subject)
 
             # flatten subject and study (eg Patient)
@@ -785,7 +784,6 @@ def create_dataframe(
         df = pd.DataFrame(db.flattened_observations())
     elif data_type == "ResearchSubject":
         df = pd.DataFrame(db.flattened_research_subjects())
-        print(df)
     else:
         raise ValueError(
             f"{data_type} not supported yet. Supported data types are DocumentReference and Observation"
