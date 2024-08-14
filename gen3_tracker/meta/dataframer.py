@@ -597,6 +597,39 @@ class LocalFHIRDatabase:
 
             yield patient
 
+    def flattened_research_subjects(self) -> Generator[dict, None, None]:
+        loaded_db = self
+        connection = sqlite3.connect(loaded_db.db_name)
+        cursor = connection.cursor()
+        cursor.execute(
+            "SELECT * FROM resources where resource_type = ?", ("ResearchSubject",)
+        )
+
+        # for each research subject row
+        for _, _, raw_research_subject in cursor.fetchall():
+            research_subject = json.loads(raw_research_subject)
+
+            # flatten subject and study (eg Patient)
+            subject = self.get_nested_value(
+                research_subject, ["subject", "reference"]
+            )
+            research_subject["subject_type"], research_subject["subject_id"] = subject.split("/")
+            del research_subject["subject"]
+
+            study = self.get_nested_value(
+                research_subject, ["study", "reference"]
+            )
+            research_subject["study"] = study.split("/")[1]
+
+            # flatten identifier
+            research_subject["identifier"] = self.get_nested_value(
+                research_subject, ["identifier", 0, "value"]
+            )
+
+            yield research_subject
+
+        connection.close()
+
     def flattened_document_references(self) -> Generator[dict, None, None]:
         loaded_db = self
         connection = sqlite3.connect(loaded_db.db_name)
@@ -749,6 +782,8 @@ def create_dataframe(
         df = pd.DataFrame(db.flattened_document_references())
     elif data_type == "Observation":
         df = pd.DataFrame(db.flattened_observations())
+    elif data_type == "ResearchSubject":
+        df = pd.DataFrame(db.flattened_research_subjects())
     else:
         raise ValueError(
             f"{data_type} not supported yet. Supported data types are DocumentReference and Observation"
