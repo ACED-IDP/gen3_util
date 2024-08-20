@@ -149,7 +149,7 @@ class LocalFHIRDatabase:
             self.load_from_ndjson_file(file_path)
 
     @lru_cache(maxsize=None)
-    def patient_everything(self, patient_id) -> Generator[dict, None, None]:
+    def patient_everything(self, patient_id: str) -> Generator[dict, None, None]:
         """Return all the resources for a patient."""
         cursor = self.connection.cursor()
         cursor.execute(
@@ -163,20 +163,7 @@ class LocalFHIRDatabase:
     # @lru_cache(maxsize=None) this cache was giving updated lookup results when I di
     def patient(self, patient_id) -> dict:
         """Return the patient resource."""
-        cursor = self.cursor
-        self.cursor.execute(
-            "SELECT * FROM resources WHERE key = ?", (f"Patient/{patient_id}",)
-        )
-        _ = cursor.fetchone()
-        if _ is None:
-            print(f"Patient {patient_id} not found")
-            return None
-        key, resource_type, resource = _
-        resource = json.loads(resource)
-
-        resource = self.simplify_extensions(resource)
-
-        return resource
+        return self.resource("Patient", patient_id)
 
     @lru_cache(maxsize=None)
     def condition_everything(self) -> List[Dict]:
@@ -190,22 +177,37 @@ class LocalFHIRDatabase:
             resources.append(json.loads(resource))
 
         return resources
+    
+    def add_observation_codes(self, resource: dict, observation: dict) -> None:
+        """Adds the codes from the provided observation to the provided resource"""
+        for component in observation.get("component", []):
+            for coding_normalized, coding_source in normalize_coding(component):
+                if coding_source == "code":
+                    value_normalized, _ = normalize_value(component)
+                            # value_normalized = self.handle_units(value_normalized)
+                    formatted_coding = coding_normalized[0].translate(
+                               self.normalize_table()
+                            )
+                    if value_normalized is not None:
+                        resource[formatted_coding] = value_normalized
+                    break
 
     @lru_cache(maxsize=None)
-    def resource(self, resourceType, id) -> dict:
-        """Return any resource with id and type specified"""
-        cursor = self.connection.cursor()
-        cursor.execute(
-            "SELECT * FROM resources WHERE key = ?", (f"{resourceType}/{id}",)
+    def resource(self, resource_type, id) -> dict:
+        cursor = self.cursor
+        self.cursor.execute(
+            "SELECT * FROM resources WHERE key = ?", (f"{resource_type}/{id}",)
         )
         _ = cursor.fetchone()
         if _ is None:
-            print(f"{resourceType} {id} not found")
+            print(f"{resource_type} {id} not found")
             return None
         key, resource_type, resource = _
         resource = json.loads(resource)
 
         resource = self.simplify_extensions(resource)
+
+        return resource
 
     @staticmethod
     def simplify_extensions(resource: dict) -> dict:
@@ -223,6 +225,26 @@ class LocalFHIRDatabase:
         if "extension" in resource:
             del resource["extension"]
         return resource
+    
+    def normalize_table(self):
+        return  str.maketrans(
+            {
+                ".": "",
+                " ": "_",
+                "[": "",
+                "]": "",
+                "'": "",
+                ")": "",
+                "(": "",
+                ",": "",
+                "/": "_per_",
+                "-": "to",
+                "#": "number",
+                "+": "_plus_",
+                "%": "percent",
+                "&": "_and_",
+            }
+        )
 
     # @lru_cache(maxsize=None)
     def flattened_procedure(self, procedure_key) -> dict:
@@ -472,24 +494,6 @@ class LocalFHIRDatabase:
             return None
 
     def flattened_observations(self) -> Generator[dict, None, None]:
-        normalize_table = str.maketrans(
-            {
-                ".": "",
-                " ": "_",
-                "[": "",
-                "]": "",
-                "'": "",
-                ")": "",
-                "(": "",
-                ",": "",
-                "/": "_per_",
-                "-": "to",
-                "#": "number",
-                "+": "_plus_",
-                "%": "percent",
-                "&": "_and_",
-            }
-        )
 
         loaded_db = self
         connection = sqlite3.connect(loaded_db.db_name)
@@ -501,7 +505,7 @@ class LocalFHIRDatabase:
                 focus.value AS focus,
                 json(resource) as observation
             FROM resources,
-                 json_each(json_extract(resource, '$.focus')) AS focus
+                json_each(json_extract(resource, '$.focus')) AS focus
             WHERE resource_type = ?
             ORDER BY subject, focus
         """,
@@ -538,8 +542,9 @@ class LocalFHIRDatabase:
                 value_normalized, _ = normalize_value(observation)
                 # value_normalized = self.handle_units(value_normalized)
                 #print("NORMALIZED VALUE: ", value_normalized, "ID: " , observation["id"])
+
                 for coding_normalized, _ in normalize_coding(observation):
-                    formatted_coding = coding_normalized[0].translate(normalize_table)
+                    formatted_coding = coding_normalized[0].translate(self.normalize_table())
                     if value_normalized is not None:
                         patient[formatted_coding] = value_normalized
                         #print("FORMATTED CODING: ", formatted_coding)
@@ -551,17 +556,7 @@ class LocalFHIRDatabase:
                 if observation_category is not None:
                     patient["category"] = observation_category
 
-                for component in observation.get("component", []):
-                    for coding_normalized, coding_source in normalize_coding(component):
-                        if coding_source == "code":
-                            value_normalized, _ = normalize_value(component)
-                            # value_normalized = self.handle_units(value_normalized)
-                            formatted_coding = coding_normalized[0].translate(
-                                normalize_table
-                            )
-                            if value_normalized is not None:
-                                patient[formatted_coding] = value_normalized
-                            break
+                self.add_observation_codes(patient, observation)
 
                 for f in observation.get("focus", []):
                     if f["reference"].startswith("Procedure/"):
@@ -634,6 +629,23 @@ class LocalFHIRDatabase:
         loaded_db = self
         connection = sqlite3.connect(loaded_db.db_name)
         cursor = connection.cursor()
+        cursor.execute("""
+            SELECT
+                json(focus.value) AS focus,
+                json(resource) as observation
+            FROM resources,
+                 json_each(json_extract(resource, '$.focus')) AS focus
+            WHERE resource_type = ?
+        """, ("Observation",))
+
+        # create a dict mapping from focus (DocRef) ID to observation
+        associated_observations_map = {}
+        for focus_str, obs in cursor.fetchall():
+            focus = json.loads(focus_str)["reference"]
+            if "DocumentReference" in focus:
+                associated_observations_map[focus] = json.loads(obs)
+
+        # process document references
         cursor.execute(
             "SELECT * FROM resources where resource_type = ?", ("DocumentReference",)
         )
@@ -761,10 +773,16 @@ class LocalFHIRDatabase:
                     document_reference[resource_type].append(resource)
 
             del document_reference["content"]
+            
+            # populate DocRef with codes if there's an associated Observation
+            doc_ref_id = f"DocumentReference/{document_reference['id']}"
+            if doc_ref_id in associated_observations_map:
+                observation = associated_observations_map[doc_ref_id]
+                self.add_observation_codes(document_reference, observation)
+            
             yield document_reference
 
-        connection.close()
-
+        connection.close()   
 
 def create_dataframe(
     directory_path: str, work_path: str, data_type: str
