@@ -10,10 +10,11 @@ import ndjson
 import numpy as np
 import pandas as pd
 import math
+
+from deepmerge import always_merger
 from tqdm import tqdm
 from copy import deepcopy
 from collections import defaultdict
-
 
 
 class LocalFHIRDatabase:
@@ -64,6 +65,27 @@ class LocalFHIRDatabase:
             self.create_table(table_name)  # Lazily create the table if not already created
 
         composite_key = f"{resource_type}/{id_}"
+
+        # see if the resource already exists
+        self.cursor.execute('''
+            SELECT resource FROM resources WHERE key = ?
+        ''', (composite_key,))
+        row = self.cursor.fetchone()
+
+        # Initialize an empty dictionary to hold the resource
+        existing_resource = {}
+
+        # Check if the row is not None
+        if row is not None:
+            # The first element of the row contains the resource as a JSON string
+            resource_json = row[0]
+
+            # Convert the JSON string into a Python dictionary
+            existing_resource = json.loads(resource_json)
+
+        # Merge the existing resource with the new resource
+        resource = always_merger.merge(existing_resource, resource)
+
         self.cursor.execute(f'''
             INSERT INTO {table_name} (key, resource_type, resource)
             VALUES (?, ?, ?)
