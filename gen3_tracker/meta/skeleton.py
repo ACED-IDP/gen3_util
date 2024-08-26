@@ -2,6 +2,7 @@ import pathlib
 import uuid
 from datetime import datetime
 from pytz import UTC
+from typing import List, Generator
 
 import orjson
 from fhir.resources.attachment import Attachment
@@ -54,6 +55,21 @@ def meta_index():
                     id_dict[f"{resource_type}/{_id}"] = official_identifier
 
     return id_dict
+
+def get_data_from_meta() -> Generator[int, None, None]:
+    """Read all the ndjson files in the `META` directory and return a generator that produces all records"""
+    fhir_list = []
+    meta_dir = pathlib.Path('META')
+
+    for file in meta_dir.glob('*.ndjson'):
+        with open(file, 'r') as f:
+            for line in f:
+                record = orjson.loads(line)
+                resource_type = record.get('resourceType')
+                if resource_type == 'Bundle':
+                    break
+
+                yield record
 
 
 def update_document_reference(document_reference: DocumentReference, dvc_data: DVC):

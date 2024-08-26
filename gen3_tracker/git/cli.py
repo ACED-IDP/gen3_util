@@ -4,18 +4,27 @@ import logging
 import multiprocessing
 import os
 import pathlib
+import uuid
+import orjson
 import re
 import shutil
 import subprocess
+import requests
 import sys
 import time
 import zipfile
 from datetime import datetime
+from pytz import UTC
+
 
 import click
 import pytz
 import yaml
 from fhir.resources.documentreference import DocumentReference
+from fhir.resources.identifier import Identifier
+from fhir.resources.operationoutcome import OperationOutcome
+from fhir.resources.bundle import Bundle, BundleEntry, BundleEntryRequest
+
 from gen3.auth import Gen3AuthError
 from gen3.file import Gen3File
 from gen3.index import Gen3Index
@@ -25,8 +34,8 @@ from tqdm import tqdm
 import gen3_tracker
 from gen3_tracker import Config
 from gen3_tracker.common import CLIOutput, INFO_COLOR, ERROR_COLOR, is_url, filter_dicts, SUCCESS_COLOR, \
-    read_ndjson_file
-from gen3_tracker.config import init as config_init
+    read_ndjson_file, create_id
+from gen3_tracker.config import default, init as config_init
 from gen3_tracker.config import init as config_init, ensure_auth
 from gen3_tracker.git import git_files, to_indexd, to_remote, dvc_data, \
     data_file_changes, modified_date, git_status, DVC, MISSING_G3T_MESSAGE
@@ -36,7 +45,7 @@ from gen3_tracker.git.adder import url_path, write_dvc_file
 from gen3_tracker.git.cloner import ls
 from gen3_tracker.git.initializer import initialize_project_server_side
 from gen3_tracker.git.snapshotter import push_snapshot
-from gen3_tracker.meta.skeleton import meta_index
+from gen3_tracker.meta.skeleton import meta_index, _get_system, get_data_from_meta
 
 # logging.basicConfig(level=logging.INFO)
 _logger = logging.getLogger(__package__)
@@ -299,7 +308,7 @@ def status(config):
 
 @cli.command()
 @click.option('--step',
-              type=click.Choice(['index', 'upload', 'publish', 'all']),
+              type=click.Choice(['index', 'upload', 'publish', 'all', 'fhir']),
               default='all',
               show_default=True,
               help='The step to run '
@@ -314,8 +323,10 @@ def status(config):
 @click.option('--wait', default=True, is_flag=True, show_default=True, help="(publish): Wait for metadata completion.")
 @click.option('--dry-run', show_default=True, default=False, is_flag=True, help='Print the commands that would be executed, but do not execute them.')
 @click.option('--re-run', show_default=True, default=False, is_flag=True, help='Re-run the last publish step')
+@click.option('--fhir-server', show_default=True, default=False, is_flag=True, help='Push data in META directory to FHIR Server. Whatever FHIR data that exists in META dir will be upserted into the fhir server')
+@click.option('--debug', is_flag=True)
 @click.pass_context
-def push(ctx, step: str, transfer_method: str, overwrite: bool, re_run: bool, wait: bool, dry_run: bool):
+def push(ctx, step: str, transfer_method: str, overwrite: bool, re_run: bool, wait: bool, dry_run: bool, fhir_server: bool, debug: bool):
     """Push changes to the remote repository.
 
     \b
@@ -373,7 +384,7 @@ def push(ctx, step: str, transfer_method: str, overwrite: bool, re_run: bool, wa
             dids = {_['did']: _['updated_date'] for _ in records}
             new_dvc_objects = [_ for _ in dvc_objects if _.object_id not in dids]
             updated_dvc_objects = [_ for _ in dvc_objects if _.object_id in dids and _.out.modified > dids[_.object_id]]
-            if step != 'publish':
+            if step not in ["publish", "fhir"]:
                 if not overwrite:
                     dvc_objects = new_dvc_objects + updated_dvc_objects
                     assert dvc_objects, f"No new files to index.  Use --overwrite to force"
@@ -412,7 +423,6 @@ def push(ctx, step: str, transfer_method: str, overwrite: bool, re_run: bool, wa
             click.secho(f'Indexed {len(committed_files)} files.', fg=INFO_COLOR, file=sys.stderr)
 
         if step in ['upload', 'all']:
-
             click.secho(f'Checking {len(dvc_objects)} files for upload via {transfer_method}', fg=INFO_COLOR, file=sys.stderr)
             to_remote(
                 upload_method=transfer_method,
@@ -423,11 +433,48 @@ def push(ctx, step: str, transfer_method: str, overwrite: bool, re_run: bool, wa
                 work_dir=config.work_dir
             )
 
-        with Halo(text='Uploading snapshot', spinner='line', placement='right', color='white'):
-            # push the snapshot of the `.git` sub-directory in the current directory
-            push_snapshot(config, auth=auth)
+        if fhir_server or step in ['fhir']:
+            project_id = config.gen3.project_id
+            now = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+            bundle = Bundle(type='transaction', timestamp=now)
+            bundle.identifier = Identifier(value=project_id, system="https://aced-idp.org/project_id")
+            from gen3_tracker import ACED_NAMESPACE
+            bundle.id = str(uuid.uuid5(ACED_NAMESPACE, f"Bundle/{project_id}/{now}"))
+            bundle.entry = []
 
-        if step in ['publish', 'all']:
+            for _ in get_data_from_meta():
+                bundle_entry = BundleEntry()
+                # See https://build.fhir.org/bundle-definitions.html#Bundle.entry.request.url
+                bundle_entry.request = BundleEntryRequest(url=f"{_['resourceType']}/{_['id']}", method='PUT')
+                bundle_entry.resource =_
+                bundle.entry.append(bundle_entry)
+
+            def _default_json_serializer(obj):
+                """JSON Serializer, render decimal and bytes types."""
+                if isinstance(obj, decimal.Decimal):
+                    return float(obj)
+                if isinstance(obj, bytes):
+                    return obj.decode()
+                raise TypeError
+
+            headers = {"Authorization": f"{auth._access_token}"}
+            bundle_dict = bundle.dict()
+            with Halo(text='Sending to FHIR Server', spinner='line', placement='right', color='white'):
+                result = requests.put(url=f'{auth.endpoint}/Bundle', data=orjson.dumps(bundle_dict, default=_default_json_serializer,
+                            option=orjson.OPT_APPEND_NEWLINE).decode(), headers=headers)
+
+            with open("logs/publish.log", 'a') as f:
+                log_msg = {'timestamp': datetime.now(pytz.UTC).isoformat(), "result": f"{result}"}
+                click.secho(f'Published project. See logs/publish.log', fg=SUCCESS_COLOR, file=sys.stderr)
+                f.write(json.dumps(log_msg, separators=(',', ':')))
+                f.write('\n')
+            return
+
+        if step in ['publish', 'all'] and not fhir_server:
+            with Halo(text='Uploading snapshot', spinner='line', placement='right', color='white'):
+                # push the snapshot of the `.git` sub-directory in the current directory
+                push_snapshot(config, auth=auth)
+
             if transfer_method == 'gen3':
                 with Halo(text='Publishing', spinner='line', placement='right', color='white') as spinner:
                     # legacy, "old" fhir_import_export use publish_commits to publish the META
@@ -443,7 +490,7 @@ def push(ctx, step: str, transfer_method: str, overwrite: bool, re_run: bool, wa
 
     except Exception as e:
         click.secho(str(e), fg=ERROR_COLOR, file=sys.stderr)
-        if config.debug:
+        if config.debug or debug:
             raise
         exit(1)
 
