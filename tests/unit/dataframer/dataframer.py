@@ -66,7 +66,7 @@ class SimplifiedFHIR(BaseModel):
         """Return a dictionary of scalar values."""
         _codings = {}
         for k, v in self.resource.items():
-            if k in ['identifier', 'extension']:
+            if k in ['identifier', 'extension', 'component']:
                 continue
             if isinstance(v, list):
                 for _ in v:
@@ -106,10 +106,21 @@ class SimplifiedObservation(SimplifiedFHIR):
     @property
     def values(self) -> dict:
         """Return a dictionary of 'value':value."""
-        value, source = normalize_value(self.resource)
-        if not value:
-            return {}
-        return {'value': value}
+        if 'component' in self.resource:
+            values = {}
+            for component in self.resource['component']:
+                value, source = normalize_value(component)
+                if component.get('code', {}).get('text', None):
+                    source = component['code']['text']
+                if not value:
+                    continue
+                values[source] = value
+            return values
+        else:
+            value, source = normalize_value(self.resource)
+            if not value:
+                return {}
+            return {'value': value}
 
 
 class SimplifiedResource(object):
