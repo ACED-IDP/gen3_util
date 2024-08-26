@@ -169,3 +169,5 @@ clinical_reports/
 output
 studies/
 .python-version
+
+tests/fixtures/.DS_Store
