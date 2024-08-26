@@ -23,7 +23,7 @@ def simplified_smmart_resources():
                                                           'resourceType': 'Specimen',
                                                           'id': '60c67a06-ea2d-4d24-9249-418dc77a16a9',
                                                           'collection': 'Breast', 'processing': 'Double-Spun'},
-        'Observation/cec32723-9ede-5f24-ba63-63cb8c6a02cf': {'identifier': None, 'resourceType': 'Observation',
+        'Observation/cec32723-9ede-5f24-ba63-63cb8c6a02cf': {'identifier': 'patientX_1234-9ae7e542-767f-4b03-a854-7ceed17152cb-sequencer', 'resourceType': 'Observation',
                                                              'id': 'cec32723-9ede-5f24-ba63-63cb8c6a02cf',
                                                              'status': 'final', 'category': 'Laboratory',
                                                              'code': 'Gen3 Sequencing Metadata',
@@ -35,7 +35,7 @@ def simplified_smmart_resources():
                                                              'end_type': 'Paired-End', 'capture': 'emitter XT',
                                                              'sequencing_site': 'AdvancedGeneExom',
                                                              'construction': 'library_construction'},
-        'Observation/4e3c6b59-b1fd-5c26-a611-da4cde9fd061': {'identifier': 'abcd_identifier',
+        'Observation/4e3c6b59-b1fd-5c26-a611-da4cde9fd061': {'identifier': 'patientX_1234-specimen_1234_labA-sample_type',
                                                              'resourceType': 'Observation',
                                                              'id': '4e3c6b59-b1fd-5c26-a611-da4cde9fd061',
                                                              'status': 'final', 'category': 'Laboratory',
@@ -49,7 +49,7 @@ def simplified_smmart_resources():
                                                              'biopsy_procedure_type': 'Biopsy - Core',
                                                              'biopsy_anatomical_location': 'top axillary lymph node',
                                                              'percent_tumor': '30'},
-        'Observation/21f3411d-89a4-4bcc-9ce7-b76edb1c745f': {'identifier': None, 'resourceType': 'Observation',
+        'Observation/21f3411d-89a4-4bcc-9ce7-b76edb1c745f': {'identifier': 'patientX_1234-9ae7e542-767f-4b03-a854-7ceed17152cb-Gene', 'resourceType': 'Observation',
                                                              'id': '21f3411d-89a4-4bcc-9ce7-b76edb1c745f',
                                                              'status': 'final', 'category': 'Laboratory',
                                                              'code': 'Genomic structural variant copy number',
@@ -89,7 +89,7 @@ def smmart_local_db():
 @pytest.fixture()
 def document_reference_dataframe():
     # TODO - is this the expected output?
-    return {'identifier': None,
+    return {'identifier': '9ae7e542-767f-4b03-a854-7ceed17152cb',
      'resourceType': 'DocumentReference',
      'id': '9ae7e542-767f-4b03-a854-7ceed17152cb',
      'status': 'current', 'docStatus': 'final',
