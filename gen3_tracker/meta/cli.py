@@ -20,8 +20,9 @@ def meta(ctx, project_id):
 @meta.command()
 @click.option('--project_id', default=None, show_default=True,
               help="Gen3 program-project", envvar=f"{ENV_VARIABLE_PREFIX}PROJECT_ID")
+@click.option('--debug', is_flag=True)
 @click.pass_context
-def init(ctx, project_id):
+def init(ctx, project_id, debug):
     """Initialize the META directory based on the MANIFEST."""
     try:
         from gen3_tracker.common import INFO_COLOR, ERROR_COLOR
@@ -39,7 +40,7 @@ def init(ctx, project_id):
 
     except Exception as e:
         click.secho(str(e), fg=ERROR_COLOR, file=sys.stderr)
-        if ctx.obj.debug:
+        if ctx.obj.debug or debug:
             raise
 
 
@@ -105,7 +106,7 @@ def render_graph(config: Config, directory_path: str, output_path: str, browser:
                 type=click.Path(file_okay=True),
                 default="meta.csv", required=False)
 @click.option('--dtale', 'launch_dtale', default=False, show_default=True, is_flag=True, help='Open the graph in a browser using the dtale package for interactive data exploration.')
-@click.option('--data_type', required=True, type=click.Choice(['Patient', 'Specimen', 'Observation', 'DocumentReference']), default=None, show_default=True,  help='Create a data frame for a specific data type.')
+@click.option('--data_type', required=True, type=click.Choice(['Patient', 'Specimen', 'Observation', 'DocumentReference', 'ResearchSubject']), default=None, show_default=True,  help='Create a data frame for a specific data type.')
 @click.option('--debug', is_flag=True)
 @click.pass_obj
 def render_df(config: Config, directory_path: str, output_path: str, launch_dtale: bool, data_type: str, debug: bool):
