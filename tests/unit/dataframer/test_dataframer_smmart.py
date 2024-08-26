@@ -88,6 +88,7 @@ def smmart_local_db():
 
 @pytest.fixture()
 def document_reference_dataframe():
+    # TODO - is this the expected output?
     return {'identifier': None,
      'resourceType': 'DocumentReference',
      'id': '9ae7e542-767f-4b03-a854-7ceed17152cb',
@@ -157,6 +158,7 @@ def test_simplified(smmart_resources, simplified_smmart_resources):
 
 def test_smmart_document_reference(smmart_local_db, document_reference_dataframe):
     """Test the dataframer using a local database with a SMMART bundle, this test ensures document reference and all its Observations."""
+    # TODO - once we are happy w/ this, move it to gen3_tracker.meta.dataframer
     cursor = smmart_local_db.connection.cursor()
 
     # get the document reference
