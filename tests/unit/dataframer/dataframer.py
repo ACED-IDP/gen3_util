@@ -105,7 +105,7 @@ class SimplifiedObservation(SimplifiedFHIR):
     @computed_field
     @property
     def values(self) -> dict:
-        """Return a dictionary of 'value':value."""
+        """Return a dictionary of 'value':value or <component>:value."""
         if 'component' in self.resource:
             values = {}
             for component in self.resource['component']:
@@ -123,6 +123,22 @@ class SimplifiedObservation(SimplifiedFHIR):
             return {'value': value}
 
 
+class SimplifiedDocumentReference(SimplifiedFHIR):
+
+    @computed_field
+    @property
+    def values(self) -> dict:
+        """Return a dictionary of 'value':value."""
+        values = super().values
+        for content in self.resource.get('content', []):
+            if 'attachment' in content:
+                for k, v in SimplifiedFHIR(resource=content['attachment']).simplified.items():
+                    if k in ['identifier', 'extension']:
+                        continue
+                    values[k] = v
+        return values
+
+
 class SimplifiedResource(object):
     """A simplified FHIR resource, a factory method."""
 
@@ -132,6 +148,8 @@ class SimplifiedResource(object):
         resource_type = resource.get('resourceType', None)
         if resource_type == 'Observation':
             return SimplifiedObservation(resource=resource)
+        if resource_type == 'DocumentReference':
+            return SimplifiedDocumentReference(resource=resource)
         return SimplifiedFHIR(resource=resource)
 
 

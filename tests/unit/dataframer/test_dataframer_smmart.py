@@ -23,6 +23,7 @@ def simplified_smmart_resources():
                                                                    'source_path': 'file:///home/LabA/specimen_1234_labA.fq.gz',
                                                                    'contentType': 'text/fastq',
                                                                    'size': 5595609484,
+                                                                   'url': 'file:///home/LabA/specimen_1234_labA.fq.gz',
                                                                    'title': 'specimen_1234_labA.fq.gz',
                                                                    'creation': '2024-08-21T10:53:00+00:00'},
         'Specimen/60c67a06-ea2d-4d24-9249-418dc77a16a9': {'identifier': 'specimen_1234_labA',
@@ -119,7 +120,13 @@ def document_reference_dataframe():
             'sequencing_site': 'AdvancedGeneExom',
             'construction': 'library_construction',
             'Gene': 'TP53', 'Chromosome': 'chr17',
-            'result': 'gain of function (GOF)'}
+            'result': 'gain of function (GOF)',
+            'specimen_collection': 'Breast',
+            'specimen_id': '60c67a06-ea2d-4d24-9249-418dc77a16a9',
+            'specimen_identifier': 'specimen_1234_labA',
+            'specimen_processing': 'Double-Spun',
+            'url': 'file:///home/LabA/specimen_1234_labA.fq.gz'
+            }
 
 
 @pytest.fixture()
@@ -194,9 +201,11 @@ def test_smmart_document_reference(smmart_local_db, document_reference_dataframe
     simplified_subject = SimplifiedResource.build(resource=resource).simplified
     prefix = simplified_subject['resourceType'].lower()
     for k, v in simplified_subject.items():
-        if k == 'resourceType':
+        if k in ['resourceType']:
             continue
         simplified[f"{prefix}_{k}"] = v
+
+    assert 'specimen_collection' in simplified, simplified
 
     # get its focus, simplify it and add it to the simplified document reference
     if 'focus' in document_reference and len(document_reference['focus']) > 0:
@@ -212,6 +221,8 @@ def test_smmart_document_reference(smmart_local_db, document_reference_dataframe
             if k == 'resourceType':
                 continue
             simplified[f"{prefix}_{k}"] = v
+
+    assert 'specimen_collection' in simplified, simplified
 
     # get all Observations that are focused on the document reference, simplify them and add them to the simplified document reference
     cursor.execute("SELECT * FROM resources WHERE resource_type = ?", ('Observation',))
@@ -234,10 +245,14 @@ def test_smmart_document_reference(smmart_local_db, document_reference_dataframe
         else:
             # component
             for k, v in simplified_observation.items():
-                if k in ['resourceType', 'id', 'category', 'code', 'status']:
+                if k in ['resourceType', 'id', 'category', 'code', 'status', 'identifier']:
                     continue
                 # TODO - should we prefix the component keys? e.g. observation_component_value
                 simplified[k] = v
+
+    assert 'specimen_collection' in simplified, simplified
+    assert simplified['specimen_identifier'] == 'specimen_1234_labA', simplified
+    assert simplified['specimen_collection'] == 'Breast', simplified
 
     print(simplified)
     assert simplified == document_reference_dataframe
