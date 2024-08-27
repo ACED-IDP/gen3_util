@@ -1,5 +1,6 @@
 import pathlib
 from click.testing import CliRunner, Result
+import requests
 
 from gen3_tracker.cli import cli
 from gen3_tracker.config import ensure_auth, default
@@ -47,6 +48,16 @@ def validate_document_in_psql_graph(did: str, auth=None):
     print(result)
     assert result['data']['document_reference'][0]['id'] == did
 
+
+def validate_document_in_grip(did: str, auth=None, project_id=None):
+    """Simple query to validate a document in the grip graph."""
+    if not auth:
+        auth = ensure_auth(config=default())
+    token = auth.get_access_token()
+    result = requests.get(f"{auth.endpoint}/grip/writer/graphql/CALIPER/get-vertex/{did}/{project_id}",
+                            headers={"Authorization": f"bearer {token}"}
+                            ).json()
+    assert result['data']['gid'] == did
 
 def validate_document_in_elastic(did, auth):
     """Simple query to validate a document in elastic."""

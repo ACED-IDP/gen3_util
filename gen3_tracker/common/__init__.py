@@ -73,6 +73,15 @@ Thank you for your cooperation in maintaining the security and confidentiality o
 """
 
 
+def _default_json_serializer(obj):
+     """JSON Serializer, render decimal and bytes types."""
+     if isinstance(obj, decimal.Decimal):
+         return float(obj)
+     if isinstance(obj, bytes):
+         return obj.decode()
+     raise TypeError
+
+
 def print_formatted(config, output: Mapping) -> None:
     """Print the output, using configured output format"""
     from gen3_tracker import Config
@@ -310,8 +319,9 @@ def create_id(resource, project_id) -> str:
     from gen3_tracker import ACED_NAMESPACE
     assert resource, "resource required"
     assert project_id, "project_id required"
-    identifier_string = identifier_to_string(resource.identifier)
-    return str(uuid.uuid5(ACED_NAMESPACE, f"{project_id}/{resource.resource_type}/{identifier_string}"))
+    # identifier string is not unique when it complies with FHIR server. Using something else
+    #identifier_string = identifier_to_string(resource.identifier)
+    return str(uuid.uuid5(ACED_NAMESPACE, f"{project_id}/{resource.resource_type}/{resource}"))
 
 
 class Commit(BaseModel):

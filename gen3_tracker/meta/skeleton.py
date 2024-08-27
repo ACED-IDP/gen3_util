@@ -170,6 +170,7 @@ def create_skeleton(dvc: dict, project_id: str, meta_index: set[str] = []) -> li
     document_reference = DocumentReference(status='current', content=[{'attachment': {'url': "file://"}}])
     document_reference.id = document_reference_id
     document_reference.identifier = [
+
         Identifier(value=document_reference_id, system=_get_system(document_reference_id, project_id=project_id),
                    use='official')]
     update_document_reference(document_reference, dvc)
@@ -300,7 +301,7 @@ def update_meta_files(dry_run=False, project_id=None) -> list[str]:
         now = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%S.%fZ")
         bundle = Bundle(type='transaction', timestamp=now)
 
-        bundle.identifier = Identifier(value=now, system=_get_system(project_id, project_id=project_id), use='official')
+        bundle.identifier = Identifier(value=project_id, system="https://aced-idp.org/project_id", use='official')
         bundle.id = create_id(bundle, project_id)
 
         bundle.entry = []

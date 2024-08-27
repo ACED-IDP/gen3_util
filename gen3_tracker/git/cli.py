@@ -46,7 +46,7 @@ from gen3_tracker.git.cloner import ls
 from gen3_tracker.git.initializer import initialize_project_server_side
 from gen3_tracker.git.snapshotter import push_snapshot
 from gen3_tracker.meta.skeleton import meta_index, _get_system, get_data_from_meta
-
+from gen3_tracker.common import _default_json_serializer
 # logging.basicConfig(level=logging.INFO)
 _logger = logging.getLogger(__package__)
 
@@ -328,7 +328,6 @@ def status(config):
 @click.pass_context
 def push(ctx, step: str, transfer_method: str, overwrite: bool, re_run: bool, wait: bool, dry_run: bool, fhir_server: bool, debug: bool):
     """Push changes to the remote repository.
-
     \b
     steps:
         index - index the files
@@ -434,6 +433,26 @@ def push(ctx, step: str, transfer_method: str, overwrite: bool, re_run: bool, wa
             )
 
         if fhir_server or step in ['fhir']:
+            """Either there exists a Bundle.ndjson file in META signifying a revision to the data, or there is no bundle.json,
+                    signifying that the data in the META directory should be upserted into gen34"""
+            meta_dir = pathlib.Path('META')
+            bundle_file = meta_dir / "Bundle.ndjson"
+            if os.path.isfile(bundle_file):
+                 with Halo(text='Sending to FHIR Server', spinner='line', placement='right', color='white'):
+                     with open(bundle_file, "r") as file:
+                         json_string = file.read()
+                     bundle_data = orjson.loads(json_string)
+                     headers = {"Authorization": f"{auth._access_token}"}
+                     result = requests.delete(url=f'{auth.endpoint}/Bundle', data=orjson.dumps(bundle_data, default=_default_json_serializer,
+                                 option=orjson.OPT_APPEND_NEWLINE).decode(), headers=headers)
+
+                 with open("logs/publish.log", 'a') as f:
+                     log_msg = {'timestamp': datetime.now(pytz.UTC).isoformat(), "result": f"{result}"}
+                     click.secho(f'Published project. See logs/publish.log', fg=SUCCESS_COLOR, file=sys.stderr)
+                     f.write(json.dumps(log_msg, separators=(',', ':')))
+                     f.write('\n')
+                 return
+
             project_id = config.gen3.project_id
             now = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%S.%fZ")
             bundle = Bundle(type='transaction', timestamp=now)
@@ -449,13 +468,6 @@ def push(ctx, step: str, transfer_method: str, overwrite: bool, re_run: bool, wa
                 bundle_entry.resource =_
                 bundle.entry.append(bundle_entry)
 
-            def _default_json_serializer(obj):
-                """JSON Serializer, render decimal and bytes types."""
-                if isinstance(obj, decimal.Decimal):
-                    return float(obj)
-                if isinstance(obj, bytes):
-                    return obj.decode()
-                raise TypeError
 
             headers = {"Authorization": f"{auth._access_token}"}
             bundle_dict = bundle.dict()
