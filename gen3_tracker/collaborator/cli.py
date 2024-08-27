@@ -56,7 +56,7 @@ def project_add_user(config: Config, username: str, resource_path: str, write: b
                 if not existing_requests:
                     needs_adding = True
                 else:
-                    if write and not any(r['policy_id'].endswith('writer') for r in existing_requests):
+                    if write: # and not any(r['policy_id'].endswith('writer') for r in existing_requests):
                         needs_adding = True
                 if needs_adding:
                     click.secho(f"There are no existing requests for {username}, adding them to project.", fg='yellow')
