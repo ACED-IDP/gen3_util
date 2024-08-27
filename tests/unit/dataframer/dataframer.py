@@ -24,12 +24,12 @@ class SimplifiedFHIR(BaseModel):
     def simplify_extensions(self, resource: dict = None, _extensions: dict = None) -> dict:
         """Extract extension values, derive key from extension url"""
 
-        def _populate_simplified_extension(_):
+        def _populate_simplified_extension(extension: dict):
             # simple extension
-            value_normalized, extension_key = normalize_value(_)
-            extension_key = _['url'].split('/')[-1]
+            value_normalized, extension_key = normalize_value(extension)
+            extension_key = extension['url'].split('/')[-1]
             extension_key = inflection.underscore(extension_key).removesuffix(".json").removeprefix("structure_definition_")
-            assert value_normalized is not None, f"extension: {extension_key} = {value_normalized} {_}"
+            assert value_normalized is not None, f"extension: {extension_key} = {value_normalized} {extension}"
             _extensions[extension_key] = value_normalized
 
         if not _extensions:
