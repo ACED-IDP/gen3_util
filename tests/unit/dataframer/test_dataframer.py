@@ -5,11 +5,12 @@ import tempfile
 import inflection
 import pytest
 
-from gen3_tracker.meta.dataframer import LocalFHIRDatabase, SimplifiedResource
+from gen3_tracker.meta.dataframer import LocalFHIRDatabase
+from gen3_tracker.meta.entities import SimplifiedResource
 
 
 @pytest.fixture()
-def smmart_bundle():
+def fhir_bundle():
     return {
         "resourceType": "Bundle",
         "id": "example-bundle",
@@ -171,11 +172,11 @@ def simplified_smmart_bundle():
 
 
 @pytest.fixture()
-def smmart_local_db(smmart_bundle):
+def smmart_local_db(fhir_bundle):
     with tempfile.TemporaryDirectory() as temp_dir:
         print(f"Temporary directory created at: {temp_dir}")
         db = LocalFHIRDatabase(db_name=os.path.join(temp_dir, 'local.db'))
-        for entry in smmart_bundle['entry']:
+        for entry in fhir_bundle['entry']:
             db.insert_data_from_dict(entry['resource'])
         yield db
 
@@ -197,15 +198,15 @@ def document_reference_dataframe():
         'body_temperature': '36.6 Cel', 'heart_rate': '72 beats/minute'}
 
 
-def test_dataframe(smmart_bundle, simplified_smmart_bundle):
+def test_dataframe(fhir_bundle, simplified_smmart_bundle):
     """Test the dataframer using a SMMART bundle, this test just simplifies each object individually."""
-    for entry in smmart_bundle['entry']:
+    for entry in fhir_bundle['entry']:
         resource = entry['resource']
         simplified = SimplifiedResource.build(resource=resource).simplified
         assert simplified == simplified_smmart_bundle[f"{resource['resourceType']}/{resource['id']}"]
 
 
-def test_document_reference(smmart_local_db, simplified_smmart_bundle, document_reference_dataframe):
+def test_document_reference(smmart_local_db, document_reference_dataframe):
     """Test the dataframer using a local database with a SMMART bundle, this test ensures document reference and all its Observations."""
     cursor = smmart_local_db.connection.cursor()
 
@@ -217,55 +218,7 @@ def test_document_reference(smmart_local_db, simplified_smmart_bundle, document_
     key, resource_type, resource = _
     resource = json.loads(resource)
 
-    # simplify it
-    simplified = SimplifiedResource.build(resource=resource).simplified
-    assert simplified == simplified_smmart_bundle[document_reference_key]
-    document_reference = resource
-
-    # get its subject, simplify it and add it to the simplified document reference
-    subject_key = document_reference['subject']['reference']
-    cursor.execute("SELECT * FROM resources WHERE key = ?", (subject_key,))
-    _ = cursor.fetchone()
-    assert _, f"{subject_key} not found"
-    key, resource_type, resource = _
-    resource = json.loads(resource)
-    simplified_subject = SimplifiedResource.build(resource=resource).simplified
-    prefix = simplified_subject['resourceType'].lower()
-    for k, v in simplified_subject.items():
-        if k == 'resourceType':
-            continue
-        simplified[f"{prefix}_{k}"] = v
-
-    # get its focus, simplify it and add it to the simplified document reference
-    if 'focus' in document_reference and len(document_reference['focus']) > 0:
-        focus_key = document_reference['focus'][0]['reference']
-        cursor.execute("SELECT * FROM resources WHERE key = ?", (focus_key,))
-        _ = cursor.fetchone()
-        assert _, f"{focus_key} not found"
-        key, resource_type, resource = _
-        resource = json.loads(resource)
-        simplified_focus = SimplifiedResource.build(resource=resource).simplified
-        prefix = simplified_focus['resourceType'].lower()
-        for k, v in simplified_focus.items():
-            if k == 'resourceType':
-                continue
-            simplified[f"{prefix}_{k}"] = v
-
-    # get all Observations that are focused on the document reference, simplify them and add them to the simplified document reference
-    cursor.execute("SELECT * FROM resources WHERE resource_type = ?", ('Observation',))
-    observations = cursor.fetchall()
-    for observation in observations:
-        key, resource_type, resource = observation
-        resource = json.loads(resource)
-        foci = resource.get('focus', [])
-        references = [focus['reference'] for focus in foci]
-        if document_reference_key not in references:
-            continue
-
-        simplified_observation = SimplifiedResource.build(resource=resource).simplified
-        code = inflection.underscore(inflection.parameterize(simplified_observation['code']))
-        value = simplified_observation['value']
-        simplified[code] = value
+    simplified = smmart_local_db.flattened_document_reference(cursor, key, resource)
 
     print(simplified)
     assert simplified == document_reference_dataframe
