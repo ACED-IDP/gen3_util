@@ -234,7 +234,7 @@ def test_dataframe(fhir_bundle, simplified_smmart_bundle):
 
 def test_document_reference(smmart_local_db, document_reference_dataframe):
     """Test the dataframer using a local database with a SMMART bundle, this test ensures document reference and all its Observations."""
-    cursor = smmart_local_db.connection.cursor()
+    cursor = smmart_local_db.connect()
 
     # get the document reference
     document_reference_key = 'DocumentReference/document-reference'
@@ -244,7 +244,7 @@ def test_document_reference(smmart_local_db, document_reference_dataframe):
     key, resource_type, resource = _
     resource = json.loads(resource)
 
-    simplified = smmart_local_db.flattened_document_reference(cursor, key, resource)
+    simplified = smmart_local_db.flattened_document_reference(key, resource)
 
     print(simplified)
     assert simplified == document_reference_dataframe

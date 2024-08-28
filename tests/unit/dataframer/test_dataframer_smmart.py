@@ -209,7 +209,7 @@ def test_simplified(smmart_resources, simplified_smmart_resources):
 def test_smmart_document_reference(smmart_local_db, document_reference_dataframe):
     """Test the dataframer using a local database with a SMMART bundle, this test ensures document reference and all its Observations."""
     # TODO - once we are happy w/ this, move it to gen3_tracker.meta.dataframer
-    cursor = smmart_local_db.connection.cursor()
+    cursor = smmart_local_db.connect()
 
     # get the document reference
     document_reference_key = 'DocumentReference/9ae7e542-767f-4b03-a854-7ceed17152cb'
@@ -219,7 +219,7 @@ def test_smmart_document_reference(smmart_local_db, document_reference_dataframe
     key, _, resource = row
     resource = json.loads(resource)
     
-    simplified = smmart_local_db.flattened_document_reference(cursor, key, resource)
+    simplified = smmart_local_db.flattened_document_reference(key, resource)
 
     assert 'specimen_collection' in simplified, simplified
     assert simplified['specimen_identifier'] == 'specimen_1234_labA', simplified

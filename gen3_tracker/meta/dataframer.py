@@ -26,13 +26,17 @@ class LocalFHIRDatabase:
         self.table_created = {}  # Flag to track if the table has been created
 
     def connect(self) -> sqlite3.Cursor:
-        self.connection = sqlite3.connect(self.db_name)
-        self.cursor = self.connection.cursor()
+        if self.cursor is None:
+            self.connection = sqlite3.connect(self.db_name)
+            self.cursor = self.connection.cursor()
+        else:
+            return self.cursor
 
     def disconnect(self):
         if self.connection:
             self.connection.commit()
             self.connection.close()
+
 
     def create_table(
         self,
@@ -658,9 +662,7 @@ class LocalFHIRDatabase:
         connection.close()
 
     def flattened_document_references(self) -> Generator[dict, None, None]:
-        loaded_db = self
-        connection = sqlite3.connect(loaded_db.db_name)
-        cursor = connection.cursor()
+        cursor = self.connect()
         cursor.execute(
             "SELECT * FROM resources where resource_type = ?", ("DocumentReference",)
         )
@@ -669,155 +671,35 @@ class LocalFHIRDatabase:
             key, _, raw_document_reference = row
             document_reference = json.loads(raw_document_reference)
 
-            yield self.flattened_document_reference(cursor, key, document_reference)
+            yield self.flattened_document_reference(key, document_reference)
 
-        connection.close()
+        self.disconnect()
 
-    def flattened_document_reference(self, cursor, document_reference_key: str, document_reference: dict) -> dict:
-        # # simplify the subject
-        # subject = document_reference.get("subject", {"reference": None})[
-        #     "reference"
-        # ]
+    def flattened_document_reference(self, doc_ref_key: str, doc_ref: Dict) -> dict:
+        cursor = self.connect()
 
-        # if subject is not None:
-        #     subject_type, subject_id = subject.split("/")
-        #     # Look for the patient reference in specimen if it is not in docref
-        #     if subject_type != "Patient":
-        #         document_reference[f"{inflection.underscore(subject_type)}_subject"] = subject_id
-        #     if subject_type == "Specimen":
-        #         for k, v in self.flattened_specimen(subject).items():
-        #             if k == "subject":
-        #                 subject_type, subject_id = v["reference"].split("/")
-        #                 if subject_type == "Patient":
-        #                     document_reference["subject"] = subject_id
-
-        # # TODO: should be chill but test this based on fhir-gdc
-        # docref_category = self.get_nested_value(
-        #     document_reference, ["category", 0, "coding", 0, "code"]
-        # )
-        # if docref_category is not None:
-        #     document_reference["category"] = docref_category
-
-        # # In some places like TCGA-LUAD there is more than one identifier that could be displayed
-        # document_reference["identifier"] = document_reference.get(
-        #     "identifier", [{"value": None}]
-        # )[0]["value"]
-
-        # for elem in normalize_coding(document_reference):
-        #     document_reference[elem[1]] = elem[0][0]
-
-        # # simplify the extensions
-        # if (
-        #     self.get_nested_value(document_reference, ["content", 0, "attachment"])
-        #     is not None
-        # ):
-        #     if "extension" in document_reference["content"][0]["attachment"]:
-        #         for row in document_reference["content"][0]["attachment"][
-        #             "extension"
-        #         ]:
-        #             value_normalized, value_source = normalize_value(row)
-        #             document_reference[(row["url"].split("/")[-1])] = value_normalized
-
-        #     content_url = self.get_nested_value(
-        #         document_reference, ["content", 0, "attachment", "url"]
-        #     )
-        #     if content_url is not None:
-        #         document_reference["source_url"] = content_url
-
-        # if "content" in document_reference:
-        #     for k, v in document_reference["content"][0]["attachment"].items():
-        #         if k in ["extension"]:
-        #             continue
-        #         if k == "size":
-        #             document_reference[k] = str(v)
-        #             continue
-        #         document_reference[k] = v
-
-        # # TODO: test this based on fhir-gdc
-        # if "basedOn" in document_reference:
-        #     for i, dict_ in enumerate(document_reference["basedOn"]):
-        #         document_reference[f"basedOn_{i}"] = dict_["reference"]
-        #     del document_reference["basedOn"]
-
-        # if subject is not None and subject.startswith("Patient/"):
-        #     row, patient_id = subject.split("/")
-        #     resources = [_ for _ in self.patient_everything(patient_id)]
-        #     resources.append(self.patient(patient_id))
-        #     for resource in resources:
-
-        #         if resource["resourceType"] == "Patient":
-        #             identifier = self.get_nested_value(
-        #                 resource, ["identifier", 0, "value"]
-        #             )
-        #             if identifier is not None:
-        #                 document_reference["patient"] = identifier
-        #             # document_reference['patient'] = resource['identifier'][0]['value']
-        #             continue
-
-        #         if (
-        #             resource["resourceType"] == "Condition"
-        #             and f"Condition/{resource['id']}" == document_reference["reason"]
-        #         ):
-        #             document_reference["reason"] = resource["code"]["text"]
-        #             continue
-
-        #         if resource["resourceType"] == "Observation":
-        #             # must be focus
-        #             if f"Procedure/{document_reference['id']}" not in [
-        #                 _["reference"] for _ in resource["focus"]
-        #             ]:
-        #                 continue
-
-        #             # TODO - pick first coding, h2 allow user to specify preferred coding
-        #             code = resource["code"]["coding"][0]["code"]
-
-        #             value = normalize_value(resource)
-
-        #             assert value is not None, f"no value for {resource['id']}"
-        #             document_reference[code] = value
-
-        #             continue
-
-        #         # skip these
-        #         if resource["resourceType"] in [
-        #             "Specimen",
-        #             "Procedure",
-        #             "ResearchSubject",
-        #             "DocumentReference",
-        #         ]:
-        #             continue
-
-        #         # default, add entire resource as an item of the list
-        #         resource_type = inflection.underscore(resource["resourceType"])
-        #         if resource_type not in document_reference:
-        #             document_reference[resource_type] = []
-        #         document_reference[resource_type].append(resource)
-
-        # del document_reference["content"]
-        # return document_reference
-    
-        # simplify it
-        simplified = SimplifiedResource.build(resource=document_reference).simplified
+        # simplify document reference
+        flat_doc_ref = SimplifiedResource.build(resource=doc_ref).simplified
         
-        # extract and append fields from the corresponding .subject
-        subject_key = document_reference['subject']['reference']
+        # extract the corresponding .subject and append its fields 
+        subject_key = doc_ref['subject']['reference']
         cursor.execute("SELECT * FROM resources WHERE key = ?", (subject_key,))
         row = cursor.fetchone()
         assert row, f"{subject_key} not found in database"
         _, _, resource = row
         subject = json.loads(resource)
-        simplified.update(traverse(subject))
+        flat_doc_ref.update(traverse(subject))
 
-        # extract and append fields from the corresponding .focus
-        if 'focus' in document_reference and len(document_reference['focus']) > 0:
+        # extract the corresponding .focus and append its fields
+        if 'focus' in doc_ref and len(doc_ref['focus']) > 0:
             # TODO: do we need to account for multiple foci?
-            focus_key = document_reference['focus'][0]['reference']
+            focus_key = doc_ref['focus'][0]['reference']
             cursor.execute("SELECT * FROM resources WHERE key = ?", (focus_key,))
             result = cursor.fetchone()
             assert result, f"{focus_key} not found"
             _, _, resource = result
             resource = json.loads(resource)
-            simplified.update(traverse(resource))
+            flat_doc_ref.update(traverse(resource))
 
         # get all Observations that are focused on the document reference, simplify them and add them to the simplified document reference
         cursor.execute("SELECT * FROM resources WHERE resource_type = ?", ('Observation',))
@@ -827,7 +709,7 @@ class LocalFHIRDatabase:
             resource = json.loads(resource)
             foci = resource.get('focus', [])
             references = [focus['reference'] for focus in foci]
-            if document_reference_key not in references:
+            if doc_ref_key not in references:
                 continue
 
             simplified_observation = SimplifiedResource.build(resource=resource).simplified
@@ -836,22 +718,22 @@ class LocalFHIRDatabase:
                 code = inflection.underscore(inflection.parameterize(simplified_observation['code']))
                 value = simplified_observation['value']
                 # TODO - should we prefix the component keys? e.g. observation_component_value
-                simplified[code] = value
+                flat_doc_ref[code] = value
             else:
                 # component
                 for k, v in simplified_observation.items():
                     if k in ['resourceType', 'id', 'category', 'code', 'status', 'identifier']:
                         continue
                     # TODO - should we prefix the component keys? e.g. observation_component_value
-                    simplified[k] = v
+                    flat_doc_ref[k] = v
         
         # TODO: test this based on fhir-gdc
-        if "basedOn" in document_reference:
-            for i, dict_ in enumerate(document_reference["basedOn"]):
-                document_reference[f"basedOn_{i}"] = dict_["reference"]
-            del document_reference["basedOn"]
+        if "basedOn" in doc_ref:
+            for i, dict_ in enumerate(doc_ref["basedOn"]):
+                doc_ref[f"basedOn_{i}"] = dict_["reference"]
+            del doc_ref["basedOn"]
         
-        return simplified
+        return flat_doc_ref
 
 def create_dataframe(
     directory_path: str, work_path: str, data_type: str
