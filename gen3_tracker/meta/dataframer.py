@@ -1,26 +1,22 @@
-import json
-import pathlib
-import sqlite3
-from functools import lru_cache
-from typing import  Dict, Generator, List, Optional, Tuple, override
-
-import inflection
-import ndjson
-import numpy as np
-import pandas as pd
-
-import math
-
-from deepmerge import always_merger
-from tqdm import tqdm
-from copy import deepcopy
-import uuid
-from collections import defaultdict
-from pydantic import BaseModel, computed_field
-
 ###########################
 ### LOCAL FHIR DATABASE ###
 ###########################
+ 
+import inflection
+import json
+import ndjson
+import numpy as np
+import pandas as pd
+import pathlib
+import sqlite3
+import uuid
+
+from collections import defaultdict
+from deepmerge import always_merger
+from functools import lru_cache
+from typing import  Dict, Generator, List
+
+from gen3_tracker.meta.entities import SimplifiedResource, normalize_coding, normalize_value, traverse
 
 class LocalFHIRDatabase:
     def __init__(self, db_name):  # , db_name=pathlib.Path('.g3t') / 'local.db'):
@@ -670,132 +666,192 @@ class LocalFHIRDatabase:
         )
 
         for row in cursor.fetchall():
-            key, resource_type, raw_document_reference = row
+            key, _, raw_document_reference = row
             document_reference = json.loads(raw_document_reference)
 
-            # simplify the subject
-
-            subject = document_reference.get("subject", {"reference": None})[
-                "reference"
-            ]
-
-            if subject is not None:
-                subject_type, subject_id = subject.split("/")
-                # Look for the patient reference in specimen if it is not in docref
-                if subject_type != "Patient":
-                    document_reference[f"{inflection.underscore(subject_type)}_subject"] = subject_id
-                if subject_type == "Specimen":
-                    for k, v in self.flattened_specimen(subject).items():
-                        if k == "subject":
-                            subject_type, subject_id = v["reference"].split("/")
-                            if subject_type == "Patient":
-                                document_reference["subject"] = subject_id
-
-            docref_category = self.get_nested_value(
-                document_reference, ["category", 0, "coding", 0, "code"]
-            )
-            if docref_category is not None:
-                document_reference["category"] = docref_category
-
-            # In some places like TCGA-LUAD there is more than one identifier that could be displayed
-            document_reference["identifier"] = document_reference.get(
-                "identifier", [{"value": None}]
-            )[0]["value"]
-
-            for elem in normalize_coding(document_reference):
-                document_reference[elem[1]] = elem[0][0]
-
-            # simplify the extensions
-            if (
-                self.get_nested_value(document_reference, ["content", 0, "attachment"])
-                is not None
-            ):
-                if "extension" in document_reference["content"][0]["attachment"]:
-                    for row in document_reference["content"][0]["attachment"][
-                        "extension"
-                    ]:
-                        value_normalized, value_source = normalize_value(row)
-                        document_reference[(row["url"].split("/")[-1])] = value_normalized
-
-                content_url = self.get_nested_value(
-                    document_reference, ["content", 0, "attachment", "url"]
-                )
-                if content_url is not None:
-                    document_reference["source_url"] = content_url
-
-            if "content" in document_reference:
-                for k, v in document_reference["content"][0]["attachment"].items():
-                    if k in ["extension"]:
-                        continue
-                    if k == "size":
-                        document_reference[k] = str(v)
-                        continue
-                    document_reference[k] = v
-
-            if "basedOn" in document_reference:
-                for i, dict_ in enumerate(document_reference["basedOn"]):
-                    document_reference[f"basedOn_{i}"] = dict_["reference"]
-                del document_reference["basedOn"]
-
-            if subject is not None and subject.startswith("Patient/"):
-                row, patient_id = subject.split("/")
-                resources = [_ for _ in loaded_db.patient_everything(patient_id)]
-                resources.append(loaded_db.patient(patient_id))
-                for resource in resources:
-
-                    if resource["resourceType"] == "Patient":
-                        identifier = self.get_nested_value(
-                            resource, ["identifier", 0, "value"]
-                        )
-                        if identifier is not None:
-                            document_reference["patient"] = identifier
-                        # document_reference['patient'] = resource['identifier'][0]['value']
-                        continue
-
-                    if (
-                        resource["resourceType"] == "Condition"
-                        and f"Condition/{resource['id']}" == raw_document_reference["reason"]
-                    ):
-                        document_reference["reason"] = resource["code"]["text"]
-                        continue
-
-                    if resource["resourceType"] == "Observation":
-                        # must be focus
-                        if f"Procedure/{raw_document_reference['id']}" not in [
-                            _["reference"] for _ in resource["focus"]
-                        ]:
-                            continue
-
-                        # TODO - pick first coding, h2 allow user to specify preferred coding
-                        code = resource["code"]["coding"][0]["code"]
-
-                        value = normalize_value(resource)
-
-                        assert value is not None, f"no value for {resource['id']}"
-                        document_reference[code] = value
-
-                        continue
-
-                    # skip these
-                    if resource["resourceType"] in [
-                        "Specimen",
-                        "Procedure",
-                        "ResearchSubject",
-                        "DocumentReference",
-                    ]:
-                        continue
-
-                    # default, add entire resource as an item of the list
-                    resource_type = inflection.underscore(resource["resourceType"])
-                    if resource_type not in raw_document_reference:
-                        document_reference[resource_type] = []
-                    document_reference[resource_type].append(resource)
-
-            del document_reference["content"]
-            yield document_reference
+            yield self.flattened_document_reference(cursor, key, document_reference)
 
         connection.close()
 
+    def flattened_document_reference(self, cursor, document_reference_key: str, document_reference: dict) -> dict:
+        # # simplify the subject
+        # subject = document_reference.get("subject", {"reference": None})[
+        #     "reference"
+        # ]
+
+        # if subject is not None:
+        #     subject_type, subject_id = subject.split("/")
+        #     # Look for the patient reference in specimen if it is not in docref
+        #     if subject_type != "Patient":
+        #         document_reference[f"{inflection.underscore(subject_type)}_subject"] = subject_id
+        #     if subject_type == "Specimen":
+        #         for k, v in self.flattened_specimen(subject).items():
+        #             if k == "subject":
+        #                 subject_type, subject_id = v["reference"].split("/")
+        #                 if subject_type == "Patient":
+        #                     document_reference["subject"] = subject_id
+
+        # # TODO: should be chill but test this based on fhir-gdc
+        # docref_category = self.get_nested_value(
+        #     document_reference, ["category", 0, "coding", 0, "code"]
+        # )
+        # if docref_category is not None:
+        #     document_reference["category"] = docref_category
+
+        # # In some places like TCGA-LUAD there is more than one identifier that could be displayed
+        # document_reference["identifier"] = document_reference.get(
+        #     "identifier", [{"value": None}]
+        # )[0]["value"]
+
+        # for elem in normalize_coding(document_reference):
+        #     document_reference[elem[1]] = elem[0][0]
+
+        # # simplify the extensions
+        # if (
+        #     self.get_nested_value(document_reference, ["content", 0, "attachment"])
+        #     is not None
+        # ):
+        #     if "extension" in document_reference["content"][0]["attachment"]:
+        #         for row in document_reference["content"][0]["attachment"][
+        #             "extension"
+        #         ]:
+        #             value_normalized, value_source = normalize_value(row)
+        #             document_reference[(row["url"].split("/")[-1])] = value_normalized
+
+        #     content_url = self.get_nested_value(
+        #         document_reference, ["content", 0, "attachment", "url"]
+        #     )
+        #     if content_url is not None:
+        #         document_reference["source_url"] = content_url
+
+        # if "content" in document_reference:
+        #     for k, v in document_reference["content"][0]["attachment"].items():
+        #         if k in ["extension"]:
+        #             continue
+        #         if k == "size":
+        #             document_reference[k] = str(v)
+        #             continue
+        #         document_reference[k] = v
+
+        # # TODO: test this based on fhir-gdc
+        # if "basedOn" in document_reference:
+        #     for i, dict_ in enumerate(document_reference["basedOn"]):
+        #         document_reference[f"basedOn_{i}"] = dict_["reference"]
+        #     del document_reference["basedOn"]
+
+        # if subject is not None and subject.startswith("Patient/"):
+        #     row, patient_id = subject.split("/")
+        #     resources = [_ for _ in self.patient_everything(patient_id)]
+        #     resources.append(self.patient(patient_id))
+        #     for resource in resources:
+
+        #         if resource["resourceType"] == "Patient":
+        #             identifier = self.get_nested_value(
+        #                 resource, ["identifier", 0, "value"]
+        #             )
+        #             if identifier is not None:
+        #                 document_reference["patient"] = identifier
+        #             # document_reference['patient'] = resource['identifier'][0]['value']
+        #             continue
+
+        #         if (
+        #             resource["resourceType"] == "Condition"
+        #             and f"Condition/{resource['id']}" == document_reference["reason"]
+        #         ):
+        #             document_reference["reason"] = resource["code"]["text"]
+        #             continue
+
+        #         if resource["resourceType"] == "Observation":
+        #             # must be focus
+        #             if f"Procedure/{document_reference['id']}" not in [
+        #                 _["reference"] for _ in resource["focus"]
+        #             ]:
+        #                 continue
+
+        #             # TODO - pick first coding, h2 allow user to specify preferred coding
+        #             code = resource["code"]["coding"][0]["code"]
+
+        #             value = normalize_value(resource)
+
+        #             assert value is not None, f"no value for {resource['id']}"
+        #             document_reference[code] = value
+
+        #             continue
+
+        #         # skip these
+        #         if resource["resourceType"] in [
+        #             "Specimen",
+        #             "Procedure",
+        #             "ResearchSubject",
+        #             "DocumentReference",
+        #         ]:
+        #             continue
+
+        #         # default, add entire resource as an item of the list
+        #         resource_type = inflection.underscore(resource["resourceType"])
+        #         if resource_type not in document_reference:
+        #             document_reference[resource_type] = []
+        #         document_reference[resource_type].append(resource)
+
+        # del document_reference["content"]
+        # return document_reference
+    
+        # simplify it
+        simplified = SimplifiedResource.build(resource=document_reference).simplified
+        
+        # extract and append fields from the corresponding .subject
+        subject_key = document_reference['subject']['reference']
+        cursor.execute("SELECT * FROM resources WHERE key = ?", (subject_key,))
+        row = cursor.fetchone()
+        assert row, f"{subject_key} not found in database"
+        _, _, resource = row
+        subject = json.loads(resource)
+        simplified.update(traverse(subject))
+
+        # extract and append fields from the corresponding .focus
+        if 'focus' in document_reference and len(document_reference['focus']) > 0:
+            # TODO: do we need to account for multiple foci?
+            focus_key = document_reference['focus'][0]['reference']
+            cursor.execute("SELECT * FROM resources WHERE key = ?", (focus_key,))
+            result = cursor.fetchone()
+            assert result, f"{focus_key} not found"
+            _, _, resource = result
+            resource = json.loads(resource)
+            simplified.update(traverse(resource))
+
+        # get all Observations that are focused on the document reference, simplify them and add them to the simplified document reference
+        cursor.execute("SELECT * FROM resources WHERE resource_type = ?", ('Observation',))
+        observations = cursor.fetchall()
+        for observation in observations:
+            _, _, resource = observation
+            resource = json.loads(resource)
+            foci = resource.get('focus', [])
+            references = [focus['reference'] for focus in foci]
+            if document_reference_key not in references:
+                continue
+
+            simplified_observation = SimplifiedResource.build(resource=resource).simplified
+            if 'value' in simplified_observation:
+                # no component, simple observation
+                code = inflection.underscore(inflection.parameterize(simplified_observation['code']))
+                value = simplified_observation['value']
+                # TODO - should we prefix the component keys? e.g. observation_component_value
+                simplified[code] = value
+            else:
+                # component
+                for k, v in simplified_observation.items():
+                    if k in ['resourceType', 'id', 'category', 'code', 'status', 'identifier']:
+                        continue
+                    # TODO - should we prefix the component keys? e.g. observation_component_value
+                    simplified[k] = v
+        
+        # TODO: test this based on fhir-gdc
+        if "basedOn" in document_reference:
+            for i, dict_ in enumerate(document_reference["basedOn"]):
+                document_reference[f"basedOn_{i}"] = dict_["reference"]
+            del document_reference["basedOn"]
+        
+        return simplified
 
 def create_dataframe(
     directory_path: str, work_path: str, data_type: str
@@ -844,266 +900,6 @@ def create_dataframe(
     df = df[reordered_columns]
     df = df.replace({np.nan: ""})
     return df
-
-
-def normalize_value(resource_dict: dict) -> tuple[Optional[str], Optional[str]]:
-    """return a tuple containing the normalized value and the name of the field it was derived from"""
-
-    if 'valueQuantity' in resource_dict:
-        value = resource_dict['valueQuantity']
-        value_normalized = f"{value['value']} {value.get('unit', '')}"
-        value_source = 'valueQuantity'
-    elif 'valueCodeableConcept' in resource_dict:
-        value = resource_dict['valueCodeableConcept']
-        value_normalized = ' '.join([coding.get('display', coding.get('code', '')) for coding in value.get('coding', [])])
-        value_source = 'valueCodeableConcept'
-    elif 'valueCoding' in resource_dict:
-        value = resource_dict['valueCoding']
-        value_normalized = value['display']
-        value_source = 'valueCoding'
-    elif 'valueString' in resource_dict:
-        value_normalized = resource_dict['valueString']
-        value_source = 'valueString'
-    elif 'valueCode' in resource_dict:
-        value_normalized = resource_dict['valueCode']
-        value_source = 'valueCode'
-    elif 'valueBoolean' in resource_dict:
-        value_normalized = str(resource_dict['valueBoolean'])
-        value_source = 'valueBoolean'
-    elif 'valueInteger' in resource_dict:
-        value_normalized = str(resource_dict['valueInteger'])
-        value_source = 'valueInteger'
-    elif 'valueRange' in resource_dict:
-        value = resource_dict['valueRange']
-        low = value['low']
-        high = value['high']
-        value_normalized = f"{low['value']} - {high['value']} {low.get('unit', '')}"
-        value_source = 'valueRange'
-    elif 'valueRatio' in resource_dict:
-        value = resource_dict['valueRatio']
-        numerator = value['numerator']
-        denominator = value['denominator']
-        value_normalized = f"{numerator['value']} {numerator.get('unit', '')}/{denominator['value']} {denominator.get('unit', '')}"
-        value_source = 'valueRatio'
-    elif 'valueSampledData' in resource_dict:
-        value = resource_dict['valueSampledData']
-        value_normalized = value['data']
-        value_source = 'valueSampledData'
-    elif 'valueTime' in resource_dict:
-        value_normalized = resource_dict['valueTime']
-        value_source = 'valueTime'
-    elif 'valueDateTime' in resource_dict:
-        value_normalized = resource_dict['valueDateTime']
-        value_source = 'valueDateTime'
-    elif 'valuePeriod' in resource_dict:
-        value = resource_dict['valuePeriod']
-        value_normalized = f"{value['start']} to {value['end']}"
-        value_source = 'valuePeriod'
-    elif 'valueUrl' in resource_dict:
-        value_normalized = resource_dict['valueUrl']
-        value_source = 'valueUrl'
-    elif 'valueDate' in resource_dict:
-        value_normalized = resource_dict['valueDate']
-        value_source = 'valueDate'
-    elif 'valueCount' in resource_dict:
-        value_normalized = resource_dict['valueCount']['value']
-        value_source = 'valueCount'
-    else:
-        value_normalized, value_source = None, None
-        # for debugging...
-        # raise ValueError(f"value[x] not found in {resource_dict}")
-
-    return value_normalized, value_source
-
-
-def normalize_coding(resource_dict: dict) -> list[tuple[str, str]]:
-    def extract_coding(coding_list):
-        # return a concatenated string
-        # or alternatively return an array
-        return [coding.get('display', coding.get('code', '')) for coding in coding_list]
-
-    def find_codings_in_dict(d: dict, parent_key: str = '') -> list[tuple[str, str]]:  # TODO - parent_key not used?
-        codings = []
-        for key, value in d.items():
-            if isinstance(value, list):
-                for item in value:
-                    if isinstance(item, dict):
-                        # Check if the dict contains a 'coding' list
-                        if 'coding' in item and isinstance(item['coding'], list):
-                            coding_string = extract_coding(item['coding'])
-                            codings.append((coding_string, key))
-                        if 'code' in item:
-                            coding_string = item.get('display', item.get('code'))
-                            codings.append((coding_string, key))
-
-                        # Recursively search in the dict
-                        codings.extend(find_codings_in_dict(item, key))
-            elif isinstance(value, dict):
-                # Check if the dict contains a 'coding' list
-                if 'coding' in value and isinstance(value['coding'], list):
-                    coding_string = extract_coding(value['coding'])
-                    codings.append((coding_string, key))
-
-                # Recursively search in the dict
-                codings.extend(find_codings_in_dict(value, key))
-        return codings
-
-    return find_codings_in_dict(resource_dict)
-
-############################
-### FHIR BUILDER OBJECTS ###
-############################
-
-class SimplifiedFHIR(BaseModel):
-    """All simplifiers should inherit from this class."""
-    warnings: list[str] = []
-    """A list of warnings generated during the simplification process."""
-    resource: dict
-    """The FHIR resource to be simplified."""
-
-    @computed_field()
-    @property
-    def simplified(self) -> dict:
-        _ = {'identifier': self.identifier.get('value', None)}
-        _.update(self.scalars)
-        _.update(self.codings)
-        _.update(self.extensions)
-        _.update(self.values)
-        return _
-
-    def simplify_extensions(self, resource: dict = None, _extensions: dict = None) -> dict:
-        """Extract extension values, derive key from extension url"""
-
-        def _populate_simplified_extension(extension: dict):
-            # simple extension
-            value_normalized, extension_key = normalize_value(extension)
-            extension_key = extension['url'].split('/')[-1]
-            extension_key = inflection.underscore(extension_key).removesuffix(".json").removeprefix("structure_definition_")
-            assert value_normalized is not None, f"extension: {extension_key} = {value_normalized} {extension}"
-            _extensions[extension_key] = value_normalized
-
-        if not _extensions:
-            _extensions = {}
-
-        if not resource:
-            resource = self.resource
-
-        for _ in resource.get('extension', [resource]):
-            if 'extension' not in _.keys():
-                if 'resourceType' not in _.keys():
-                    _populate_simplified_extension(_)
-                continue
-            elif set(_.keys()) == {'url', 'extension'}:
-                for child_extension in _['extension']:
-                    self.simplify_extensions(resource=child_extension, _extensions=_extensions)
-
-        return _extensions
-
-    @computed_field
-    @property
-    def extensions(self) -> dict:
-        return self.simplify_extensions()
-
-    @computed_field
-    @property
-    def scalars(self) -> dict:
-        """Return a dictionary of scalar values."""
-        return {k: v for k, v in self.resource.items() if (not isinstance(v, list) and not isinstance(v, dict))}
-
-    @computed_field
-    @property
-    def codings(self) -> dict:
-        """Return a dictionary of scalar values."""
-        _codings = {}
-        for k, v in self.resource.items():
-            if k in ['identifier', 'extension', 'component']:
-                continue
-            if isinstance(v, list):
-                for _ in v:
-                    if isinstance(_, dict):
-                        for value, source in normalize_coding(_):
-                            _codings[k] = value
-            elif isinstance(v, dict):
-                for value, source in normalize_coding(v):
-                    _codings[k] = value
-        return _codings
-
-    @property
-    def identifier(self) -> dict:
-        """Return the official identifier, or first of a resource."""
-        identifiers = self.resource.get('identifier', [])
-        official_identifiers = [_ for _ in identifiers if _.get('use', '') == 'official']
-        if not official_identifiers and identifiers:
-            return identifiers[0]
-        elif official_identifiers:
-            return official_identifiers[0]
-        else:
-            return {}
-
-    @computed_field
-    @property
-    def values(self) -> dict:
-        """Return a dictionary of source:value."""
-        value, source = normalize_value(self.resource)
-        if not value:
-            return {}
-        return {source: value}
-
-
-class SimplifiedObservation(SimplifiedFHIR):
-
-    @computed_field
-    @property
-    def values(self) -> dict:
-        """Return a dictionary of 'value':value or <component>:value."""
-        if 'component' in self.resource:
-            values = {}
-            for component in self.resource['component']:
-                value, source = normalize_value(component)
-                if component.get('code', {}).get('text', None):
-                    source = component['code']['text']
-                if not value:
-                    continue
-                values[source] = value
-            return values
-        else:
-            value, source = normalize_value(self.resource)
-            if not value:
-                return {}
-            return {'value': value}
-
-
-class SimplifiedDocumentReference(SimplifiedFHIR):
-
-    @computed_field
-    @property
-    def values(self) -> dict:
-        """Return a dictionary of 'value':value."""
-        values = super().values
-        for content in self.resource.get('content', []):
-            if 'attachment' in content:
-                for k, v in SimplifiedFHIR(resource=content['attachment']).simplified.items():
-                    if k in ['identifier', 'extension']:
-                        continue
-                    values[k] = v
-        return values
-
-
-
-class SimplifiedResource(object):
-    """A simplified FHIR resource, a factory method."""
-
-    @staticmethod
-    def build(resource: dict) -> SimplifiedFHIR:
-        """Return a simplified FHIR resource."""
-        resource_type = resource.get('resourceType', None)
-        if resource_type == 'Observation':
-            return SimplifiedObservation(resource=resource)
-        if resource_type == 'DocumentReference':
-            return SimplifiedDocumentReference(resource=resource)
-        return SimplifiedFHIR(resource=resource)
-
-
 
 
 def is_number(s):

@@ -7,7 +7,8 @@ import inflection
 import pytest
 
 from gen3_tracker.common import read_ndjson_file
-from gen3_tracker.meta.dataframer import LocalFHIRDatabase, SimplifiedResource
+from gen3_tracker.meta.dataframer import LocalFHIRDatabase
+from gen3_tracker.meta.entities import SimplifiedResource
 
 
 @pytest.fixture()
@@ -78,7 +79,6 @@ def simplified_smmart_resources():
                                                               'type': 'Educational Institute'},
         'Patient/bc4e1aa6-cb52-40e9-8f20-594d9c84f920': {'identifier': 'patientX_1234', 'resourceType': 'Patient',
                                                          'id': 'bc4e1aa6-cb52-40e9-8f20-594d9c84f920', 'active': True}}
-
 
 @pytest.fixture()
 def smmart_local_db():
@@ -171,19 +171,6 @@ def test_simplified(smmart_resources, simplified_smmart_resources):
     print(actual)
     assert actual == simplified_smmart_resources
 
-def traverse(resource):
-    final_subject = {}
-    """simplify a given subject's fields, returned as a dict of values
-    with keys prefixed with 'resourceType_' """
-    simplified_subject = SimplifiedResource.build(resource=resource).simplified
-    prefix = simplified_subject['resourceType'].lower()
-    for k, v in simplified_subject.items():
-        if k in ['resourceType']:
-            continue
-        final_subject[f"{prefix}_{k}"] = v
-    
-    return final_subject
-
 def test_smmart_document_reference(smmart_local_db, document_reference_dataframe):
     """Test the dataframer using a local database with a SMMART bundle, this test ensures document reference and all its Observations."""
     # TODO - once we are happy w/ this, move it to gen3_tracker.meta.dataframer
@@ -192,64 +179,17 @@ def test_smmart_document_reference(smmart_local_db, document_reference_dataframe
     # get the document reference
     document_reference_key = 'DocumentReference/9ae7e542-767f-4b03-a854-7ceed17152cb'
     cursor.execute("SELECT * FROM resources WHERE key = ?", (document_reference_key,))
-    _ = cursor.fetchone()
-    assert _, f"{document_reference_key} not found"
-    key, resource_type, resource = _
-    resource = json.loads(resource)
-
-    # simplify it
-    simplified = SimplifiedResource.build(resource=resource).simplified
-    document_reference = resource
-    
-    # extract and append fields from the corresponding .subject
-    subject_key = document_reference['subject']['reference']
-    cursor.execute("SELECT * FROM resources WHERE key = ?", (subject_key,))
     row = cursor.fetchone()
-    assert row, f"{subject_key} not found in database"
-    _, _, resource = row
-    subject = json.loads(resource)
-    simplified.update(traverse(subject))
-
-    # extract and append fields from the corresponding .focus
-    if 'focus' in document_reference and len(document_reference['focus']) > 0:
-        # TODO: do we need to account for multiple foci?
-        focus_key = document_reference['focus'][0]['reference']
-        cursor.execute("SELECT * FROM resources WHERE key = ?", (focus_key,))
-        result = cursor.fetchone()
-        assert result, f"{focus_key} not found"
-        _, _, resource = result
-        resource = json.loads(resource)
-        simplified.update(traverse(resource))
-
-    # get all Observations that are focused on the document reference, simplify them and add them to the simplified document reference
-    cursor.execute("SELECT * FROM resources WHERE resource_type = ?", ('Observation',))
-    observations = cursor.fetchall()
-    for observation in observations:
-        _, _, resource = observation
-        resource = json.loads(resource)
-        foci = resource.get('focus', [])
-        references = [focus['reference'] for focus in foci]
-        if document_reference_key not in references:
-            continue
-
-        simplified_observation = SimplifiedResource.build(resource=resource).simplified
-        if 'value' in simplified_observation:
-            # no component, simple observation
-            code = inflection.underscore(inflection.parameterize(simplified_observation['code']))
-            value = simplified_observation['value']
-            # TODO - should we prefix the component keys? e.g. observation_component_value
-            simplified[code] = value
-        else:
-            # component
-            for k, v in simplified_observation.items():
-                if k in ['resourceType', 'id', 'category', 'code', 'status', 'identifier']:
-                    continue
-                # TODO - should we prefix the component keys? e.g. observation_component_value
-                simplified[k] = v
+    assert row, f"{document_reference_key} not found"
+    key, _, resource = row
+    resource = json.loads(resource)
+    
+    simplified = smmart_local_db.flattened_document_reference(cursor, key, resource)
 
     assert 'specimen_collection' in simplified, simplified
     assert simplified['specimen_identifier'] == 'specimen_1234_labA', simplified
     assert simplified['specimen_collection'] == 'Breast', simplified
 
-    print(simplified)
+    print("final dataframe:", simplified)
     assert simplified == document_reference_dataframe
+
