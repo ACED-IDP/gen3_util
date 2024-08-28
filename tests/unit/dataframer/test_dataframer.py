@@ -154,21 +154,47 @@ def fhir_bundle():
 
 @pytest.fixture()
 def simplified_smmart_bundle():
-    return {'Patient/patient': {'identifier': None, 'resourceType': 'Patient', 'id': 'patient', 'gender': 'male',
-                                'birthDate': '1980-05-15'},
-            'Specimen/specimen': {'identifier': None, 'resourceType': 'Specimen', 'id': 'specimen',
-                                  'type': 'Blood specimen'},
-            'DocumentReference/document-reference': {'identifier': None, 'resourceType': 'DocumentReference',
-                                                     'id': 'document-reference', 'status': 'current',
-                                                     'docStatus': 'preliminary', 'date': '2024-08-14',
-                                                     'description': 'Laboratory report for specimen analysis',
-                                                     'type': 'Laboratory report'},
-            'Observation/observation-1': {'identifier': None, 'resourceType': 'Observation', 'id': 'observation-1',
-                                          'status': 'final', 'effectiveDateTime': '2024-08-14T10:00:00Z',
-                                          'code': 'Body temperature', 'value': '36.6 Cel'},
-            'Observation/observation-2': {'identifier': None, 'resourceType': 'Observation', 'id': 'observation-2',
-                                          'status': 'final', 'effectiveDateTime': '2024-08-14T10:00:00Z',
-                                          'code': 'Heart rate', 'value': '72 beats/minute'}}
+    return {
+        'Patient/patient': {
+            'identifier': None,
+            'resourceType': 'Patient',
+            'id': 'patient',
+            'gender': 'male',
+            'birthDate': '1980-05-15'
+        },
+        'Specimen/specimen': {
+            'identifier': None,
+            'resourceType': 'Specimen',
+            'id': 'specimen',
+            'type': 'Blood specimen'
+        },
+        'DocumentReference/document-reference': {
+            'identifier': None, 'resourceType': 'DocumentReference',
+            'id': 'document-reference',
+            'status': 'current',
+            'docStatus': 'preliminary',
+            'date': '2024-08-14',
+            'description': 'Laboratory report for specimen analysis',
+            'type': 'Laboratory report'
+        },
+        'Observation/observation-1': {
+            'identifier': None,
+            'resourceType': 'Observation',
+            'id': 'observation-1',
+            'status': 'final',
+            'effectiveDateTime': '2024-08-14T10:00:00Z',
+            'code': 'Body temperature',
+            'value': '36.6 Cel'},
+        'Observation/observation-2': {
+            'identifier': None,
+            'resourceType': 'Observation',
+            'id': 'observation-2',
+            'status': 'final',
+            'effectiveDateTime': '2024-08-14T10:00:00Z',
+            'code': 'Heart rate',
+            'value': '72 beats/minute'
+        }
+    }
 
 
 @pytest.fixture()
