@@ -5,8 +5,7 @@ import tempfile
 import inflection
 import pytest
 
-from gen3_tracker.meta.dataframer import LocalFHIRDatabase
-from tests.unit.dataframer.dataframer import SimplifiedResource
+from gen3_tracker.meta.dataframer import LocalFHIRDatabase, SimplifiedResource
 
 
 @pytest.fixture()
@@ -198,7 +197,7 @@ def document_reference_dataframe():
         'body_temperature': '36.6 Cel', 'heart_rate': '72 beats/minute'}
 
 
-def test_dataframe_smmart(smmart_bundle, simplified_smmart_bundle):
+def test_dataframe(smmart_bundle, simplified_smmart_bundle):
     """Test the dataframer using a SMMART bundle, this test just simplifies each object individually."""
     for entry in smmart_bundle['entry']:
         resource = entry['resource']
@@ -206,7 +205,7 @@ def test_dataframe_smmart(smmart_bundle, simplified_smmart_bundle):
         assert simplified == simplified_smmart_bundle[f"{resource['resourceType']}/{resource['id']}"]
 
 
-def test_smmart_document_reference(smmart_local_db, simplified_smmart_bundle, document_reference_dataframe):
+def test_document_reference(smmart_local_db, simplified_smmart_bundle, document_reference_dataframe):
     """Test the dataframer using a local database with a SMMART bundle, this test ensures document reference and all its Observations."""
     cursor = smmart_local_db.connection.cursor()
 

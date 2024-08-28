@@ -7,8 +7,7 @@ import inflection
 import pytest
 
 from gen3_tracker.common import read_ndjson_file
-from gen3_tracker.meta.dataframer import LocalFHIRDatabase
-from tests.unit.dataframer.dataframer import SimplifiedResource
+from gen3_tracker.meta.dataframer import LocalFHIRDatabase, SimplifiedResource
 
 
 @pytest.fixture()
@@ -105,7 +104,6 @@ def document_reference_dataframe():
             'status': 'current', 'docStatus': 'final',
             'date': '2024-08-21T10:53:00+00:00',
             'md5': '227f0a5379362d42eaa1814cfc0101b8',
-            'title': 'specimen_1234_labA.fq.gz',
             'source_path': 'file:///home/LabA/specimen_1234_labA.fq.gz',
             'contentType': 'text/fastq',
             'size': 5595609484, 'title': 'specimen_1234_labA.fq.gz',
@@ -173,6 +171,18 @@ def test_simplified(smmart_resources, simplified_smmart_resources):
     print(actual)
     assert actual == simplified_smmart_resources
 
+def traverse(resource):
+    final_subject = {}
+    """simplify a given subject's fields, returned as a dict of values
+    with keys prefixed with 'resourceType_' """
+    simplified_subject = SimplifiedResource.build(resource=resource).simplified
+    prefix = simplified_subject['resourceType'].lower()
+    for k, v in simplified_subject.items():
+        if k in ['resourceType']:
+            continue
+        final_subject[f"{prefix}_{k}"] = v
+    
+    return final_subject
 
 def test_smmart_document_reference(smmart_local_db, document_reference_dataframe):
     """Test the dataframer using a local database with a SMMART bundle, this test ensures document reference and all its Observations."""
@@ -190,45 +200,32 @@ def test_smmart_document_reference(smmart_local_db, document_reference_dataframe
     # simplify it
     simplified = SimplifiedResource.build(resource=resource).simplified
     document_reference = resource
-
-    # get its subject, simplify it and add it to the simplified document reference
+    
+    # extract and append fields from the corresponding .subject
     subject_key = document_reference['subject']['reference']
     cursor.execute("SELECT * FROM resources WHERE key = ?", (subject_key,))
-    _ = cursor.fetchone()
-    assert _, f"{subject_key} not found"
-    key, resource_type, resource = _
-    resource = json.loads(resource)
-    simplified_subject = SimplifiedResource.build(resource=resource).simplified
-    prefix = simplified_subject['resourceType'].lower()
-    for k, v in simplified_subject.items():
-        if k in ['resourceType']:
-            continue
-        simplified[f"{prefix}_{k}"] = v
+    row = cursor.fetchone()
+    assert row, f"{subject_key} not found in database"
+    _, _, resource = row
+    subject = json.loads(resource)
+    simplified.update(traverse(subject))
 
-    assert 'specimen_collection' in simplified, simplified
-
-    # get its focus, simplify it and add it to the simplified document reference
+    # extract and append fields from the corresponding .focus
     if 'focus' in document_reference and len(document_reference['focus']) > 0:
+        # TODO: do we need to account for multiple foci?
         focus_key = document_reference['focus'][0]['reference']
         cursor.execute("SELECT * FROM resources WHERE key = ?", (focus_key,))
-        _ = cursor.fetchone()
-        assert _, f"{focus_key} not found"
-        key, resource_type, resource = _
+        result = cursor.fetchone()
+        assert result, f"{focus_key} not found"
+        _, _, resource = result
         resource = json.loads(resource)
-        simplified_focus = SimplifiedResource.build(resource=resource).simplified
-        prefix = simplified_focus['resourceType'].lower()
-        for k, v in simplified_focus.items():
-            if k == 'resourceType':
-                continue
-            simplified[f"{prefix}_{k}"] = v
-
-    assert 'specimen_collection' in simplified, simplified
+        simplified.update(traverse(resource))
 
     # get all Observations that are focused on the document reference, simplify them and add them to the simplified document reference
     cursor.execute("SELECT * FROM resources WHERE resource_type = ?", ('Observation',))
     observations = cursor.fetchall()
     for observation in observations:
-        key, resource_type, resource = observation
+        _, _, resource = observation
         resource = json.loads(resource)
         foci = resource.get('focus', [])
         references = [focus['reference'] for focus in foci]
