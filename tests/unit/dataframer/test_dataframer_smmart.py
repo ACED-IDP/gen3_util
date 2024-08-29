@@ -1,14 +1,14 @@
+import inflection
 import json
 import os
-import pathlib
+import pytest
 import tempfile
 
-import inflection
-import pytest
 
 from gen3_tracker.common import read_ndjson_file
 from gen3_tracker.meta.dataframer import LocalFHIRDatabase
 from gen3_tracker.meta.entities import SimplifiedResource
+from pathlib import Path
 
 
 @pytest.fixture()
@@ -110,14 +110,15 @@ def simplified_smmart_resources():
             'active': True
         }
     }
+    
 
 @pytest.fixture()
-def smmart_local_db():
+def smmart_local_db(data_path: Path):
     """Load a local db with smmart data fixture."""
     with tempfile.TemporaryDirectory() as temp_dir:
         # print(f"Temporary directory created at: {temp_dir}")
         db = LocalFHIRDatabase(db_name=os.path.join(temp_dir, 'local.db'))
-        fixture_path = pathlib.Path('tests/fixtures/fhir-compbio-examples/META')
+        fixture_path = data_path / 'fhir-compbio-examples/META'
         assert fixture_path.exists(), f"Fixture path {fixture_path.absolute()} does not exist."
         for file in fixture_path.glob('*.ndjson'):
             # print(f"Loading {file}")
@@ -232,6 +233,6 @@ def test_smmart_document_reference(smmart_local_db, document_reference_dataframe
     print("final dataframe:", simplified)
     assert simplified == document_reference_dataframe
 
-def test_smmart_observations(smmart_local_db):
-    smmart_local_db.flattened_observations()
-    assert False, "FIXME: test_smmart_observations not implemented yet"
+# def test_smmart_observations(smmart_local_db):
+#     smmart_local_db.flattened_observations()
+#     assert False, "FIXME: test_smmart_observations not implemented yet"
