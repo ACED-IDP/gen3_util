@@ -193,17 +193,16 @@ class SimplifiedFHIR(BaseModel):
         _codings = {}
         for k, v in self.resource.items():
             # these are handled in separate methods
-            if k in ['identifier', 'extension', 'component']:
+            if k in ['identifier', 'extension', 'component', 'code']:
                 continue
             elif isinstance(v, list):
-                for _ in v:
-                    if isinstance(_, dict):
-                        for value, source in normalize_coding(_):
+                for elem in v:
+                    if isinstance(elem, dict):
+                        for value, source in normalize_coding(elem):
                             _codings[k] = value
             elif isinstance(v, dict):
-                for value, source in normalize_coding(v):
+                for value, elem in normalize_coding(v):
                     _codings[k] = value
-
         return _codings
 
     @property
@@ -222,13 +221,34 @@ class SimplifiedFHIR(BaseModel):
     @property
     def values(self) -> dict:
         """Return a dictionary of source:value."""
+        # FIXME: values that are scalars are processed twice: once in scalars once here in values (eg valueString)
         value, source = normalize_value(self.resource)
         if not value:
             return {}
+        
+        # update the key if code information is available
+        if self.resource.get('code', {}).get('text', None):
+            source = self.resource['code']['text']
         return {source: value}
 
 
 class SimplifiedObservation(SimplifiedFHIR):
+    @computed_field
+    @property
+    def codings(self) -> dict:
+        '''does everything but gets rid of code since that's dealt with in values'''
+        _codings = super().codings
+        if 'code' in _codings:
+            del _codings['code']
+
+        return _codings
+    
+    # TODO: remove after data fix
+    @computed_field
+    @property
+    def scalars(self) -> dict:
+        """Return a dictionary of scalar values."""
+        return {k: v for k, v in self.resource.items() if (not isinstance(v, list) and not isinstance(v, dict) and not k == "valueString")}
 
     @computed_field
     @property
@@ -236,40 +256,61 @@ class SimplifiedObservation(SimplifiedFHIR):
         """Return a dictionary of 'value':value or <component>:value.
         https://build.fhir.org/observation-definitions.html#Observation.component
         """
+        
+        # get top-level value in dict if it exists
+        _values = super().values
 
-        # TODO: add .component exists but doesn't contain .value case
-        # when component exists, Observation.value is also in it
-        if 'component' in self.resource:
-            values = {}
-            for component in self.resource['component']:
-                value, source = normalize_value(component)
-                if component.get('code', {}).get('text', None):
-                    source = component['code']['text']
-                if not value:
-                    continue
-                values[source] = value
-            return values
-        else: # otherwise, access just the .value
-            value, source = normalize_value(self.resource)
-            if not value:
-                return {}
-            return {'value': value}
+        if len(_values) == 0:
+            assert "component" in self.resource, "no component nor top-level value found"
+
+            # get component codes
+            if 'component' in self.resource:
+                for component in self.resource['component']:
+                    value, source = normalize_value(component)
+                    if component.get('code', {}).get('text', None):
+                        source = component['code']['text']
+                    if not value:
+                        continue
+                    _values[source] = value
+            
+        # knowing there's now at least 1 item in _values
+        if "component" in self.resource:
+            # ensure no top-level value is not duplicating a component code value
+            # TODO: ensure this value_key corresponds to percent_tumor on some runs due to getting display
+            value_key = [k for k in _values][0]
+            assert value_key not in self.resource['component'], \
+                '''duplicate code value found, only specify the code value in the component, see Rule obs-7
+                https://build.fhir.org/observation.html#invs'''
+
+            # get component codes
+            if 'component' in self.resource:
+                for component in self.resource['component']:
+                    value, source = normalize_value(component)
+                    if component.get('code', {}).get('text', None):
+                        source = component['code']['text']
+                    if not value:
+                        continue
+                    _values[source] = value
+            
+        assert len(_values) > 0, f"no values found in Observation: {self.resource}"
+
+        return _values
+            
 
 
 class SimplifiedDocumentReference(SimplifiedFHIR):
-
     @computed_field
     @property
     def values(self) -> dict:
         """Return a dictionary of 'value':value."""
-        values = super().values
+        _values = super().values
         for content in self.resource.get('content', []):
             if 'attachment' in content:
                 for k, v in SimplifiedFHIR(resource=content['attachment']).simplified.items():
                     if k in ['identifier', 'extension']:
                         continue
-                    values[k] = v
-        return values
+                    _values[k] = v
+        return _values
 
 
 class SimplifiedResource(object):
