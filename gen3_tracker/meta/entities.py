@@ -8,6 +8,7 @@ from typing import  Dict, List, Optional, Tuple
 #########################
 
 def normalize_coding(resource_dict: Dict) -> List[Tuple[str, str]]:
+    """normalize any nested coding"""
     def extract_coding(coding_list):
         # return a concatenated string
         # or alternatively return an array
@@ -122,7 +123,7 @@ def traverse(resource):
         if k in ['resourceType']:
             continue
         final_subject[f"{prefix}_{k}"] = v
-
+    
     return final_subject
 
 ########################
@@ -191,9 +192,10 @@ class SimplifiedFHIR(BaseModel):
         """Return a dictionary of scalar values."""
         _codings = {}
         for k, v in self.resource.items():
+            # these are handled in separate methods
             if k in ['identifier', 'extension', 'component']:
                 continue
-            if isinstance(v, list):
+            elif isinstance(v, list):
                 for _ in v:
                     if isinstance(_, dict):
                         for value, source in normalize_coding(_):
@@ -201,6 +203,7 @@ class SimplifiedFHIR(BaseModel):
             elif isinstance(v, dict):
                 for value, source in normalize_coding(v):
                     _codings[k] = value
+
         return _codings
 
     @property
@@ -230,7 +233,12 @@ class SimplifiedObservation(SimplifiedFHIR):
     @computed_field
     @property
     def values(self) -> dict:
-        """Return a dictionary of 'value':value or <component>:value."""
+        """Return a dictionary of 'value':value or <component>:value.
+        https://build.fhir.org/observation-definitions.html#Observation.component
+        """
+
+        # TODO: add .component exists but doesn't contain .value case
+        # when component exists, Observation.value is also in it
         if 'component' in self.resource:
             values = {}
             for component in self.resource['component']:
@@ -241,7 +249,7 @@ class SimplifiedObservation(SimplifiedFHIR):
                     continue
                 values[source] = value
             return values
-        else:
+        else: # otherwise, access just the .value
             value, source = normalize_value(self.resource)
             if not value:
                 return {}

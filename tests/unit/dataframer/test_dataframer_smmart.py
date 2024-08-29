@@ -163,6 +163,10 @@ def document_reference_dataframe():
 
 
 @pytest.fixture()
+def observation_dataframe():
+    return ""
+
+@pytest.fixture()
 def expected_keys(simplified_smmart_resources):
     return sorted(list(simplified_smmart_resources.keys()))
 
@@ -228,3 +232,6 @@ def test_smmart_document_reference(smmart_local_db, document_reference_dataframe
     print("final dataframe:", simplified)
     assert simplified == document_reference_dataframe
 
+def test_smmart_observations(smmart_local_db):
+    smmart_local_db.flattened_observations()
+    assert False, "FIXME: test_smmart_observations not implemented yet"

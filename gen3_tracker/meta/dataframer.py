@@ -26,13 +26,15 @@ class LocalFHIRDatabase:
         self.table_created = {}  # Flag to track if the table has been created
 
     def connect(self) -> sqlite3.Cursor:
+        """establish database connection if not established, return cursor"""
         if self.cursor is None:
             self.connection = sqlite3.connect(self.db_name)
             self.cursor = self.connection.cursor()
         else:
             return self.cursor
 
-    def disconnect(self):
+    def disconnect(self) -> None:
+        """clean up database connection"""
         if self.connection:
             self.connection.commit()
             self.connection.close()
@@ -279,7 +281,8 @@ class LocalFHIRDatabase:
 
     @lru_cache(maxsize=None)
     def flattened_specimen(self, specimen_key) -> dict:
-        """Return the procedure with everything resolved."""
+        """Return the specimen with everything resolved."""
+        #  TODO - implement with gen3_tracker.meta.entites.SimplifiedFHIR
         cursor = self.connection.cursor()
         cursor.execute("SELECT * FROM resources WHERE key = ?", (specimen_key,))
         key, resource_type, resource = cursor.fetchone()
@@ -312,6 +315,7 @@ class LocalFHIRDatabase:
     @lru_cache(maxsize=None)
     def flattened_condition(self, condition_key) -> dict:
         """Return the procedure with everything resolved."""
+        #  TODO - implement with gen3_tracker.meta.entites.SimplifiedFHIR
         cursor = self.connection.cursor()
         cursor.execute("SELECT * FROM resources WHERE key = ?", (condition_key,))
         key, resource_type, resource = cursor.fetchone()
@@ -342,6 +346,7 @@ class LocalFHIRDatabase:
         return d
 
     def flattened_procedures(self) -> Generator[dict, None, None]:
+        #  TODO - implement with gen3_tracker.meta.entites.SimplifiedFHIR
         """Return all the procedures with everything resolved"""
         loaded_db = self
         connection = sqlite3.connect(loaded_db.db_name)
@@ -522,111 +527,32 @@ class LocalFHIRDatabase:
             }
         )
 
-        loaded_db = self
-        connection = sqlite3.connect(loaded_db.db_name)
-        cursor = connection.cursor()
+        cursor = self.connect()
         cursor.execute(
-            """
-            SELECT
-                json_extract(resource, '$.subject') AS subject,
-                focus.value AS focus,
-                json(resource) as observation
-            FROM resources,
-                 json_each(json_extract(resource, '$.focus')) AS focus
-            WHERE resource_type = ?
-            ORDER BY subject, focus
-        """,
-            ("Observation",),
+            "SELECT * FROM resources where resource_type = ?", ("DocumentReference",)
         )
-
-        def get_patient_and_id(observation):
-            patient_id = str(observation["subject"]["reference"]).removeprefix(
-                "Patient/"
-            )
-            patient = loaded_db.patient(patient_id)
-            if "identifier" in patient and isinstance(patient["identifier"], list):
-                patient["identifier"] = self.get_nested_value(
-                    patient, ["identifier", 0, "value"]
-                )
-
-            return patient, patient_id
-
-        observations_by_focus = defaultdict(list)
 
         for row in cursor:
             observation = json.loads(row[2])
-            selected_focus = json.dumps(observation["focus"][0]["reference"])
-            observations_by_focus[selected_focus].append(observation)
 
-        # since observations are grouped by patient this works
-        for focus, observations in observations_by_focus.items():
-            patient, _ = get_patient_and_id(observations[0])
-            # keep patient id as an artifact, but the id field needs to be unique
-            patient["patient_id"] = patient["id"]
-            # Better way to mint 'patient' ids for ease of display in elastic
-            patient["id"] = uuid.uuid5(uuid.uuid3(uuid.NAMESPACE_DNS, 'aced-idp.org'), str(focus))
-            for observation in observations:
-                value_normalized, _ = normalize_value(observation)
-                # value_normalized = self.handle_units(value_normalized)
-                #print("NORMALIZED VALUE: ", value_normalized, "ID: " , observation["id"])
-                for coding_normalized, _ in normalize_coding(observation):
-                    formatted_coding = coding_normalized[0].translate(normalize_table)
-                    if value_normalized is not None:
-                        patient[formatted_coding] = value_normalized
-                        #print("FORMATTED CODING: ", formatted_coding)
-                #print("BREAK ___________________________________________________________")
+            simplified = SimplifiedResource.build(resource=observation).simplified
 
-                observation_category = self.get_nested_value(
-                    observation, ["category", 0, "coding", 0, "code"]
-                )
-                if observation_category is not None:
-                    patient["category"] = observation_category
+            # extract the corresponding .focus and append its fields
+            if 'focus' in simplified and len(simplified['focus']) > 0:
+                # TODO: do we need to account for multiple foci?
+                focus_key = simplified['focus'][0]['reference']
+                cursor.execute("SELECT * FROM resources WHERE key = ?", (focus_key,))
+                result = cursor.fetchone()
+                assert result, f"{focus_key} not found"
+                _, _, resource = result
+                focus = json.loads(resource)
+                simplified.update(traverse(focus))
 
-                for component in observation.get("component", []):
-                    for coding_normalized, coding_source in normalize_coding(component):
-                        if coding_source == "code":
-                            value_normalized, _ = normalize_value(component)
-                            # value_normalized = self.handle_units(value_normalized)
-                            formatted_coding = coding_normalized[0].translate(
-                                normalize_table
-                            )
-                            if value_normalized is not None:
-                                patient[formatted_coding] = value_normalized
-                            break
+            # TODO: extract corresponding .subject
 
-                for f in observation.get("focus", []):
-                    if f["reference"].startswith("Procedure/"):
-                        patient["procedure"] = f["reference"]
-                        for k, v in self.flattened_procedure(f["reference"]).items():
-                            if k not in ["id", "subject", "resourceType"]:
-                                patient[f"procedure_{k}"] = v
 
-                    elif f["reference"].startswith("Specimen/"):
-                        for k, v in self.flattened_specimen(f["reference"]).items():
-                            if k not in ["id", "subject", "resourceType"]:
-                                if k == "parent":
-                                    patient[f"specimen_{k}"] = self.get_nested_value(v, ["parent", 0, "reference"])
-                                elif k == "type":
-                                    specimen_type = self.get_nested_value(
-                                        v, ["coding", 0, "display"]
-                                    )
-                                    patient[f"specimen_{k}"] = specimen_type
-                                else:
-                                    patient[f"specimen_{k}"] = v
-
-                    elif f["reference"].startswith("Condition/"):
-                        for k, v in self.flattened_condition(f["reference"]).items():
-                            if k not in ["id", "subject", "resourceType", "encounter"]:
-                                if k == "stage":
-                                    for j, stage in enumerate(v):
-                                        stage_coding = self.get_nested_value(
-                                            stage, ["type", "coding", 0, "display"]
-                                        )
-                                        patient[f"stage_summary_{j}"] = stage_coding
-                                else:
-                                    patient[f"condition_{k}"] = v
-
-            yield patient
+            print(f"\nobservation... \n{json.dumps(simplified)}\n\n")
+            yield simplified
 
     def flattened_research_subjects(self) -> Generator[dict, None, None]:
         loaded_db = self
@@ -682,6 +608,7 @@ class LocalFHIRDatabase:
         flat_doc_ref = SimplifiedResource.build(resource=doc_ref).simplified
         
         # extract the corresponding .subject and append its fields 
+
         subject_key = doc_ref['subject']['reference']
         cursor.execute("SELECT * FROM resources WHERE key = ?", (subject_key,))
         row = cursor.fetchone()
@@ -689,6 +616,17 @@ class LocalFHIRDatabase:
         _, _, resource = row
         subject = json.loads(resource)
         flat_doc_ref.update(traverse(subject))
+        # def get_subject(db, resource):
+        #     cursor = db.connect()
+        #     subject_key = resource['subject']['reference']
+        #     cursor.execute("SELECT * FROM resources WHERE key = ?", (subject_key,))
+        #     row = cursor.fetchone()
+        #     assert row, f"{subject_key} not found in database"
+        #     _, _, raw_subject = row
+        #     subject = json.loads(raw_subject)
+        #     return traverse(subject)
+        
+        # flat_doc_ref.update(get_subject(self, doc_ref))
 
         # extract the corresponding .focus and append its fields
         if 'focus' in doc_ref and len(doc_ref['focus']) > 0:
@@ -700,8 +638,10 @@ class LocalFHIRDatabase:
             _, _, resource = result
             resource = json.loads(resource)
             flat_doc_ref.update(traverse(resource))
-
+        
         # get all Observations that are focused on the document reference, simplify them and add them to the simplified document reference
+        # TODO: for n docrefs and m observations, this runs in O(nm) time
+        # this could be O(n+m) by caching the get all Observations query below
         cursor.execute("SELECT * FROM resources WHERE resource_type = ?", ('Observation',))
         observations = cursor.fetchall()
         for observation in observations:
@@ -719,7 +659,7 @@ class LocalFHIRDatabase:
                 value = simplified_observation['value']
                 # TODO - should we prefix the component keys? e.g. observation_component_value
                 flat_doc_ref[code] = value
-            else:
+            else:            
                 # component
                 for k, v in simplified_observation.items():
                     if k in ['resourceType', 'id', 'category', 'code', 'status', 'identifier']:
