@@ -529,18 +529,17 @@ class LocalFHIRDatabase:
 
         cursor = self.connect()
         cursor.execute(
-            "SELECT * FROM resources where resource_type = ?", ("DocumentReference",)
+            "SELECT * FROM resources where resource_type = ?", ("Observation",)
         )
 
-        for row in cursor:
+        for row in cursor.fetchall():
             observation = json.loads(row[2])
-
             simplified = SimplifiedResource.build(resource=observation).simplified
 
             # extract the corresponding .focus and append its fields
-            if 'focus' in simplified and len(simplified['focus']) > 0:
+            if 'focus' in observation and len(observation['focus']) > 0:
                 # TODO: do we need to account for multiple foci?
-                focus_key = simplified['focus'][0]['reference']
+                focus_key = observation['focus'][0]['reference']
                 cursor.execute("SELECT * FROM resources WHERE key = ?", (focus_key,))
                 result = cursor.fetchone()
                 assert result, f"{focus_key} not found"
@@ -549,10 +548,12 @@ class LocalFHIRDatabase:
                 simplified.update(traverse(focus))
 
             # TODO: extract corresponding .subject
+            simplified.update(get_subject(self, observation))
 
-
-            print(f"\nobservation... \n{json.dumps(simplified)}\n\n")
             yield simplified
+        
+        self.disconnect()
+
 
     def flattened_research_subjects(self) -> Generator[dict, None, None]:
         loaded_db = self
@@ -608,25 +609,7 @@ class LocalFHIRDatabase:
         flat_doc_ref = SimplifiedResource.build(resource=doc_ref).simplified
         
         # extract the corresponding .subject and append its fields 
-
-        subject_key = doc_ref['subject']['reference']
-        cursor.execute("SELECT * FROM resources WHERE key = ?", (subject_key,))
-        row = cursor.fetchone()
-        assert row, f"{subject_key} not found in database"
-        _, _, resource = row
-        subject = json.loads(resource)
-        flat_doc_ref.update(traverse(subject))
-        # def get_subject(db, resource):
-        #     cursor = db.connect()
-        #     subject_key = resource['subject']['reference']
-        #     cursor.execute("SELECT * FROM resources WHERE key = ?", (subject_key,))
-        #     row = cursor.fetchone()
-        #     assert row, f"{subject_key} not found in database"
-        #     _, _, raw_subject = row
-        #     subject = json.loads(raw_subject)
-        #     return traverse(subject)
-        
-        # flat_doc_ref.update(get_subject(self, doc_ref))
+        flat_doc_ref.update(get_subject(self, doc_ref))
 
         # extract the corresponding .focus and append its fields
         if 'focus' in doc_ref and len(doc_ref['focus']) > 0:
@@ -653,19 +636,13 @@ class LocalFHIRDatabase:
                 continue
 
             simplified_observation = SimplifiedResource.build(resource=resource).simplified
-            if 'value' in simplified_observation:
-                # no component, simple observation
-                code = inflection.underscore(inflection.parameterize(simplified_observation['code']))
-                value = simplified_observation['value']
+
+            # component
+            for k, v in simplified_observation.items():
+                if k in ['resourceType', 'id', 'category', 'code', 'status', 'identifier']:
+                    continue
                 # TODO - should we prefix the component keys? e.g. observation_component_value
-                flat_doc_ref[code] = value
-            else:            
-                # component
-                for k, v in simplified_observation.items():
-                    if k in ['resourceType', 'id', 'category', 'code', 'status', 'identifier']:
-                        continue
-                    # TODO - should we prefix the component keys? e.g. observation_component_value
-                    flat_doc_ref[k] = v
+                flat_doc_ref[k] = v
         
         # TODO: test this based on fhir-gdc
         if "basedOn" in doc_ref:
@@ -731,3 +708,14 @@ def is_number(s):
         return True
     except ValueError:
         return False
+    
+
+def get_subject(db: LocalFHIRDatabase, resource: dict) -> dict:
+    cursor = db.connect()
+    subject_key = resource['subject']['reference']
+    cursor.execute("SELECT * FROM resources WHERE key = ?", (subject_key,))
+    row = cursor.fetchone()
+    assert row, f"{subject_key} not found in database"
+    _, _, raw_subject = row
+    subject = json.loads(raw_subject)
+    return traverse(subject)
