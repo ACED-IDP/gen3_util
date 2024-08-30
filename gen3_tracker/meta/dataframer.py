@@ -429,8 +429,6 @@ class LocalFHIRDatabase:
 
             yield procedure
 
-        connection.close()
-
     def handle_units(self, value_normalized: str):
         """This function is designed to attempt to remove units string suffixes
         and attempt to store values as float. The issue arises when elastic sees
@@ -599,8 +597,6 @@ class LocalFHIRDatabase:
             document_reference = json.loads(raw_document_reference)
 
             yield self.flattened_document_reference(key, document_reference)
-
-        self.disconnect()
 
     def flattened_document_reference(self, doc_ref_key: str, doc_ref: Dict) -> dict:
         cursor = self.connect()
