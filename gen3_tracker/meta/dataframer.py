@@ -27,8 +27,9 @@ class LocalFHIRDatabase:
 
     def connect(self) -> sqlite3.Cursor:
         """establish database connection if not established, return cursor"""
-        if self.cursor is None:
+        if self.connection is None:
             self.connection = sqlite3.connect(self.db_name)
+        if self.cursor is None:
             self.cursor = self.connection.cursor()
         else:
             return self.cursor
@@ -549,8 +550,6 @@ class LocalFHIRDatabase:
             simplified.update(get_subject(self, observation))
 
             yield simplified
-        
-        self.disconnect()
 
 
     def flattened_research_subjects(self) -> Generator[dict, None, None]:
