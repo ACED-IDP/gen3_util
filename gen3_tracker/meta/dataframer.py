@@ -588,21 +588,23 @@ class LocalFHIRDatabase:
     def flattened_document_references(self) -> Generator[dict, None, None]:
         cursor = self.connect()
         
+        # create a dict mapping from focus (doc ref) ID to observation
         cursor.execute("""
             SELECT *
             FROM resources
             WHERE resource_type = ?
         """, ("Observation",))
 
-        # create a dict mapping from focus (DocRef) ID to observation
-        focus_by_id = {}
+        focus_by_id = defaultdict(list)
         for _, _, focus_resource in cursor.fetchall():
             
             doc_ref_key = json.loads(focus_resource)["focus"][0]["reference"]
             if "DocumentReference" in doc_ref_key:
                 doc_ref_id = doc_ref_key.split("/")[-1]
-                focus_by_id[doc_ref_id] = json.loads(focus_resource)
+                focus = json.loads(focus_resource)
+                focus_by_id[doc_ref_id].append(focus)
         
+        # flatten each document reference
         cursor.execute(
             "SELECT * FROM resources where resource_type = ?", ("DocumentReference",)
         )
@@ -614,25 +616,25 @@ class LocalFHIRDatabase:
             yield self.flattened_document_reference(document_reference, focus_by_id)
     
     def flattened_document_reference(self, doc_ref: dict, focus_by_id: dict) -> dict:
-        cursor = self.connect()
-
         # simplify document reference
         flat_doc_ref = SimplifiedResource.build(resource=doc_ref).simplified
         
         # extract the corresponding .subject and append its fields 
         flat_doc_ref.update(get_subject(self, doc_ref))
         
-        # get all focuses (eg Observations) that are focused on the document reference, simplify them and add them to the simplified document reference
+        # populate observation data associated with the document reference document
         if doc_ref["id"] in focus_by_id:
-            focus = focus_by_id[doc_ref["id"]]
-            simplified_focus = SimplifiedResource.build(resource=focus).simplified
+            focus_list = focus_by_id[doc_ref["id"]]
 
-            # component
-            for k, v in simplified_focus.items():
-                if k in ['resourceType', 'id', 'category', 'code', 'status', 'identifier']:
-                    continue
-                # TODO - should we prefix the component keys? e.g. observation_component_value
-                flat_doc_ref[k] = v
+            for focus in focus_list:
+                simplified_focus = SimplifiedResource.build(resource=focus).simplified
+
+                # add all component codes
+                for k, v in simplified_focus.items():
+                    if k in ['resourceType', 'id', 'category', 'code', 'status', 'identifier']:
+                        continue
+                    # TODO - should we prefix the component keys? e.g. observation_component_value
+                    flat_doc_ref[k] = v
         
         # TODO: test this based on fhir-gdc
         if "basedOn" in doc_ref:
