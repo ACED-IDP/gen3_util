@@ -587,17 +587,33 @@ class LocalFHIRDatabase:
 
     def flattened_document_references(self) -> Generator[dict, None, None]:
         cursor = self.connect()
+        
+        cursor.execute("""
+            SELECT *
+            FROM resources
+            WHERE resource_type = ?
+        """, ("Observation",))
+
+        # create a dict mapping from focus (DocRef) ID to observation
+        focus_by_id = {}
+        for _, _, focus_resource in cursor.fetchall():
+            
+            doc_ref_key = json.loads(focus_resource)["focus"][0]["reference"]
+            if "DocumentReference" in doc_ref_key:
+                doc_ref_id = doc_ref_key.split("/")[-1]
+                focus_by_id[doc_ref_id] = json.loads(focus_resource)
+        
         cursor.execute(
             "SELECT * FROM resources where resource_type = ?", ("DocumentReference",)
         )
 
         for row in cursor.fetchall():
-            key, _, raw_document_reference = row
+            _, _, raw_document_reference = row
             document_reference = json.loads(raw_document_reference)
 
-            yield self.flattened_document_reference(key, document_reference)
-
-    def flattened_document_reference(self, doc_ref_key: str, doc_ref: Dict) -> dict:
+            yield self.flattened_document_reference(document_reference, focus_by_id)
+    
+    def flattened_document_reference(self, doc_ref: dict, focus_by_id: dict) -> dict:
         cursor = self.connect()
 
         # simplify document reference
@@ -605,35 +621,14 @@ class LocalFHIRDatabase:
         
         # extract the corresponding .subject and append its fields 
         flat_doc_ref.update(get_subject(self, doc_ref))
-
-        # extract the corresponding .focus and append its fields
-        if 'focus' in doc_ref and len(doc_ref['focus']) > 0:
-            # TODO: do we need to account for multiple foci?
-            focus_key = doc_ref['focus'][0]['reference']
-            cursor.execute("SELECT * FROM resources WHERE key = ?", (focus_key,))
-            result = cursor.fetchone()
-            assert result, f"{focus_key} not found"
-            _, _, resource = result
-            resource = json.loads(resource)
-            flat_doc_ref.update(traverse(resource))
         
-        # get all Observations that are focused on the document reference, simplify them and add them to the simplified document reference
-        # TODO: for n docrefs and m observations, this runs in O(nm) time
-        # this could be O(n+m) by caching the get all Observations query below
-        cursor.execute("SELECT * FROM resources WHERE resource_type = ?", ('Observation',))
-        observations = cursor.fetchall()
-        for observation in observations:
-            _, _, resource = observation
-            resource = json.loads(resource)
-            foci = resource.get('focus', [])
-            references = [focus['reference'] for focus in foci]
-            if doc_ref_key not in references:
-                continue
-
-            simplified_observation = SimplifiedResource.build(resource=resource).simplified
+        # get all focuses (eg Observations) that are focused on the document reference, simplify them and add them to the simplified document reference
+        if doc_ref["id"] in focus_by_id:
+            focus = focus_by_id[doc_ref["id"]]
+            simplified_focus = SimplifiedResource.build(resource=focus).simplified
 
             # component
-            for k, v in simplified_observation.items():
+            for k, v in simplified_focus.items():
                 if k in ['resourceType', 'id', 'category', 'code', 'status', 'identifier']:
                     continue
                 # TODO - should we prefix the component keys? e.g. observation_component_value
