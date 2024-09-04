@@ -622,7 +622,6 @@ class LocalFHIRDatabase:
         cursor.execute("SELECT * FROM resources where resource_type = ?", (resource_type,))
         for _, _, resource in cursor.fetchall():
             specimen = json.loads(resource)
-            print(specimen)
             yield self.flattened_specimen(specimen, focus_by_id)
     
     def flattened_specimen(self, specimen: dict, observation_by_id: dict) -> dict:
