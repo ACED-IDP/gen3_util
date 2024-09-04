@@ -630,6 +630,9 @@ class LocalFHIRDatabase:
         
         # create simple specimen dict
         flat_specimen = SimplifiedResource.build(resource=specimen).simplified
+
+        # extract its .subject and append its fields (including id)
+        flat_specimen.update(get_subject(self, specimen))
         
         # populate observation codes for each associated observation
         if specimen["id"] in observation_by_id:
