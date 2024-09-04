@@ -114,9 +114,10 @@ def normalize_value(resource_dict: dict) -> tuple[Optional[str], Optional[str]]:
 
 
 def traverse(resource):
+    """simplify a resource's fields, returned as a dict of values,
+    where keys are prefixed with "resourceType_" """
+    
     final_subject = {}
-    """simplify a given subject's fields, returned as a dict of values
-    with keys prefixed with 'resourceType_' """
     simplified_subject = SimplifiedResource.build(resource=resource).simplified
     prefix = simplified_subject['resourceType'].lower()
     for k, v in simplified_subject.items():
@@ -319,6 +320,7 @@ class SimplifiedResource(object):
     @staticmethod
     def build(resource: dict) -> SimplifiedFHIR:
         """Return a simplified FHIR resource."""
+        
         resource_type = resource.get('resourceType', None)
         if resource_type == 'Observation':
             return SimplifiedObservation(resource=resource)

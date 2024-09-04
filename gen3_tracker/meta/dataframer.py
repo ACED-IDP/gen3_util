@@ -281,39 +281,6 @@ class LocalFHIRDatabase:
         return procedure
 
     @lru_cache(maxsize=None)
-    def flattened_specimen(self, specimen_key) -> dict:
-        """Return the specimen with everything resolved."""
-        #  TODO - implement with gen3_tracker.meta.entites.SimplifiedFHIR
-        cursor = self.connection.cursor()
-        cursor.execute("SELECT * FROM resources WHERE key = ?", (specimen_key,))
-        key, resource_type, resource = cursor.fetchone()
-        specimen = json.loads(resource)
-
-        # simplify the identifier
-
-        specimen['identifier'] = specimen['identifier'][0]['value']
-        # simplify parent
-        if 'parent' in specimen.keys():
-            specimen['parent'] = specimen['parent'][0]
-
-        if "collection" in specimen:
-            for coding_normalized, coding_source in normalize_coding(
-                specimen["collection"]
-            ):
-                specimen[f"collection_{coding_source}"] = coding_normalized[0]
-            del specimen["collection"]
-        if "processing" in specimen:
-            for processing in specimen.get("processing", []):
-                for coding_normalized, coding_source in normalize_coding(processing):
-                    # if coding_normalized is a list how to map multiple normalized codings to one coding source?
-                    # Getting errors in guppy when coding normalized is a list of > 1 elements
-                    specimen[f"processing_{coding_source}"] = coding_normalized[0]
-                break  # TODO - only first one
-            del specimen["processing"]
-
-        return specimen
-
-    @lru_cache(maxsize=None)
     def flattened_condition(self, condition_key) -> dict:
         """Return the procedure with everything resolved."""
         #  TODO - implement with gen3_tracker.meta.entites.SimplifiedFHIR
@@ -506,7 +473,11 @@ class LocalFHIRDatabase:
             # Handle case where no coding entries exist
             return None
 
-    def flattened_observations(self) -> Generator[dict, None, None]:
+    def flattened_observations(self, focus_type: str = None) -> Generator[dict, None, None]:
+        """flattens all observations, augmenting it with fields from .subject and .focus
+        use focus_type if you want to subset on a particular resource, eg Specimen"""
+
+        # TODO: not used, can it be deleted?
         normalize_table = str.maketrans(
             {
                 ".": "",
@@ -531,26 +502,39 @@ class LocalFHIRDatabase:
             "SELECT * FROM resources where resource_type = ?", ("Observation",)
         )
 
-        for row in cursor.fetchall():
-            observation = json.loads(row[2])
-            simplified = SimplifiedResource.build(resource=observation).simplified
+        # get focus of all observations
+        for _, _, resource  in cursor.fetchall():
+            observation = json.loads(resource)
+            
+            if focus_type and 'focus' in observation and len(observation['focus']) > 0:
+                if observation['focus'][0]['reference'] != focus_type:
+                    continue
 
-            # extract the corresponding .focus and append its fields
-            if 'focus' in observation and len(observation['focus']) > 0:
-                # TODO: do we need to account for multiple foci?
-                focus_key = observation['focus'][0]['reference']
-                cursor.execute("SELECT * FROM resources WHERE key = ?", (focus_key,))
-                result = cursor.fetchone()
-                assert result, f"{focus_key} not found"
-                _, _, resource = result
-                focus = json.loads(resource)
-                simplified.update(traverse(focus))
+            yield self.flatten_observation(observation)
 
-            # TODO: extract corresponding .subject
-            simplified.update(get_subject(self, observation))
+    def flatten_observation(self, observation: dict) -> dict:
+        # get pointer to db
+        cursor = self.connect()
 
-            yield simplified
+        # create simplified observation
+        simplified = SimplifiedResource.build(resource=observation).simplified
 
+        # extract the corresponding .focus and append its fields
+        if 'focus' in observation and len(observation['focus']) > 0:
+            # TODO: do we need to account for multiple foci?
+            focus_key = observation['focus'][0]['reference']
+            cursor.execute("SELECT * FROM resources WHERE key = ?", (focus_key,))
+            row = cursor.fetchone()
+            assert row, f"{focus_key} not found"
+
+            _, _, resource = row
+            focus = json.loads(resource)
+            simplified.update(traverse(focus))
+
+        # TODO: extract corresponding .subject
+        simplified.update(get_subject(self, observation))
+
+        return simplified
 
     def flattened_research_subjects(self) -> Generator[dict, None, None]:
         loaded_db = self
@@ -588,31 +572,13 @@ class LocalFHIRDatabase:
     def flattened_document_references(self) -> Generator[dict, None, None]:
         cursor = self.connect()
         
-        # create a dict mapping from focus (doc ref) ID to observation
-        cursor.execute("""
-            SELECT *
-            FROM resources
-            WHERE resource_type = ?
-        """, ("Observation",))
-
-        focus_by_id = defaultdict(list)
-        for _, _, focus_resource in cursor.fetchall():
-            
-            doc_ref_key = json.loads(focus_resource)["focus"][0]["reference"]
-            if "DocumentReference" in doc_ref_key:
-                doc_ref_id = doc_ref_key.split("/")[-1]
-                focus = json.loads(focus_resource)
-                focus_by_id[doc_ref_id].append(focus)
+        # get a dict mapping focus ID to its associated observations
+        focus_by_id = get_observations_by_focus(self, "DocumentReference")
         
         # flatten each document reference
-        cursor.execute(
-            "SELECT * FROM resources where resource_type = ?", ("DocumentReference",)
-        )
-
-        for row in cursor.fetchall():
-            _, _, raw_document_reference = row
-            document_reference = json.loads(raw_document_reference)
-
+        cursor.execute("SELECT * FROM resources where resource_type = ?", ("DocumentReference",))
+        for _, _, resource in cursor.fetchall():
+            document_reference = json.loads(resource)
             yield self.flattened_document_reference(document_reference, focus_by_id)
     
     def flattened_document_reference(self, doc_ref: dict, focus_by_id: dict) -> dict:
@@ -643,6 +609,42 @@ class LocalFHIRDatabase:
             del doc_ref["basedOn"]
         
         return flat_doc_ref
+    
+    @lru_cache(maxsize=None)
+    def flattened_specimens(self) -> Generator[dict, None, None]:
+        resource_type = "Specimen"
+        cursor = self.connect()
+        
+        # get a dict mapping focus ID to its associated observations
+        focus_by_id = get_observations_by_focus(self, resource_type)
+        
+        # flatten each document reference
+        cursor.execute("SELECT * FROM resources where resource_type = ?", (resource_type,))
+        for _, _, resource in cursor.fetchall():
+            specimen = json.loads(resource)
+            print(specimen)
+            yield self.flattened_specimen(specimen, focus_by_id)
+    
+    def flattened_specimen(self, specimen: dict, observation_by_id: dict) -> dict:
+        """Return the specimen with everything resolved."""
+        
+        # create simple specimen dict
+        flat_specimen = SimplifiedResource.build(resource=specimen).simplified
+        
+        # populate observation codes for each associated observation
+        if specimen["id"] in observation_by_id:
+            observations = observation_by_id[specimen["id"]]
+
+            for flat_observation in observations:
+                flat_observation = SimplifiedResource.build(resource=flat_observation).simplified
+
+                # add all observations codes
+                for k, v in flat_observation.items():
+                    if k in ['resourceType', 'id', 'category', 'code', 'status', 'identifier']:
+                        continue
+                    flat_specimen[k] = v
+        
+        return flat_specimen
 
 def create_dataframe(
     directory_path: str, work_path: str, data_type: str
@@ -662,6 +664,8 @@ def create_dataframe(
         df = pd.DataFrame(db.flattened_observations())
     elif data_type == "ResearchSubject":
         df = pd.DataFrame(db.flattened_research_subjects())
+    elif data_type == "Specimen":
+        df = pd.DataFrame(db.flattened_specimens())
     else:
         raise ValueError(
             f"{data_type} not supported yet. Supported data types are DocumentReference and Observation"
@@ -711,3 +715,25 @@ def get_subject(db: LocalFHIRDatabase, resource: dict) -> dict:
     _, _, raw_subject = row
     subject = json.loads(raw_subject)
     return traverse(subject)
+
+ 
+def get_observations_by_focus(db: LocalFHIRDatabase, focus_type: str) -> dict:
+    '''create a dict mapping from focus ID of type focus_type to the associated set of observations'''
+
+    cursor = db.connect()
+    cursor.execute("""
+        SELECT *
+        FROM resources
+        WHERE resource_type = ?
+    """, ("Observation",))
+
+    focus_by_id = defaultdict(list)
+    for _, _, focus_resource in cursor.fetchall():
+        
+        focus_key = json.loads(focus_resource)["focus"][0]["reference"]
+        if focus_type in focus_key:
+            doc_ref_id = focus_key.split("/")[-1]
+            focus = json.loads(focus_resource)
+            focus_by_id[doc_ref_id].append(focus)
+    
+    return focus_by_id
