@@ -701,8 +701,15 @@ def is_number(s):
     
 
 def get_subject(db: LocalFHIRDatabase, resource: dict) -> dict:
+    """get the resource's subject field if it exists"""
+
+    # ensure resource has subject field
+    subject_key = get_nested_value(resource, ['subject', 'reference'])
+    if subject_key is None:
+        return {}
+    
+    # traverse the resource of the subject and return its values
     cursor = db.connect()
-    subject_key = resource['subject']['reference']
     cursor.execute("SELECT * FROM resources WHERE key = ?", (subject_key,))
     row = cursor.fetchone()
     assert row, f"{subject_key} not found in database"
