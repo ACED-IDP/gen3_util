@@ -10,10 +10,6 @@ from gen3_tracker.meta.dataframer import LocalFHIRDatabase
 from gen3_tracker.meta.entities import SimplifiedResource
 from pathlib import Path
 
-############
-# FIXTURES #
-############
-
 
 @pytest.fixture()
 def simplified_smmart_resources():
@@ -137,8 +133,31 @@ def smmart_local_db(smmart_fixture_path: Path) -> LocalFHIRDatabase:
 
 
 @pytest.fixture()
-def smmart_docref_dataframe():
-    """Create user-defined dataframe/row with Observations (and user-defined nomenclature) that have focus/association to this DocumentReference instance"""
+def expected_keys(simplified_smmart_resources):
+    return sorted(list(simplified_smmart_resources.keys()))
+
+
+@pytest.fixture()
+def smmart_resources(smmart_local_db):
+    cursor = smmart_local_db.connection.cursor()
+    cursor.execute("SELECT * FROM resources")
+    resources = cursor.fetchall()
+    _resources = []
+    for row in resources:
+        _, _, resource = row
+        resource = json.loads(resource)
+        _resources.append(resource)
+    return _resources
+
+
+##############
+# DATAFRAMES #
+##############
+
+
+@pytest.fixture()
+def smmart_docref_row():
+    """Based on metadata files, create expected DocumentReference row, populated with any Observations that focus on it"""
     return {
         "identifier": "9ae7e542-767f-4b03-a854-7ceed17152cb",
         "resourceType": "DocumentReference",
@@ -175,8 +194,8 @@ def smmart_docref_dataframe():
 
 
 @pytest.fixture()
-def smmart_observation_dataframes():
-    """Create user-defined dataframe/row with Observations (and user-defined nomenclature) that have focus/association to this DocumentReference instance"""
+def smmart_observation_dataframe():
+    """Based on metadata files, create an expected Observations dataframe"""
     return [
         {
             "identifier": "patientX_1234-9ae7e542-767f-4b03-a854-7ceed17152cb-sequencer",
@@ -264,21 +283,27 @@ def smmart_observation_dataframes():
 
 
 @pytest.fixture()
-def expected_keys(simplified_smmart_resources):
-    return sorted(list(simplified_smmart_resources.keys()))
-
-
-@pytest.fixture()
-def smmart_resources(smmart_local_db):
-    cursor = smmart_local_db.connection.cursor()
-    cursor.execute("SELECT * FROM resources")
-    resources = cursor.fetchall()
-    _resources = []
-    for row in resources:
-        _, _, resource = row
-        resource = json.loads(resource)
-        _resources.append(resource)
-    return _resources
+def specimen_row():
+    return {
+        "id": "60c67a06-ea2d-4d24-9249-418dc77a16a9",
+        "resourceType": "Specimen",
+        "identifier": "specimen_1234_labA",
+        "collection": "Breast",
+        "processing": "Double-Spun",
+        "sample_type": "Primary Solid Tumor",
+        "library_id": "12345",
+        "tissue_type": "Tumor",
+        "treatments": "Trastuzumab",
+        "allocated_for_site": "TEST Clinical Research",
+        "indexed_collection_date": "365",
+        "biopsy_specimens": "specimenA, specimenB, specimenC",
+        "biopsy_procedure_type": "Biopsy - Core",
+        "biopsy_anatomical_location": "top axillary lymph node",
+        "percent_tumor": "30",
+        "patient_identifier": "patientX_1234",
+        "patient_id": "bc4e1aa6-cb52-40e9-8f20-594d9c84f920",
+        "patient_active": True,
+    }
 
 
 #########
@@ -314,36 +339,43 @@ def test_simplified(smmart_resources, simplified_smmart_resources):
     assert actual == simplified_smmart_resources
 
 
-def test_docref_with_observation_focus(smmart_local_db, smmart_docref_dataframe):
-    """Test the dataframer using a local database with a SMMART bundle, this test ensures document reference and all its Observations."""
+def test_flattened_document_references(smmart_local_db, smmart_docref_row):
+    """Test the dataframer using a local database with a SMMART bundle,
+    this test ensures the  DocumentReference is populated with fields from any Observation with a focus on this DocumentReference
+    """
     doc_ref_generator = smmart_local_db.flattened_document_references()
     doc_refs = [d for d in doc_ref_generator]
     doc_ref = doc_refs[0]
 
-    print("type(doc_refs):", type(doc_refs))
-    print("type(doc_ref):", type(doc_ref))
-
-    assert "specimen_collection" in doc_ref, doc_ref
-    assert doc_ref["specimen_identifier"] == "specimen_1234_labA", doc_ref
-    assert doc_ref["specimen_collection"] == "Breast", doc_ref
-
-    print("final dataframe:", doc_ref)
-    assert doc_ref == smmart_docref_dataframe
+    assert doc_ref == smmart_docref_row
 
 
-def test_observations(
-    smmart_fixture_path, smmart_local_db, smmart_observation_dataframes
+def test_flattened_observations(
+    smmart_fixture_path, smmart_local_db, smmart_observation_dataframe
 ):
+    """Test that the"""
+
     # check metadata length is the same as number of dataframes in test fixture
     with open(smmart_fixture_path / "Observation.ndjson") as file:
         num_observation = len([1 for line in file if line.strip()])
     assert (
-        len(smmart_observation_dataframes) == num_observation
+        len(smmart_observation_dataframe) == num_observation
     ), "observation ndjson metadata and expected observation dataframes are not the same length, check that the fixture have the same number of rows as the metadata"
 
     # test contents of flattener
     actual_dataframes = smmart_local_db.flattened_observations()
-    for expected, actual in zip(smmart_observation_dataframes, actual_dataframes):
+    for expected, actual in zip(smmart_observation_dataframe, actual_dataframes):
         assert (
             expected == actual
         ), f"Observation differs than expected, use pytest -vv flag for diff"
+
+
+def test_flattened_specimens(smmart_local_db, specimen_row):
+    """Test that the single Specimen pulls the correct fields from"""
+
+    # get the document reference
+    specimen_generator = smmart_local_db.flattened_specimens()
+    specimens = [s for s in specimen_generator]
+    specimen = specimens[0]
+
+    assert specimen == specimen_row
