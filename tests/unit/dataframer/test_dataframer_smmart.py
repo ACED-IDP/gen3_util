@@ -9,6 +9,9 @@ from gen3_tracker.meta.dataframer import LocalFHIRDatabase
 from gen3_tracker.meta.entities import SimplifiedResource
 from pathlib import Path
 
+############
+# FIXTURES #
+############
 
 @pytest.fixture()
 def document_reference_key():

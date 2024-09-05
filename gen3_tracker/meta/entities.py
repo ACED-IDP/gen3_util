@@ -3,9 +3,17 @@ import inflection
 from pydantic import BaseModel, computed_field
 from typing import Dict, List, Optional, Tuple
 
-#########################
-# NORMALIZATION METHODS #
-#########################
+#######################
+# FHIR HELPER METHODS #
+#######################
+
+def get_nested_value(d: dict, keys: list):
+    for key in keys:
+        try:
+            d = d[key]
+        except (KeyError, IndexError, TypeError):
+            return None
+    return d
 
 
 def normalize_coding(resource_dict: Dict) -> List[Tuple[str, str]]:

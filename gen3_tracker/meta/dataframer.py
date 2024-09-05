@@ -16,7 +16,7 @@ from deepmerge import always_merger
 from functools import lru_cache
 from typing import  Dict, Generator, List
 
-from gen3_tracker.meta.entities import SimplifiedResource, normalize_coding, normalize_value, traverse
+from gen3_tracker.meta.entities import SimplifiedResource, get_nested_value, normalize_coding, normalize_value, traverse
 
 class LocalFHIRDatabase:
     def __init__(self, db_name):  # , db_name=pathlib.Path('.g3t') / 'local.db'):
@@ -290,7 +290,7 @@ class LocalFHIRDatabase:
         condition = json.loads(resource)
 
         # simplify the identifier
-        condition["identifier"] = self.get_nested_value(
+        condition["identifier"] = get_nested_value(
             condition, ["identifier", 0, "value"]
         )
 
@@ -301,17 +301,9 @@ class LocalFHIRDatabase:
         for coding_normalized, coding_source in normalize_coding(condition):
             condition[coding_source] = coding_normalized
         # simplify the onsetAge
-        condition["onsetAge"] = self.get_nested_value(condition, ["onsetAge", "value"])
+        condition["onsetAge"] = get_nested_value(condition, ["onsetAge", "value"])
 
         return condition
-
-    def get_nested_value(self, d: dict, keys: list):
-        for key in keys:
-            try:
-                d = d[key]
-            except (KeyError, IndexError, TypeError):
-                return None
-        return d
 
     def flattened_procedures(self) -> Generator[dict, None, None]:
         #  TODO - implement with gen3_tracker.meta.entites.SimplifiedFHIR
@@ -415,7 +407,7 @@ class LocalFHIRDatabase:
         return None
 
     def select_category(self, resource):
-        if self.get_nested_value(
+        if get_nested_value(
                 resource, ["category", 0, "coding", 0]
         ):
             selected_coding = None
@@ -450,7 +442,7 @@ class LocalFHIRDatabase:
         Returns:
             dict or None: The selected coding entry dictionary if found, or None if no coding entries exist.
         """
-        if self.get_nested_value(
+        if get_nested_value(
                 resource, ["code", "coding", 0]
         ):
             selected_coding = None
@@ -473,7 +465,7 @@ class LocalFHIRDatabase:
             # Handle case where no coding entries exist
             return None
 
-    def flattened_observations(self, focus_type: str = None) -> Generator[dict, None, None]:
+    def flattened_observations(self) -> Generator[dict, None, None]:
         """flattens all observations, augmenting it with fields from .subject and .focus
         use focus_type if you want to subset on a particular resource, eg Specimen"""
 
@@ -505,11 +497,6 @@ class LocalFHIRDatabase:
         # get focus of all observations
         for _, _, resource  in cursor.fetchall():
             observation = json.loads(resource)
-            
-            if focus_type and 'focus' in observation and len(observation['focus']) > 0:
-                if observation['focus'][0]['reference'] != focus_type:
-                    continue
-
             yield self.flatten_observation(observation)
 
     def flatten_observation(self, observation: dict) -> dict:
@@ -537,7 +524,8 @@ class LocalFHIRDatabase:
         return simplified
 
     def flattened_research_subjects(self) -> Generator[dict, None, None]:
-        
+        """generator that yields research subjects populated with patient fields"""
+
         cursor = self.connect()
         cursor.execute(
             "SELECT * FROM resources where resource_type = ?", ("ResearchSubject",)
@@ -548,37 +536,41 @@ class LocalFHIRDatabase:
             research_subject = json.loads(raw_research_subject)
 
             # flatten subject and study (eg Patient)
-            subject = self.get_nested_value(
+            subject = get_nested_value(
                 research_subject, ["subject", "reference"]
             )
             research_subject["subject_type"], research_subject["subject_id"] = subject.split("/")
             del research_subject["subject"]
 
-            study = self.get_nested_value(
+            study = get_nested_value(
                 research_subject, ["study", "reference"]
             )
             research_subject["study"] = study.split("/")[1]
 
             # flatten identifier
-            research_subject["identifier"] = self.get_nested_value(
+            research_subject["identifier"] = get_nested_value(
                 research_subject, ["identifier", 0, "value"]
             )
 
             yield research_subject
     
     def flattened_document_references(self) -> Generator[dict, None, None]:
+        """generator that yields document references populated
+        with DocumentReference.subject fields and Observation codes through Observation.focus"""
+
         cursor = self.connect()
+        resource_type = "DocumentReference"
         
         # get a dict mapping focus ID to its associated observations
-        focus_by_id = get_observations_by_focus(self, "DocumentReference")
+        observation_by_focus_id = get_observations_by_focus(self, resource_type)
         
         # flatten each document reference
-        cursor.execute("SELECT * FROM resources where resource_type = ?", ("DocumentReference",))
+        cursor.execute("SELECT * FROM resources where resource_type = ?", (resource_type,))
         for _, _, resource in cursor.fetchall():
             document_reference = json.loads(resource)
-            yield self.flattened_document_reference(document_reference, focus_by_id)
+            yield self.flattened_document_reference(document_reference, observation_by_focus_id)
     
-    def flattened_document_reference(self, doc_ref: dict, focus_by_id: dict) -> dict:
+    def flattened_document_reference(self, doc_ref: dict, observation_by_focus_id: dict) -> dict:
         # simplify document reference
         flat_doc_ref = SimplifiedResource.build(resource=doc_ref).simplified
         
@@ -586,8 +578,8 @@ class LocalFHIRDatabase:
         flat_doc_ref.update(get_subject(self, doc_ref))
         
         # populate observation data associated with the document reference document
-        if doc_ref["id"] in focus_by_id:
-            focus_list = focus_by_id[doc_ref["id"]]
+        if doc_ref["id"] in observation_by_focus_id:
+            focus_list = observation_by_focus_id[doc_ref["id"]]
 
             for focus in focus_list:
                 simplified_focus = SimplifiedResource.build(resource=focus).simplified
@@ -609,17 +601,20 @@ class LocalFHIRDatabase:
     
     @lru_cache(maxsize=None)
     def flattened_specimens(self) -> Generator[dict, None, None]:
+        """generator that yields specimens populated with Specimen.subject fields
+        and Observation codes through Observation.focus"""
+
         resource_type = "Specimen"
         cursor = self.connect()
         
         # get a dict mapping focus ID to its associated observations
-        focus_by_id = get_observations_by_focus(self, resource_type)
+        observations_by_focus_id = get_observations_by_focus(self, resource_type)
         
         # flatten each document reference
         cursor.execute("SELECT * FROM resources where resource_type = ?", (resource_type,))
         for _, _, resource in cursor.fetchall():
             specimen = json.loads(resource)
-            yield self.flattened_specimen(specimen, focus_by_id)
+            yield self.flattened_specimen(specimen, observations_by_focus_id)
     
     def flattened_specimen(self, specimen: dict, observation_by_id: dict) -> dict:
         """Return the specimen with everything resolved."""
@@ -716,7 +711,7 @@ def get_subject(db: LocalFHIRDatabase, resource: dict) -> dict:
     return traverse(subject)
 
  
-def get_observations_by_focus(db: LocalFHIRDatabase, focus_type: str) -> dict:
+def get_observations_by_focus(db: LocalFHIRDatabase, focus_resource_type: str) -> dict:
     '''create a dict mapping from focus ID of type focus_type to the associated set of observations'''
 
     cursor = db.connect()
@@ -726,13 +721,15 @@ def get_observations_by_focus(db: LocalFHIRDatabase, focus_type: str) -> dict:
         WHERE resource_type = ?
     """, ("Observation",))
 
-    focus_by_id = defaultdict(list)
-    for _, _, focus_resource in cursor.fetchall():
-        
-        focus_key = json.loads(focus_resource)["focus"][0]["reference"]
-        if focus_type in focus_key:
-            doc_ref_id = focus_key.split("/")[-1]
-            focus = json.loads(focus_resource)
-            focus_by_id[doc_ref_id].append(focus)
+    observation_by_focus_id = defaultdict(list)
+
+    # ensure focus exists and of correct resource type before adding to dict
+    for _, _, observation_resource in cursor.fetchall():
+        observation = json.loads(observation_resource)
+        focus_key = get_nested_value(observation, ["focus", 0, "reference"])
+
+        if focus_key and focus_resource_type in focus_key:
+            focus_id = focus_key.split("/")[-1]
+            observation_by_focus_id[focus_id].append(observation)
     
-    return focus_by_id
+    return observation_by_focus_id
