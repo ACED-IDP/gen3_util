@@ -1,4 +1,3 @@
-import inflection
 import json
 import os
 import pytest
@@ -12,9 +11,31 @@ from pathlib import Path
 
 
 @pytest.fixture()
-def simplified_smmart_resources():
+def document_reference_key():
+    return "DocumentReference/9ae7e542-767f-4b03-a854-7ceed17152cb"
+
+
+@pytest.fixture()
+def specimen_key():
+    return "Specimen/60c67a06-ea2d-4d24-9249-418dc77a16a9"
+
+
+@pytest.fixture()
+def patient_key():
+    return "Patient/bc4e1aa6-cb52-40e9-8f20-594d9c84f920"
+
+
+@pytest.fixture()
+def research_subject_key():
+    return "ResearchSubject/2fc448d6-a23b-4b94-974b-c66110164851"
+
+
+@pytest.fixture()
+def simplified_resources(
+    document_reference_key, specimen_key, patient_key, research_subject_key
+):
     return {
-        "DocumentReference/9ae7e542-767f-4b03-a854-7ceed17152cb": {
+        document_reference_key: {
             "identifier": "9ae7e542-767f-4b03-a854-7ceed17152cb",
             "resourceType": "DocumentReference",
             "id": "9ae7e542-767f-4b03-a854-7ceed17152cb",
@@ -29,7 +50,7 @@ def simplified_smmart_resources():
             "title": "specimen_1234_labA.fq.gz",
             "creation": "2024-08-21T10:53:00+00:00",
         },
-        "Specimen/60c67a06-ea2d-4d24-9249-418dc77a16a9": {
+        specimen_key: {
             "identifier": "specimen_1234_labA",
             "resourceType": "Specimen",
             "id": "60c67a06-ea2d-4d24-9249-418dc77a16a9",
@@ -89,7 +110,7 @@ def simplified_smmart_resources():
             "status": "active",
             "description": "LabA Clinical Trial Study: FHIR Schema Chorot Integration",
         },
-        "ResearchSubject/2fc448d6-a23b-4b94-974b-c66110164851": {
+        research_subject_key: {
             "identifier": "subjectX_1234",
             "resourceType": "ResearchSubject",
             "id": "2fc448d6-a23b-4b94-974b-c66110164851",
@@ -101,7 +122,7 @@ def simplified_smmart_resources():
             "id": "89c8dc4c-2d9c-48c7-8862-241a49a78f14",
             "type": "Educational Institute",
         },
-        "Patient/bc4e1aa6-cb52-40e9-8f20-594d9c84f920": {
+        patient_key: {
             "identifier": "patientX_1234",
             "resourceType": "Patient",
             "id": "bc4e1aa6-cb52-40e9-8f20-594d9c84f920",
@@ -111,21 +132,21 @@ def simplified_smmart_resources():
 
 
 @pytest.fixture()
-def smmart_fixture_path(data_path: Path) -> Path:
+def fixture_path(data_path: Path) -> Path:
     return data_path / "fhir-compbio-examples/META"
 
 
 @pytest.fixture()
-def smmart_local_db(smmart_fixture_path: Path) -> LocalFHIRDatabase:
+def local_db(fixture_path: Path) -> LocalFHIRDatabase:
     """Load a local db with smmart data fixture."""
     with tempfile.TemporaryDirectory() as temp_dir:
         # print(f"Temporary directory created at: {temp_dir}")
         db = LocalFHIRDatabase(db_name=os.path.join(temp_dir, "local.db"))
 
         assert (
-            smmart_fixture_path.exists()
-        ), f"Fixture path {smmart_fixture_path.absolute()} does not exist."
-        for file in smmart_fixture_path.glob("*.ndjson"):
+            fixture_path.exists()
+        ), f"Fixture path {fixture_path.absolute()} does not exist."
+        for file in fixture_path.glob("*.ndjson"):
             # print(f"Loading {file}")
             for resource in read_ndjson_file(str(file)):
                 db.insert_data_from_dict(resource)
@@ -133,13 +154,13 @@ def smmart_local_db(smmart_fixture_path: Path) -> LocalFHIRDatabase:
 
 
 @pytest.fixture()
-def expected_keys(simplified_smmart_resources):
-    return sorted(list(simplified_smmart_resources.keys()))
+def expected_keys(simplified_resources):
+    return sorted(list(simplified_resources.keys()))
 
 
 @pytest.fixture()
-def smmart_resources(smmart_local_db):
-    cursor = smmart_local_db.connection.cursor()
+def resources(local_db):
+    cursor = local_db.connection.cursor()
     cursor.execute("SELECT * FROM resources")
     resources = cursor.fetchall()
     _resources = []
@@ -154,24 +175,11 @@ def smmart_resources(smmart_local_db):
 # DATAFRAMES #
 ##############
 
-
 @pytest.fixture()
-def smmart_docref_row():
+def docref_row(simplified_resources, document_reference_key):
     """Based on metadata files, create expected DocumentReference row, populated with any Observations that focus on it"""
     return {
-        "identifier": "9ae7e542-767f-4b03-a854-7ceed17152cb",
-        "resourceType": "DocumentReference",
-        "id": "9ae7e542-767f-4b03-a854-7ceed17152cb",
-        "status": "current",
-        "docStatus": "final",
-        "date": "2024-08-21T10:53:00+00:00",
-        "md5": "227f0a5379362d42eaa1814cfc0101b8",
-        "source_path": "file:///home/LabA/specimen_1234_labA.fq.gz",
-        "contentType": "text/fastq",
-        "url": "file:///home/LabA/specimen_1234_labA.fq.gz",
-        "size": 5595609484,
-        "title": "specimen_1234_labA.fq.gz",
-        "creation": "2024-08-21T10:53:00+00:00",
+        **simplified_resources[document_reference_key],
         "sequencer": "Illumina Seq 1000",
         "index": "100bp Single index",
         "type": "Exome",
@@ -194,7 +202,7 @@ def smmart_docref_row():
 
 
 @pytest.fixture()
-def smmart_observation_dataframe():
+def observation_dataframe():
     """Based on metadata files, create an expected Observations dataframe"""
     return [
         {
@@ -283,13 +291,20 @@ def smmart_observation_dataframe():
 
 
 @pytest.fixture()
-def specimen_row():
+def research_subject_row(simplified_resources, research_subject_key):
+    """Based on metadata files, create an expected Observations dataframe"""
     return {
-        "id": "60c67a06-ea2d-4d24-9249-418dc77a16a9",
-        "resourceType": "Specimen",
-        "identifier": "specimen_1234_labA",
-        "collection": "Breast",
-        "processing": "Double-Spun",
+        **simplified_resources[research_subject_key],
+        "study": "7dacd4d0-3c8e-470b-bf61-103891627d45",
+        "subject_id": "bc4e1aa6-cb52-40e9-8f20-594d9c84f920",
+        "subject_type": "Patient",
+    }
+
+
+@pytest.fixture()
+def specimen_row(simplified_resources, specimen_key):
+    return {
+        **simplified_resources[specimen_key],
         "sample_type": "Primary Solid Tumor",
         "library_id": "12345",
         "tissue_type": "Tumor",
@@ -311,10 +326,10 @@ def specimen_row():
 #########
 
 
-def test_smmart_db(smmart_local_db, expected_keys):
+def test_db(local_db, expected_keys):
     """Simple test to verify db load."""
-    assert smmart_local_db
-    cursor = smmart_local_db.connection.cursor()
+    assert local_db
+    cursor = local_db.connection.cursor()
     cursor.execute("SELECT * FROM resources")
     resources = cursor.fetchall()
     actual_keys = []
@@ -326,56 +341,66 @@ def test_smmart_db(smmart_local_db, expected_keys):
     assert actual_keys == expected_keys
 
 
-def test_simplified(smmart_resources, simplified_smmart_resources):
+def test_simplified(resources, simplified_resources):
     """Simple test to verify resources are simplified (no joins)."""
     actual = {}
-    for resource in smmart_resources:
+    for resource in resources:
         assert isinstance(
             resource, dict
         ), f"Expected dict, got {type(resource)} {resource}"
         simplified = SimplifiedResource.build(resource=resource).simplified
         actual[f"{simplified['resourceType']}/{simplified['id']}"] = simplified
-    print(actual)
-    assert actual == simplified_smmart_resources
+
+    assert actual == simplified_resources
 
 
-def test_flattened_document_references(smmart_local_db, smmart_docref_row):
+def test_flattened_document_references(local_db, docref_row):
     """Test the dataframer using a local database with a SMMART bundle,
     this test ensures the  DocumentReference is populated with fields from any Observation with a focus on this DocumentReference
     """
-    doc_ref_generator = smmart_local_db.flattened_document_references()
-    doc_refs = [d for d in doc_ref_generator]
+
+    # get the singular test document reference
+    doc_refs = [d for d in local_db.flattened_document_references()]
     doc_ref = doc_refs[0]
 
-    assert doc_ref == smmart_docref_row
+    assert doc_ref == docref_row
 
 
-def test_flattened_observations(
-    smmart_fixture_path, smmart_local_db, smmart_observation_dataframe
-):
+def test_flattened_observations(fixture_path, local_db, observation_dataframe):
     """Test that the"""
 
     # check metadata length is the same as number of dataframes in test fixture
-    with open(smmart_fixture_path / "Observation.ndjson") as file:
+    with open(fixture_path / "Observation.ndjson") as file:
         num_observation = len([1 for line in file if line.strip()])
     assert (
-        len(smmart_observation_dataframe) == num_observation
+        len(observation_dataframe) == num_observation
     ), "observation ndjson metadata and expected observation dataframes are not the same length, check that the fixture have the same number of rows as the metadata"
 
     # test contents of flattener
-    actual_dataframes = smmart_local_db.flattened_observations()
-    for expected, actual in zip(smmart_observation_dataframe, actual_dataframes):
+    actual_dataframes = local_db.flattened_observations()
+    for expected, actual in zip(observation_dataframe, actual_dataframes):
         assert (
             expected == actual
         ), f"Observation differs than expected, use pytest -vv flag for diff"
 
 
-def test_flattened_specimens(smmart_local_db, specimen_row):
-    """Test that the single Specimen pulls the correct fields from"""
+def test_flattened_specimens(local_db, specimen_row):
+    """Test that the Specimen metadata is populated with the correct Observation codes through Observation.focus"""
 
-    # get the document reference
-    specimen_generator = smmart_local_db.flattened_specimens()
-    specimens = [s for s in specimen_generator]
+    # get the singular test specimen
+    specimens = [s for s in local_db.flattened_specimens()]
     specimen = specimens[0]
 
     assert specimen == specimen_row
+
+
+def test_flattened_research_subjects(local_db, research_subject_row):
+    """Test that the Research Subject metadata is populated with the correct Patient information"""
+
+    local_db.connect()
+
+    # get the singular test research subject
+    research_subjects = [rs for rs in local_db.flattened_research_subjects()]
+    research_subject = research_subjects[0]
+
+    assert research_subject == research_subject_row

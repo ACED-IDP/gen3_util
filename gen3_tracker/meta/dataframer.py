@@ -537,9 +537,8 @@ class LocalFHIRDatabase:
         return simplified
 
     def flattened_research_subjects(self) -> Generator[dict, None, None]:
-        loaded_db = self
-        connection = sqlite3.connect(loaded_db.db_name)
-        cursor = connection.cursor()
+        
+        cursor = self.connect()
         cursor.execute(
             "SELECT * FROM resources where resource_type = ?", ("ResearchSubject",)
         )
@@ -566,9 +565,7 @@ class LocalFHIRDatabase:
             )
 
             yield research_subject
-
-        connection.close()
-
+    
     def flattened_document_references(self) -> Generator[dict, None, None]:
         cursor = self.connect()
         
