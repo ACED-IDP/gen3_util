@@ -474,29 +474,65 @@ class LocalFHIRDatabase:
 
         cursor = self.connect()
         cursor.execute(
+            "SELECT * FROM resources where resource_type = ?", ("Observation",)
+        )
+
+        # get focus of all observations
+        for _, _, resource  in cursor.fetchall():
+            observation = json.loads(resource)
+            
+            if focus_type and 'focus' in observation and len(observation['focus']) > 0:
+                if observation['focus'][0]['reference'] != focus_type:
+                    continue
+
+            yield self.flatten_observation(observation)
+
+    def flatten_observation(self, observation: dict) -> dict:
+        # get pointer to db
+        cursor = self.connect()
+
+        # create simplified observation
+        simplified = SimplifiedResource.build(resource=observation).simplified
+
+        # extract the corresponding .focus and append its fields
+        if 'focus' in observation and len(observation['focus']) > 0:
+            # TODO: do we need to account for multiple foci?
+            focus_key = observation['focus'][0]['reference']
+            cursor.execute("SELECT * FROM resources WHERE key = ?", (focus_key,))
+            row = cursor.fetchone()
+            assert row, f"{focus_key} not found"
+
+            _, _, resource = row
+            focus = json.loads(resource)
+            simplified.update(traverse(focus))
+
+        # extract corresponding .subject
+        simplified.update(get_subject(self, observation))
+
+        return simplified
+
+    def flattened_research_subjects(self) -> Generator[dict, None, None]:
+        loaded_db = self
+        connection = sqlite3.connect(loaded_db.db_name)
+        cursor = connection.cursor()
+        cursor.execute(
             "SELECT * FROM resources where resource_type = ?", ("ResearchSubject",)
         )
 
-        # for each research subject row
+        # get research subject and associated .subject patient
         for _, _, raw_research_subject in cursor.fetchall():
             research_subject = json.loads(raw_research_subject)
+            flat_research_subject = SimplifiedResource.build(resource=research_subject).simplified
 
-            # flatten subject and study (eg Patient)
-            subject = get_nested_value(research_subject, ["subject", "reference"])
-            research_subject["subject_type"], research_subject["subject_id"] = (
-                subject.split("/")
-            )
-            del research_subject["subject"]
+            # return with .subject (ie Patient) fields
+            patient = get_subject(self, research_subject)
+            flat_research_subject.update(patient)
 
-            study = get_nested_value(research_subject, ["study", "reference"])
-            research_subject["study"] = study.split("/")[1]
+            # TODO: get condition enrollment diagnosis
+            # if patient
 
-            # flatten identifier
-            research_subject["identifier"] = get_nested_value(
-                research_subject, ["identifier", 0, "value"]
-            )
 
-            yield research_subject
+            yield flat_research_subject
 
     def flattened_document_references(self) -> Generator[dict, None, None]:
         """generator that yields document references populated
@@ -684,10 +720,13 @@ def get_subject(db: LocalFHIRDatabase, resource: dict) -> dict:
     _, _, raw_subject = row
     subject = json.loads(raw_subject)
     return traverse(subject)
+ 
+def get_associated_resource(db: LocalFHIRDatabase, field: str, focus_type: str) -> dict:
+    '''create a dict mapping from focus ID of type focus_type to the associated set of observations'''
 
-
-def get_observations_by_focus(db: LocalFHIRDatabase, focus_resource_type: str) -> dict:
-    """create a dict mapping from focus ID of type focus_type to the associated set of observations"""
+    # checking
+    allowed_fields = ["focus", "subject"]
+    assert field in allowed_fields, f"Field not implemented, choose between {allowed_fields}"
 
     cursor = db.connect()
     cursor.execute(
@@ -699,15 +738,21 @@ def get_observations_by_focus(db: LocalFHIRDatabase, focus_resource_type: str) -
         ("Observation",),
     )
 
-    observation_by_focus_id = defaultdict(list)
+    focus_by_id = defaultdict(list)
+    for _, _, focus_resource in cursor.fetchall():
+        
+        if field == "focus":
+            focus_key = json.loads(focus_resource)["focus"][0]["reference"]
+        elif field == "subject":
+            focus_key = json.loads(focus_resource)["subject"]["reference"]
+            
 
-    # ensure focus exists and of correct resource type before adding to dict
-    for _, _, observation_resource in cursor.fetchall():
-        observation = json.loads(observation_resource)
-        focus_key = get_nested_value(observation, ["focus", 0, "reference"])
+        if focus_type in focus_key:
+            doc_ref_id = focus_key.split("/")[-1]
+            focus = json.loads(focus_resource)
+            focus_by_id[doc_ref_id].append(focus)
+    
+    return focus_by_id
 
-        if focus_key and focus_resource_type in focus_key:
-            focus_id = focus_key.split("/")[-1]
-            observation_by_focus_id[focus_id].append(observation)
-
-    return observation_by_focus_id
+def get_observations_by_focus(db: LocalFHIRDatabase, focus_type: str) -> dict:
+    return get_associated_resource(db, "focus", focus_type)
