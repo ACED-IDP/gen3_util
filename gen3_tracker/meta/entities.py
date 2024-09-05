@@ -129,6 +129,28 @@ def normalize_value(resource_dict: dict) -> tuple[Optional[str], Optional[str]]:
 
     return value_normalized, value_source
 
+def normalize_for_guppy(key: str):
+    """normalize a key so that it can be loaded into Guppy as a column name"""
+    guppy_table = str.maketrans(
+        {
+            ".": "",
+            " ": "_",
+            "[": "",
+            "]": "",
+            "'": "",
+            ")": "",
+            "(": "",
+            ",": "",
+            "/": "_per_",
+            "-": "to",
+            "#": "number",
+            "+": "_plus_",
+            "%": "percent",
+            "&": "_and_",
+        }
+    )
+    return key.translate(guppy_table)
+
 
 def traverse(resource):
     """simplify a resource's fields, returned as a dict of values,

@@ -469,26 +469,6 @@ class LocalFHIRDatabase:
         """flattens all observations, augmenting it with fields from .subject and .focus
         use focus_type if you want to subset on a particular resource, eg Specimen"""
 
-        # TODO: not used, can it be deleted?
-        normalize_table = str.maketrans(
-            {
-                ".": "",
-                " ": "_",
-                "[": "",
-                "]": "",
-                "'": "",
-                ")": "",
-                "(": "",
-                ",": "",
-                "/": "_per_",
-                "-": "to",
-                "#": "number",
-                "+": "_plus_",
-                "%": "percent",
-                "&": "_and_",
-            }
-        )
-
         cursor = self.connect()
         cursor.execute(
             "SELECT * FROM resources where resource_type = ?", ("Observation",)
@@ -508,8 +488,9 @@ class LocalFHIRDatabase:
 
         # extract the corresponding .focus and append its fields
         if 'focus' in observation and len(observation['focus']) > 0:
-            # TODO: do we need to account for multiple foci?
+            assert len(observation['focus']) > 1, "having multiple focuses for a single observation is not supported yet"
             focus_key = observation['focus'][0]['reference']
+            
             cursor.execute("SELECT * FROM resources WHERE key = ?", (focus_key,))
             row = cursor.fetchone()
             assert row, f"{focus_key} not found"
