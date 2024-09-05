@@ -13,6 +13,7 @@ from pathlib import Path
 # FIXTURES #
 ############
 
+
 @pytest.fixture()
 def document_reference_key():
     return "DocumentReference/9ae7e542-767f-4b03-a854-7ceed17152cb"
@@ -177,6 +178,7 @@ def resources(local_db):
 ##############
 # DATAFRAMES #
 ##############
+
 
 @pytest.fixture()
 def docref_row(simplified_resources, document_reference_key):

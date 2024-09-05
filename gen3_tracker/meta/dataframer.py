@@ -1,7 +1,7 @@
 ###########################
 ### LOCAL FHIR DATABASE ###
 ###########################
- 
+
 import inflection
 import json
 import ndjson
@@ -14,9 +14,16 @@ import uuid
 from collections import defaultdict
 from deepmerge import always_merger
 from functools import lru_cache
-from typing import  Dict, Generator, List
+from typing import Dict, Generator, List
 
-from gen3_tracker.meta.entities import SimplifiedResource, get_nested_value, normalize_coding, normalize_value, traverse
+from gen3_tracker.meta.entities import (
+    SimplifiedResource,
+    get_nested_value,
+    normalize_coding,
+    normalize_value,
+    traverse,
+)
+
 
 class LocalFHIRDatabase:
     def __init__(self, db_name):  # , db_name=pathlib.Path('.g3t') / 'local.db'):
@@ -39,7 +46,6 @@ class LocalFHIRDatabase:
         if self.connection:
             self.connection.commit()
             self.connection.close()
-
 
     def create_table(
         self,
@@ -80,9 +86,12 @@ class LocalFHIRDatabase:
         composite_key = f"{resource_type}/{id_}"
 
         # see if the resource already exists
-        self.cursor.execute('''
+        self.cursor.execute(
+            """
             SELECT resource FROM resources WHERE key = ?
-        ''', (composite_key,))
+        """,
+            (composite_key,),
+        )
         row = self.cursor.fetchone()
 
         # Initialize an empty dictionary to hold the resource
@@ -216,7 +225,9 @@ class LocalFHIRDatabase:
     def condition_everything(self) -> List[Dict]:
         """Return all the resources for a Condition."""
         cursor = self.connection.cursor()
-        cursor.execute(" SELECT * FROM resources where resource_type = ?", ("Condition",))
+        cursor.execute(
+            " SELECT * FROM resources where resource_type = ?", ("Condition",)
+        )
 
         resources = []
         for row in cursor.fetchall():
@@ -401,27 +412,25 @@ class LocalFHIRDatabase:
             if isinstance(value_normalized_split, list):
                 value_numeric = value_normalized_split[0]
                 if is_number(value_numeric):
-                    #print("VALUE NUMERIC: ", float(value_numeric))
+                    # print("VALUE NUMERIC: ", float(value_numeric))
                     value_normalized = float(value_numeric)
             return value_normalized
         return None
 
     def select_category(self, resource):
-        if get_nested_value(
-                resource, ["category", 0, "coding", 0]
-        ):
+        if get_nested_value(resource, ["category", 0, "coding", 0]):
             selected_coding = None
 
             # Loop through each coding entry
-            for coding in resource['category'][0]['coding']:
+            for coding in resource["category"][0]["coding"]:
                 # Check if coding system is SNOMED CT
-                if coding.get('system') == 'http://snomed.info/sct':
-                    selected_coding = coding['display']
+                if coding.get("system") == "http://snomed.info/sct":
+                    selected_coding = coding["display"]
                     break  # Found SNOMED code, exit loop
 
                 # If SNOMED code not found, select the first coding
                 if selected_coding is None:
-                    selected_coding = coding['display']
+                    selected_coding = coding["display"]
 
             # Now selected_coding contains the desired coding entry
             # Proceed with further actions or return selected_coding
@@ -442,21 +451,19 @@ class LocalFHIRDatabase:
         Returns:
             dict or None: The selected coding entry dictionary if found, or None if no coding entries exist.
         """
-        if get_nested_value(
-                resource, ["code", "coding", 0]
-        ):
+        if get_nested_value(resource, ["code", "coding", 0]):
             selected_coding = None
 
             # Loop through each coding entry
-            for coding in resource['code']['coding']:
+            for coding in resource["code"]["coding"]:
                 # Check if coding system is SNOMED CT
-                if coding.get('system') == 'http://snomed.info/sct':
-                    selected_coding = coding['display']
+                if coding.get("system") == "http://snomed.info/sct":
+                    selected_coding = coding["display"]
                     break  # Found SNOMED code, exit loop
 
                 # If SNOMED code not found, select the first coding
                 if selected_coding is None:
-                    selected_coding = coding['display']
+                    selected_coding = coding["display"]
 
             # Now selected_coding contains the desired coding entry
             # Proceed with further actions or return selected_coding
@@ -475,7 +482,7 @@ class LocalFHIRDatabase:
         )
 
         # get focus of all observations
-        for _, _, resource  in cursor.fetchall():
+        for _, _, resource in cursor.fetchall():
             observation = json.loads(resource)
             yield self.flatten_observation(observation)
 
@@ -487,10 +494,12 @@ class LocalFHIRDatabase:
         simplified = SimplifiedResource.build(resource=observation).simplified
 
         # extract the corresponding .focus and append its fields
-        if 'focus' in observation and len(observation['focus']) > 0:
-            assert len(observation['focus']) > 1, "having multiple focuses for a single observation is not supported yet"
-            focus_key = observation['focus'][0]['reference']
-            
+        if "focus" in observation and len(observation["focus"]) > 0:
+            assert (
+                len(observation["focus"]) > 1
+            ), "having multiple focuses for a single observation is not supported yet"
+            focus_key = observation["focus"][0]["reference"]
+
             cursor.execute("SELECT * FROM resources WHERE key = ?", (focus_key,))
             row = cursor.fetchone()
             assert row, f"{focus_key} not found"
@@ -517,15 +526,13 @@ class LocalFHIRDatabase:
             research_subject = json.loads(raw_research_subject)
 
             # flatten subject and study (eg Patient)
-            subject = get_nested_value(
-                research_subject, ["subject", "reference"]
+            subject = get_nested_value(research_subject, ["subject", "reference"])
+            research_subject["subject_type"], research_subject["subject_id"] = (
+                subject.split("/")
             )
-            research_subject["subject_type"], research_subject["subject_id"] = subject.split("/")
             del research_subject["subject"]
 
-            study = get_nested_value(
-                research_subject, ["study", "reference"]
-            )
+            study = get_nested_value(research_subject, ["study", "reference"])
             research_subject["study"] = study.split("/")[1]
 
             # flatten identifier
@@ -534,30 +541,37 @@ class LocalFHIRDatabase:
             )
 
             yield research_subject
-    
+
     def flattened_document_references(self) -> Generator[dict, None, None]:
         """generator that yields document references populated
-        with DocumentReference.subject fields and Observation codes through Observation.focus"""
+        with DocumentReference.subject fields and Observation codes through Observation.focus
+        """
 
         cursor = self.connect()
         resource_type = "DocumentReference"
-        
+
         # get a dict mapping focus ID to its associated observations
         observation_by_focus_id = get_observations_by_focus(self, resource_type)
-        
+
         # flatten each document reference
-        cursor.execute("SELECT * FROM resources where resource_type = ?", (resource_type,))
+        cursor.execute(
+            "SELECT * FROM resources where resource_type = ?", (resource_type,)
+        )
         for _, _, resource in cursor.fetchall():
             document_reference = json.loads(resource)
-            yield self.flattened_document_reference(document_reference, observation_by_focus_id)
-    
-    def flattened_document_reference(self, doc_ref: dict, observation_by_focus_id: dict) -> dict:
+            yield self.flattened_document_reference(
+                document_reference, observation_by_focus_id
+            )
+
+    def flattened_document_reference(
+        self, doc_ref: dict, observation_by_focus_id: dict
+    ) -> dict:
         # simplify document reference
         flat_doc_ref = SimplifiedResource.build(resource=doc_ref).simplified
-        
-        # extract the corresponding .subject and append its fields 
+
+        # extract the corresponding .subject and append its fields
         flat_doc_ref.update(get_subject(self, doc_ref))
-        
+
         # populate observation data associated with the document reference document
         if doc_ref["id"] in observation_by_focus_id:
             focus_list = observation_by_focus_id[doc_ref["id"]]
@@ -567,19 +581,26 @@ class LocalFHIRDatabase:
 
                 # add all component codes
                 for k, v in simplified_focus.items():
-                    if k in ['resourceType', 'id', 'category', 'code', 'status', 'identifier']:
+                    if k in [
+                        "resourceType",
+                        "id",
+                        "category",
+                        "code",
+                        "status",
+                        "identifier",
+                    ]:
                         continue
                     # TODO - should we prefix the component keys? e.g. observation_component_value
                     flat_doc_ref[k] = v
-        
+
         # TODO: test this based on fhir-gdc
         if "basedOn" in doc_ref:
             for i, dict_ in enumerate(doc_ref["basedOn"]):
                 doc_ref[f"basedOn_{i}"] = dict_["reference"]
             del doc_ref["basedOn"]
-        
+
         return flat_doc_ref
-    
+
     @lru_cache(maxsize=None)
     def flattened_specimens(self) -> Generator[dict, None, None]:
         """generator that yields specimens populated with Specimen.subject fields
@@ -587,39 +608,51 @@ class LocalFHIRDatabase:
 
         resource_type = "Specimen"
         cursor = self.connect()
-        
+
         # get a dict mapping focus ID to its associated observations
         observations_by_focus_id = get_observations_by_focus(self, resource_type)
-        
+
         # flatten each document reference
-        cursor.execute("SELECT * FROM resources where resource_type = ?", (resource_type,))
+        cursor.execute(
+            "SELECT * FROM resources where resource_type = ?", (resource_type,)
+        )
         for _, _, resource in cursor.fetchall():
             specimen = json.loads(resource)
             yield self.flattened_specimen(specimen, observations_by_focus_id)
-    
+
     def flattened_specimen(self, specimen: dict, observation_by_id: dict) -> dict:
         """Return the specimen with everything resolved."""
-        
+
         # create simple specimen dict
         flat_specimen = SimplifiedResource.build(resource=specimen).simplified
 
         # extract its .subject and append its fields (including id)
         flat_specimen.update(get_subject(self, specimen))
-        
+
         # populate observation codes for each associated observation
         if specimen["id"] in observation_by_id:
             observations = observation_by_id[specimen["id"]]
 
             for flat_observation in observations:
-                flat_observation = SimplifiedResource.build(resource=flat_observation).simplified
+                flat_observation = SimplifiedResource.build(
+                    resource=flat_observation
+                ).simplified
 
                 # add all observations codes
                 for k, v in flat_observation.items():
-                    if k in ['resourceType', 'id', 'category', 'code', 'status', 'identifier']:
+                    if k in [
+                        "resourceType",
+                        "id",
+                        "category",
+                        "code",
+                        "status",
+                        "identifier",
+                    ]:
                         continue
                     flat_specimen[k] = v
-        
+
         return flat_specimen
+
 
 def create_dataframe(
     directory_path: str, work_path: str, data_type: str
@@ -679,16 +712,16 @@ def is_number(s):
         return True
     except ValueError:
         return False
-    
+
 
 def get_subject(db: LocalFHIRDatabase, resource: dict) -> dict:
     """get the resource's subject field if it exists"""
 
     # ensure resource has subject field
-    subject_key = get_nested_value(resource, ['subject', 'reference'])
+    subject_key = get_nested_value(resource, ["subject", "reference"])
     if subject_key is None:
         return {}
-    
+
     # traverse the resource of the subject and return its values
     cursor = db.connect()
     cursor.execute("SELECT * FROM resources WHERE key = ?", (subject_key,))
@@ -698,16 +731,19 @@ def get_subject(db: LocalFHIRDatabase, resource: dict) -> dict:
     subject = json.loads(raw_subject)
     return traverse(subject)
 
- 
+
 def get_observations_by_focus(db: LocalFHIRDatabase, focus_resource_type: str) -> dict:
-    '''create a dict mapping from focus ID of type focus_type to the associated set of observations'''
+    """create a dict mapping from focus ID of type focus_type to the associated set of observations"""
 
     cursor = db.connect()
-    cursor.execute("""
+    cursor.execute(
+        """
         SELECT *
         FROM resources
         WHERE resource_type = ?
-    """, ("Observation",))
+    """,
+        ("Observation",),
+    )
 
     observation_by_focus_id = defaultdict(list)
 
@@ -719,5 +755,5 @@ def get_observations_by_focus(db: LocalFHIRDatabase, focus_resource_type: str) -
         if focus_key and focus_resource_type in focus_key:
             focus_id = focus_key.split("/")[-1]
             observation_by_focus_id[focus_id].append(observation)
-    
+
     return observation_by_focus_id
