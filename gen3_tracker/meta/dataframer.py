@@ -503,6 +503,53 @@ class LocalFHIRDatabase:
 
             yield flat_research_subject
 
+        # create simplified observation
+        simplified = SimplifiedResource.build(resource=observation).simplified
+
+        # extract the corresponding .focus and append its fields
+        if 'focus' in observation and len(observation['focus']) > 0:
+            # TODO: do we need to account for multiple foci?
+            focus_key = observation['focus'][0]['reference']
+            cursor.execute("SELECT * FROM resources WHERE key = ?", (focus_key,))
+            row = cursor.fetchone()
+            assert row, f"{focus_key} not found"
+
+            _, _, resource = row
+            focus = json.loads(resource)
+            simplified.update(traverse(focus))
+
+        # extract corresponding .subject
+        simplified.update(get_subject(self, observation))
+
+        return simplified
+
+    def flattened_research_subjects(self) -> Generator[dict, None, None]:
+        loaded_db = self
+        connection = sqlite3.connect(loaded_db.db_name)
+        cursor = connection.cursor()
+        cursor.execute(
+            "SELECT * FROM resources where resource_type = ?", (resource_type,)
+        )
+
+        # get research subject and associated .subject patient
+        for _, _, raw_research_subject in cursor.fetchall():
+            research_subject = json.loads(raw_research_subject)
+            flat_research_subject = SimplifiedResource.build(resource=research_subject).simplified
+
+            # return with .subject (ie Patient) fields
+            patient = get_subject(self, research_subject)
+            flat_research_subject.update(patient)
+
+            # get condition code, eg enrollment diagnosis
+            if patient["patient_id"] in conditions_by_patient_id:
+                conditions = conditions_by_patient_id[patient["patient_id"]]
+            
+                # TODO: assumes there are no duplicate column names in each condition
+                for condition in conditions:
+                    flat_research_subject.update(traverse(condition))
+
+            yield flat_research_subject
+
     def flattened_document_references(self) -> Generator[dict, None, None]:
         """generator that yields document references populated
         with DocumentReference.subject fields and Observation codes through Observation.focus
