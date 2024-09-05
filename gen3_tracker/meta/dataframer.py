@@ -496,7 +496,7 @@ class LocalFHIRDatabase:
         # extract the corresponding .focus and append its fields
         if "focus" in observation and len(observation["focus"]) > 0:
             assert (
-                len(observation["focus"]) > 1
+                len(observation["focus"]) == 1
             ), "having multiple focuses for a single observation is not supported yet"
             focus_key = observation["focus"][0]["reference"]
 
