@@ -154,7 +154,7 @@ def local_db(fixture_path: Path) -> LocalFHIRDatabase:
             # print(f"Loading {file}")
             for resource in read_ndjson_file(str(file)):
                 db.insert_data_from_dict(resource)
-        yield db
+        return db
 
 
 @pytest.fixture()
