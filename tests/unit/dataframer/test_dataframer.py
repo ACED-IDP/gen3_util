@@ -207,95 +207,6 @@ def docref_row(simplified_resources, document_reference_key):
 
 
 @pytest.fixture()
-def observation_dataframe():
-    """Based on metadata files, create an expected Observations dataframe"""
-    return [
-        {
-            "identifier": "patientX_1234-9ae7e542-767f-4b03-a854-7ceed17152cb-sequencer",
-            "resourceType": "Observation",
-            "id": "cec32723-9ede-5f24-ba63-63cb8c6a02cf",
-            "status": "final",
-            "category": "Laboratory",
-            "sequencer": "Illumina Seq 1000",
-            "index": "100bp Single index",
-            "type": "Exome",
-            "project_id": "labA_projectXYZ",
-            "read_length": "100",
-            "instrument_run_id": "234_ABC_1_8899",
-            "capture_bait_set": "Human Exom 2X",
-            "end_type": "Paired-End",
-            "capture": "emitter XT",
-            "sequencing_site": "AdvancedGeneExom",
-            "construction": "library_construction",
-            "documentreference_identifier": "9ae7e542-767f-4b03-a854-7ceed17152cb",
-            "documentreference_id": "9ae7e542-767f-4b03-a854-7ceed17152cb",
-            "documentreference_status": "current",
-            "documentreference_docStatus": "final",
-            "documentreference_date": "2024-08-21T10:53:00+00:00",
-            "documentreference_contentType": "text/fastq",
-            "documentreference_url": "file:///home/LabA/specimen_1234_labA.fq.gz",
-            "documentreference_size": 5595609484,
-            "documentreference_title": "specimen_1234_labA.fq.gz",
-            "documentreference_creation": "2024-08-21T10:53:00+00:00",
-            "documentreference_md5": "227f0a5379362d42eaa1814cfc0101b8",
-            "documentreference_source_path": "file:///home/LabA/specimen_1234_labA.fq.gz",
-            "patient_identifier": "patientX_1234",
-            "patient_id": "bc4e1aa6-cb52-40e9-8f20-594d9c84f920",
-            "patient_active": True,
-        },
-        {
-            "identifier": "patientX_1234-specimen_1234_labA-sample_type",
-            "resourceType": "Observation",
-            "id": "4e3c6b59-b1fd-5c26-a611-da4cde9fd061",
-            "status": "final",
-            "category": "Laboratory",
-            "sample_type": "Primary Solid Tumor",
-            "library_id": "12345",
-            "tissue_type": "Tumor",
-            "treatments": "Trastuzumab",
-            "allocated_for_site": "TEST Clinical Research",
-            "indexed_collection_date": "365",
-            "biopsy_specimens": "specimenA, specimenB, specimenC",
-            "biopsy_procedure_type": "Biopsy - Core",
-            "biopsy_anatomical_location": "top axillary lymph node",
-            "percent_tumor": "30",
-            "specimen_identifier": "specimen_1234_labA",
-            "specimen_id": "60c67a06-ea2d-4d24-9249-418dc77a16a9",
-            "specimen_collection": "Breast",
-            "specimen_processing": "Double-Spun",
-            "patient_identifier": "patientX_1234",
-            "patient_id": "bc4e1aa6-cb52-40e9-8f20-594d9c84f920",
-            "patient_active": True,
-        },
-        {
-            "identifier": "patientX_1234-9ae7e542-767f-4b03-a854-7ceed17152cb-Gene",
-            "resourceType": "Observation",
-            "id": "21f3411d-89a4-4bcc-9ce7-b76edb1c745f",
-            "status": "final",
-            "category": "Laboratory",
-            "Gene": "TP53",
-            "Chromosome": "chr17",
-            "result": "gain of function (GOF)",
-            "documentreference_identifier": "9ae7e542-767f-4b03-a854-7ceed17152cb",
-            "documentreference_id": "9ae7e542-767f-4b03-a854-7ceed17152cb",
-            "documentreference_status": "current",
-            "documentreference_docStatus": "final",
-            "documentreference_date": "2024-08-21T10:53:00+00:00",
-            "documentreference_contentType": "text/fastq",
-            "documentreference_url": "file:///home/LabA/specimen_1234_labA.fq.gz",
-            "documentreference_size": 5595609484,
-            "documentreference_title": "specimen_1234_labA.fq.gz",
-            "documentreference_creation": "2024-08-21T10:53:00+00:00",
-            "documentreference_md5": "227f0a5379362d42eaa1814cfc0101b8",
-            "documentreference_source_path": "file:///home/LabA/specimen_1234_labA.fq.gz",
-            "patient_identifier": "patientX_1234",
-            "patient_id": "bc4e1aa6-cb52-40e9-8f20-594d9c84f920",
-            "patient_active": True,
-        },
-    ]
-
-
-@pytest.fixture()
 def research_subject_row(simplified_resources, research_subject_key):
     """Based on metadata files, create an expected Observations dataframe"""
     return {
@@ -369,24 +280,6 @@ def test_flattened_document_references(local_db, docref_row):
     doc_ref = doc_refs[0]
 
     assert doc_ref == docref_row
-
-
-def test_flattened_observations(fixture_path, local_db, observation_dataframe):
-    """Test that the"""
-
-    # check metadata length is the same as number of dataframes in test fixture
-    with open(fixture_path / "Observation.ndjson") as file:
-        num_observation = len([1 for line in file if line.strip()])
-    assert (
-        len(observation_dataframe) == num_observation
-    ), "observation ndjson metadata and expected observation dataframes are not the same length, check that the fixture have the same number of rows as the metadata"
-
-    # test contents of flattener
-    actual_dataframes = local_db.flattened_observations()
-    for expected, actual in zip(observation_dataframe, actual_dataframes):
-        assert (
-            expected == actual
-        ), f"Observation differs than expected, use pytest -vv flag for diff"
 
 
 def test_flattened_specimens(local_db, specimen_row):

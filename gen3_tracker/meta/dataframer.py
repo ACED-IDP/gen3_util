@@ -472,47 +472,6 @@ class LocalFHIRDatabase:
             # Handle case where no coding entries exist
             return None
 
-    def flattened_observations(self) -> Generator[dict, None, None]:
-        """flattens all observations, augmenting it with fields from .subject and .focus
-        use focus_type if you want to subset on a particular resource, eg Specimen"""
-
-        cursor = self.connect()
-        cursor.execute(
-            "SELECT * FROM resources where resource_type = ?", ("Observation",)
-        )
-
-        # get focus of all observations
-        for _, _, resource in cursor.fetchall():
-            observation = json.loads(resource)
-            yield self.flatten_observation(observation)
-
-    def flatten_observation(self, observation: dict) -> dict:
-        # get pointer to db
-        cursor = self.connect()
-
-        # create simplified observation
-        simplified = SimplifiedResource.build(resource=observation).simplified
-
-        # extract the corresponding .focus and append its fields
-        if "focus" in observation and len(observation["focus"]) > 0:
-            assert (
-                len(observation["focus"]) == 1
-            ), "having multiple focuses for a single observation is not supported yet"
-            focus_key = observation["focus"][0]["reference"]
-
-            cursor.execute("SELECT * FROM resources WHERE key = ?", (focus_key,))
-            row = cursor.fetchone()
-            assert row, f"{focus_key} not found"
-
-            _, _, resource = row
-            focus = json.loads(resource)
-            simplified.update(traverse(focus))
-
-        # TODO: extract corresponding .subject
-        simplified.update(get_subject(self, observation))
-
-        return simplified
-
     def flattened_research_subjects(self) -> Generator[dict, None, None]:
         """generator that yields research subjects populated with patient fields"""
 
@@ -574,13 +533,13 @@ class LocalFHIRDatabase:
 
         # populate observation data associated with the document reference document
         if doc_ref["id"] in observation_by_focus_id:
-            focus_list = observation_by_focus_id[doc_ref["id"]]
+            associated_observations = observation_by_focus_id[doc_ref["id"]]
 
-            for focus in focus_list:
-                simplified_focus = SimplifiedResource.build(resource=focus).simplified
+            for observation in associated_observations:
+                flat_observation = SimplifiedResource.build(resource=observation).simplified
 
                 # add all component codes
-                for k, v in simplified_focus.items():
+                for k, v in flat_observation.items():
                     if k in [
                         "resourceType",
                         "id",
