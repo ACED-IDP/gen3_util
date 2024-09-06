@@ -721,12 +721,12 @@ def get_subject(db: LocalFHIRDatabase, resource: dict) -> dict:
     subject = json.loads(raw_subject)
     return traverse(subject)
  
-def get_associated_resource(db: LocalFHIRDatabase, field: str, focus_type: str) -> dict:
+def get_observations_by_reference(db: LocalFHIRDatabase, reference_field: str, focus_type: str) -> dict:
     '''create a dict mapping from focus ID of type focus_type to the associated set of observations'''
 
     # checking
     allowed_fields = ["focus", "subject"]
-    assert field in allowed_fields, f"Field not implemented, choose between {allowed_fields}"
+    assert reference_field in allowed_fields, f"Field not implemented, choose between {allowed_fields}"
 
     cursor = db.connect()
     cursor.execute(
@@ -738,21 +738,21 @@ def get_associated_resource(db: LocalFHIRDatabase, field: str, focus_type: str) 
         ("Observation",),
     )
 
-    focus_by_id = defaultdict(list)
-    for _, _, focus_resource in cursor.fetchall():
-        
-        if field == "focus":
-            focus_key = json.loads(focus_resource)["focus"][0]["reference"]
-        elif field == "subject":
-            focus_key = json.loads(focus_resource)["subject"]["reference"]
-            
+    observation_by_focus_id = defaultdict(list)
+    for _, _, observation_resource in cursor.fetchall():
+        observation = json.loads(observation_resource)
 
-        if focus_type in focus_key:
-            doc_ref_id = focus_key.split("/")[-1]
-            focus = json.loads(focus_resource)
-            focus_by_id[doc_ref_id].append(focus)
+        if reference_field == "focus":
+            focus_key = get_nested_value(observation, ["focus", 0, "reference"])
+        elif reference_field == "subject":
+            focus_key = get_nested_value(observation, ["subject", "reference"])
+            
+        if focus_key is not None and focus_type in focus_key:
+            focus_id = focus_key.split("/")[-1]
+            focus = json.loads(observation_resource)
+            observation_by_focus_id[focus_id].append(focus)
     
-    return focus_by_id
+    return observation_by_focus_id
 
 def get_observations_by_focus(db: LocalFHIRDatabase, focus_type: str) -> dict:
-    return get_associated_resource(db, "focus", focus_type)
+    return get_observations_by_reference(db, "focus", focus_type)
