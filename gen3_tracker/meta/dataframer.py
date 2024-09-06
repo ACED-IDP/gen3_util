@@ -627,15 +627,13 @@ def create_dataframe(
 
     if data_type == "DocumentReference":
         df = pd.DataFrame(db.flattened_document_references())
-    elif data_type == "Observation":
-        df = pd.DataFrame(db.flattened_observations())
     elif data_type == "ResearchSubject":
         df = pd.DataFrame(db.flattened_research_subjects())
     elif data_type == "Specimen":
         df = pd.DataFrame(db.flattened_specimens())
     else:
         raise ValueError(
-            f"{data_type} not supported yet. Supported data types are DocumentReference and Observation"
+            f"{data_type} not supported yet. Supported data types are DocumentReference, ResearchSubject, and Specimen"
         )
     assert (
         not df.empty
