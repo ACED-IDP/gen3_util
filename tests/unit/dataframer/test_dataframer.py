@@ -211,9 +211,9 @@ def research_subject_row(simplified_resources, research_subject_key):
     """Based on metadata files, create an expected Observations dataframe"""
     return {
         **simplified_resources[research_subject_key],
-        "study": "7dacd4d0-3c8e-470b-bf61-103891627d45",
-        "subject_id": "bc4e1aa6-cb52-40e9-8f20-594d9c84f920",
-        "subject_type": "Patient",
+        'patient_active': True,
+        'patient_id': 'bc4e1aa6-cb52-40e9-8f20-594d9c84f920',
+        'patient_identifier': 'patientX_1234',
     }
 
 
@@ -252,6 +252,7 @@ def test_db(local_db, expected_keys):
     for resource in resources:
         key, _, _ = resource
         actual_keys.append(key)
+        print(json.loads(resource[2])["resourceType"])
     actual_keys = sorted(actual_keys)
     print(actual_keys)
     assert actual_keys == expected_keys
@@ -294,8 +295,6 @@ def test_flattened_specimens(local_db, specimen_row):
 
 def test_flattened_research_subjects(local_db, research_subject_row):
     """Test that the Research Subject metadata is populated with the correct Patient information"""
-
-    local_db.connect()
 
     # get the singular test research subject
     research_subjects = [rs for rs in local_db.flattened_research_subjects()]
