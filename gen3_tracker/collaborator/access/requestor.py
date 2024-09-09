@@ -43,6 +43,7 @@ def format_policy(policy: dict, project_id: str, user_name: str) -> dict:
             policy['policy_id'] = policy['policy_id'].replace('PROGRAM', program).replace('PROJECT', project)
         else:
             raise ValueError(f"No resource_paths or policy_id specified, can't apply project_id {policy}")
+        policy['resource_display_name'] = f"{project_id}"
     else:
         if 'PROGRAM' in policy['resource_path'] or 'PROJECT' in policy['resource_path']:
             raise ValueError(f"specify project_id for {policy['resource_path']}")
@@ -106,7 +107,7 @@ def update(config: Config, request_id: str, status: str, auth: Gen3Auth = None) 
     })
 
 
-def add_user(config: Config, project_id: str, user_name: str, write: bool, delete: bool, auth: Gen3Auth) -> LogAccess:
+def add_user(config: Config, project_id: str, user_name: str, write: bool, delete: bool, auth: Gen3Auth, existing_requests = []) -> LogAccess:
     """Add user to project by assigning them policies."""
 
     # implement read from resource_path
@@ -127,6 +128,10 @@ def add_user(config: Config, project_id: str, user_name: str, write: bool, delet
     request_ids = []
     for policy in policies_:
         policy = format_policy(policy, project_id, user_name)
+        if policy['policy_id'] in [_['policy_id'] for _ in existing_requests]:
+            print("DBG policy already exists", policy['policy_id'])
+            continue
+
         requests.append(cp(request=policy, config=config, auth=auth).request)
         request_ids.append(requests[-1]['request_id'])
 

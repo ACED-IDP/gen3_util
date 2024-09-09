@@ -50,22 +50,15 @@ def project_add_user(config: Config, username: str, resource_path: str, write: b
             with Halo(text='Searching', spinner='line', placement='right', color='white'):
                 auth = ensure_auth(config=config)
                 existing_requests = gen3_tracker.collaborator.access.requestor.ls(config=config, mine=False, auth=auth, username=username).requests
-                existing_requests = [r for r in existing_requests if r['policy_id'].startswith(f'programs.{program}.projects.{project}')]
+                existing_requests = [r for r in existing_requests if r['resource_display_name'] == project_id]
                 needs_approval = []
-                needs_adding = False
-                if not existing_requests:
-                    needs_adding = True
-                else:
-                    if write and not any(r['policy_id'].endswith('writer') for r in existing_requests):
-                        needs_adding = True
-                if needs_adding:
-                    click.secho(f"There are no existing requests for {username}, adding them to project.", fg='yellow')
-                    _ = add_user(config, project_id, username, write, delete=False, auth=auth)
-                    needs_approval.extend(_.requests)
-                else:
-                    for request in existing_requests:
-                        if request['status'] != 'SIGNED':
-                            needs_approval.append(request)
+
+                _ = add_user(config, project_id, username, write, delete=False, auth=auth, existing_requests=existing_requests)
+                existing_requests = _.requests
+
+                for request in existing_requests:
+                    if request['status'] != 'SIGNED':
+                        needs_approval.append(request)
 
             if approve and not needs_approval:
                 click.secho(f"User {username} already has approved requests for {project_id}.", fg='yellow')
@@ -128,19 +121,22 @@ def project_rm_user(config: Config, username: str, approve: bool):
 @collaborator.command(name="ls")
 @click.pass_obj
 def project_ls_user(config: Config):
-    """List all users in project."""
+    """List all requests in project."""
     import gen3_tracker.collaborator.access.requestor
 
     with CLIOutput(config=config) as output:
         try:
             program = config.gen3.program
             project = config.gen3.project
+            project_id = f"{program}-{project}"
 
             with Halo(text='Searching', spinner='line', placement='right', color='white'):
                 auth = ensure_auth(config=config)
+                # get all requests
                 existing_requests = gen3_tracker.collaborator.access.requestor.ls(config=config, mine=False, auth=auth).requests
-                existing_requests = [r for r in existing_requests if r['policy_id'].startswith(f'programs.{program}.projects.{project}')]
-                output.update({'existing': [{'policy_id': r['policy_id'], 'request_id': r['request_id'], 'status': r['status'], 'username': r['username']} for r in existing_requests]})
+                # filter for project
+                existing_requests_for_project = [r for r in existing_requests if r.get('resource_display_name', None) == project_id]
+                output.update({'existing': [{'policy_id': r['policy_id'], 'resource_display_name': r['resource_display_name'], 'request_id': r['request_id'], 'status': r['status'], 'username': r['username'], 'updated_time': r['updated_time']} for r in existing_requests_for_project]})
 
         except Exception as e:
             output.update({'msg': str(e)})
@@ -198,8 +194,7 @@ def project_approve_request(config: Config, request_id: str, all_requests: bool)
                                                                                       auth=auth).requests
 
                     if program and project:
-                        existing_requests = [r for r in existing_requests if
-                                             r['policy_id'].startswith(f'programs.{program}.projects.{project}')]
+                        existing_requests = [r for r in existing_requests if r['resource_display_name'] == f"{program}-{project}"]
                     needs_approval = []
                     for request in existing_requests:
                         if request['status'] != 'SIGNED':
