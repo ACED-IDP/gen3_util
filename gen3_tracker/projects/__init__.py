@@ -9,7 +9,7 @@ from gen3_tracker.config import ensure_auth, Config
 
 class ProjectSummary(BaseModel):
     """Summary of a project."""
-    exists: bool = False
+    user_perms: bool = False
     """Project exists in sheepdog flag"""
     permissions: list[dict[str, Any]] = []
 
@@ -38,27 +38,10 @@ def recursive_defaultdict():
     return defaultdict(recursive_defaultdict)
 
 
-def get_projects(auth, submission) -> dict:
+def get_projects(auth) -> dict:
     """Return a dict of programs, projects and their existence flag."""
 
-    # get the list of programs in sheepdog
-    response = submission.get_programs()
-    assert 'links' in response, f'submission.get_program returned unexpected response: {response}'
-    program_links = response['links']
-    programs = [_.split('/')[-1] for _ in program_links]
-    project_links = []
-    sheepdog_projects = recursive_defaultdict()
-    # add projects to it
-    for program in programs:
-        # print(program)
-        project_links.extend(submission.get_projects(program)['links'])
-        sheepdog_projects[program]['in_sheepdog'] = True
-        sheepdog_projects[program]['projects'] = {}
-    for _ in project_links:
-        program, project = _.replace('/v0/submission/', '').split('/')
-        sheepdog_projects[program]['projects'][project] = True
-
-    # get the list of programs and projects from arborist, will be different from sheepdog
+    # get the list of programs and projects from arborist
     user = get_user(auth=auth)
     arborist_projects = recursive_defaultdict()
     for _ in user['authz'].keys():
@@ -72,8 +55,17 @@ def get_projects(auth, submission) -> dict:
         _program = _[0]
         _project = _[-1]
         arborist_projects[_program][_project]['permissions'] = permissions
+
+        # Checking for all policies granted in reader and writer role in user.yaml
+        has_read = any(_["method"]== "read" and _["service"]== "*" for _ in permissions)
+        has_read_storage = any(_["method"]== "read-storage" and _["service"]== "*" for _ in permissions)
+        has_create = any(_["method"]== "create" and _["service"]== "*" for _ in permissions)
+        has_file_upload = any(_["method"]== "file_upload" and _["service"]== "fence" for _ in permissions)
+        has_write_storage = any(_["method"]== "write-storage" and _["service"]== "*" for _ in permissions)
+        has_update = any(_["method"]== "update" and _["service"]== "*" for _ in permissions)
+
         arborist_projects[_program][_project]['exists'] = False
-        if _program in sheepdog_projects and _project in sheepdog_projects[_program]['projects']:
+        if all([has_read, has_read_storage, has_create, has_file_upload, has_write_storage, has_update]):
             arborist_projects[_program][_project]['exists'] = True
 
     return arborist_projects

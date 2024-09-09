@@ -112,13 +112,16 @@ def init(config: Config, project_id: str, approve: bool, no_server: bool, debug:
         ensure_git_repo(config)
 
         if not no_server:
-            logs.extend(initialize_project_server_side(config, project_id))
+            init_logs, approval_needed = initialize_project_server_side(config, project_id)
+            logs.extend(init_logs)
 
-            if approve:
-                run_command('g3t projects create', dry_run=config.dry_run, no_capture=True)
+            if approve and approval_needed:
                 run_command('g3t collaborator approve --all', dry_run=config.dry_run, no_capture=True)
+            elif approval_needed and not approve:
+                click.secho("Approval needed. to approve the project, a privileged user must run `g3t collaborator approve --all`", fg=INFO_COLOR, file=sys.stderr)
             else:
-                click.secho("To approve the project, a privileged user must run `g3t projects create` and `g3t collaborator approve --all`", fg=INFO_COLOR, file=sys.stderr)
+                click.secho(f"Approval not needed. Project {project_id} has approved read/write", fg=INFO_COLOR, file=sys.stderr)
+
 
         if config.debug:
             for _ in logs:

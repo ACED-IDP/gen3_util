@@ -4,7 +4,6 @@ import requests
 
 from gen3_tracker.cli import cli
 from gen3_tracker.config import ensure_auth, default
-from gen3.submission import Gen3Submission
 from gen3.query import Gen3Query
 
 
@@ -31,22 +30,6 @@ def run(runner: CliRunner, args: list[str], expected_output: list[str] = [], exp
         print(f"{file} exists.")
 
     return result
-
-
-def validate_document_in_psql_graph(did: str, auth=None):
-    """Simple query to validate a document in the graph."""
-    if not auth:
-        auth = ensure_auth(config=default())
-    gen3_submission = Gen3Submission(auth)
-    result = gen3_submission.query(query_txt="""
-        {
-            document_reference(id:"DID") {
-                id
-            }
-        }
-    """.replace("DID", did))
-    print(result)
-    assert result['data']['document_reference'][0]['id'] == did
 
 
 def validate_document_in_grip(did: str, auth=None, project_id=None):

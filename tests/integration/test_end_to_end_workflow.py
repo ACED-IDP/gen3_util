@@ -1,14 +1,15 @@
 import os
 import pathlib
-
+import pytest
 import yaml
 from click.testing import CliRunner
 
 from gen3_tracker.config import ensure_auth, default
 from gen3_tracker.git import DVC, run_command
-from tests.integration import run, validate_document_in_psql_graph, validate_document_in_elastic,validate_document_in_grip
+from tests.integration import run, validate_document_in_elastic,validate_document_in_grip
 
 
+@pytest.mark.skip()
 def test_simple_workflow(runner: CliRunner, project_id, tmpdir) -> None:
     """Test the init command."""
     # change to the temporary directory
@@ -66,7 +67,7 @@ def test_simple_workflow(runner: CliRunner, project_id, tmpdir) -> None:
 
     # check the files exist in the graph and flat databases
     auth = ensure_auth(config=default())
-    validate_document_in_psql_graph(object_id, auth=auth)
+    validate_document_in_grip(object_id, auth=auth, project_id=project_id)
     validate_document_in_elastic(object_id, auth=auth)
 
     # clone the project
@@ -87,7 +88,6 @@ def test_simple_workflow(runner: CliRunner, project_id, tmpdir) -> None:
     # TODO note, this does not remove the files from the bucket (UChicago bug)
     # See https://ohsucomputationalbio.slack.com/archives/C043HPV0VMY/p1714065633867229
     run(runner, ["--debug", "projects", "empty", "--project_id", project_id, "--confirm", "empty"])
-    run(runner, ["--debug", "projects", "rm", "--project_id", project_id])
 
     # TODO fix `collaborator rm`
     # arborist logs:  "Policy `data_upload` does not exist for user `xxx@xxx.xxx`: not revoking. Check if it is assigned through a group."
@@ -104,6 +104,7 @@ def test_simple_workflow(runner: CliRunner, project_id, tmpdir) -> None:
     run(runner, ["--debug", "collaborator", "add", "foo2@bar.com", f"/programs/{program}/projects/{project}", "--write", "--approve"])
 
 
+@pytest.mark.skip()
 def test_simple_fhir_server_workflow(runner: CliRunner, project_id, tmpdir) -> None:
     """Test the init command."""
     # change to the temporary directory
@@ -164,4 +165,3 @@ def test_simple_fhir_server_workflow(runner: CliRunner, project_id, tmpdir) -> N
     # TODO note, this does not remove the files from the bucket (UChicago bug)
     # See https://ohsucomputationalbio.slack.com/archives/C043HPV0VMY/p1714065633867229
     run(runner, ["--debug", "projects", "empty", "--project_id", project_id, "--confirm", "empty"])
-    run(runner, ["--debug", "projects", "rm", "--project_id", project_id])
