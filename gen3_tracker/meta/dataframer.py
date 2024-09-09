@@ -493,8 +493,7 @@ class LocalFHIRDatabase:
             patient = get_subject(self, research_subject)
             flat_research_subject.update(patient)
 
-            # TODO: get condition enrollment diagnosis
-            print(patient.keys())
+            # get condition code, eg enrollment diagnosis
             if patient["patient_id"] in conditions_by_patient_id:
                 conditions = conditions_by_patient_id[patient["patient_id"]]
             

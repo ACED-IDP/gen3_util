@@ -255,6 +255,7 @@ class SimplifiedFHIR(BaseModel):
             elif isinstance(v, list):
                 for elem in v:
                     if isinstance(elem, dict):
+                        # TODO: implement hierarchy of codes rather than just taking last code?
                         for value, source in normalize_coding(elem):
                             _codings[k] = value
             elif isinstance(v, dict):
@@ -382,6 +383,27 @@ class SimplifiedDocumentReference(SimplifiedFHIR):
                         continue
                     _values[k] = v
         return _values
+    
+class SimplifiedCondition(SimplifiedFHIR):
+    @computed_field
+    @property
+    def codings(self) -> dict:
+        # only go through the work if code exists
+        if "code" not in self.resource:
+            return {}
+        
+        # get field name
+        codings_dict = super().codings
+        if "category" in codings_dict:
+            key = codings_dict["category"]
+            del codings_dict["category"]
+        else:
+            key = "code"
+        
+        # TODO: implement hierarchy of codes rather than just taking last code?
+        value, _ = normalize_coding(self.resource["code"])[-1]
+        return {key: value}
+
 
 
 class SimplifiedResource(object):
@@ -396,4 +418,6 @@ class SimplifiedResource(object):
             return SimplifiedObservation(resource=resource)
         if resource_type == "DocumentReference":
             return SimplifiedDocumentReference(resource=resource)
+        if resource_type == "Condition":
+            return SimplifiedCondition(resource=resource)
         return SimplifiedFHIR(resource=resource)
