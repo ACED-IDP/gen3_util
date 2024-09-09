@@ -1,8 +1,9 @@
 from gen3_tracker.git import to_dvc, DVCItem
+from pathlib import Path
 
 
-def test_read_dvc():
-    dvc = to_dvc('tests/fixtures/hello.txt.dvc')
+def test_read_dvc(data_path: Path):
+    dvc = to_dvc(data_path / 'hello.txt.dvc')
     assert dvc
     assert dvc.outs
     assert dvc.outs[0].path == 'my-project-data/hello.txt'
