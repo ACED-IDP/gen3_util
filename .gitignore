@@ -170,4 +170,4 @@ output
 studies/
 .python-version
 
-tests/fixtures/.DS_Store
+.DS_Store
