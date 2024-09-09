@@ -26,3 +26,5 @@ pyvis==0.3.2  # see https://github.com/holoviz/holoviz/issues/25
 ndjson
 inflection
 python-dateutil
+
+deepmerge

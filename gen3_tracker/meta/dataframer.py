@@ -1,15 +1,28 @@
-import json
-import pathlib
-import sqlite3
-from functools import lru_cache
-from typing import Generator, Optional, List, Tuple, Dict
+###########################
+### LOCAL FHIR DATABASE ###
+###########################
 
 import inflection
+import json
 import ndjson
 import numpy as np
 import pandas as pd
+import pathlib
+import sqlite3
 import uuid
+
 from collections import defaultdict
+from deepmerge import always_merger
+from functools import lru_cache
+from typing import Dict, Generator, List
+
+from gen3_tracker.meta.entities import (
+    SimplifiedResource,
+    get_nested_value,
+    normalize_coding,
+    normalize_value,
+    traverse,
+)
 
 
 class LocalFHIRDatabase:
@@ -20,10 +33,16 @@ class LocalFHIRDatabase:
         self.table_created = {}  # Flag to track if the table has been created
 
     def connect(self) -> sqlite3.Cursor:
-        self.connection = sqlite3.connect(self.db_name)
-        self.cursor = self.connection.cursor()
+        """establish database connection if not established, return cursor"""
+        if self.connection is None:
+            self.connection = sqlite3.connect(self.db_name)
+        if self.cursor is None:
+            self.cursor = self.connection.cursor()
+        else:
+            return self.cursor
 
-    def disconnect(self):
+    def disconnect(self) -> None:
+        """clean up database connection"""
         if self.connection:
             self.connection.commit()
             self.connection.close()
@@ -65,6 +84,30 @@ class LocalFHIRDatabase:
             )  # Lazily create the table if not already created
 
         composite_key = f"{resource_type}/{id_}"
+
+        # see if the resource already exists
+        self.cursor.execute(
+            """
+            SELECT resource FROM resources WHERE key = ?
+        """,
+            (composite_key,),
+        )
+        row = self.cursor.fetchone()
+
+        # Initialize an empty dictionary to hold the resource
+        existing_resource = {}
+
+        # Check if the row is not None
+        if row is not None:
+            # The first element of the row contains the resource as a JSON string
+            resource_json = row[0]
+
+            # Convert the JSON string into a Python dictionary
+            existing_resource = json.loads(resource_json)
+
+        # Merge the existing resource with the new resource
+        resource = always_merger.merge(existing_resource, resource)
+
         self.cursor.execute(
             f"""
             INSERT INTO {table_name} (key, resource_type, resource)
@@ -182,7 +225,9 @@ class LocalFHIRDatabase:
     def condition_everything(self) -> List[Dict]:
         """Return all the resources for a Condition."""
         cursor = self.connection.cursor()
-        cursor.execute(" SELECT * FROM resources where resource_type = ?", ("Condition",))
+        cursor.execute(
+            " SELECT * FROM resources where resource_type = ?", ("Condition",)
+        )
 
         resources = []
         for row in cursor.fetchall():
@@ -247,47 +292,16 @@ class LocalFHIRDatabase:
         return procedure
 
     @lru_cache(maxsize=None)
-    def flattened_specimen(self, specimen_key) -> dict:
-        """Return the procedure with everything resolved."""
-        cursor = self.connection.cursor()
-        cursor.execute("SELECT * FROM resources WHERE key = ?", (specimen_key,))
-        key, resource_type, resource = cursor.fetchone()
-        specimen = json.loads(resource)
-
-        # simplify the identifier
-
-        specimen['identifier'] = specimen['identifier'][0]['value']
-        # simplify parent
-        if 'parent' in specimen.keys():
-            specimen['parent'] = specimen['parent'][0]
-
-        if "collection" in specimen:
-            for coding_normalized, coding_source in normalize_coding(
-                specimen["collection"]
-            ):
-                specimen[f"collection_{coding_source}"] = coding_normalized[0]
-            del specimen["collection"]
-        if "processing" in specimen:
-            for processing in specimen.get("processing", []):
-                for coding_normalized, coding_source in normalize_coding(processing):
-                    # if coding_normalized is a list how to map multiple normalized codings to one coding source?
-                    # Getting errors in guppy when coding normalized is a list of > 1 elements
-                    specimen[f"processing_{coding_source}"] = coding_normalized[0]
-                break  # TODO - only first one
-            del specimen["processing"]
-
-        return specimen
-
-    @lru_cache(maxsize=None)
     def flattened_condition(self, condition_key) -> dict:
         """Return the procedure with everything resolved."""
+        #  TODO - implement with gen3_tracker.meta.entites.SimplifiedFHIR
         cursor = self.connection.cursor()
         cursor.execute("SELECT * FROM resources WHERE key = ?", (condition_key,))
         key, resource_type, resource = cursor.fetchone()
         condition = json.loads(resource)
 
         # simplify the identifier
-        condition["identifier"] = self.get_nested_value(
+        condition["identifier"] = get_nested_value(
             condition, ["identifier", 0, "value"]
         )
 
@@ -298,19 +312,12 @@ class LocalFHIRDatabase:
         for coding_normalized, coding_source in normalize_coding(condition):
             condition[coding_source] = coding_normalized
         # simplify the onsetAge
-        condition["onsetAge"] = self.get_nested_value(condition, ["onsetAge", "value"])
+        condition["onsetAge"] = get_nested_value(condition, ["onsetAge", "value"])
 
         return condition
 
-    def get_nested_value(self, d: dict, keys: list):
-        for key in keys:
-            try:
-                d = d[key]
-            except (KeyError, IndexError, TypeError):
-                return None
-        return d
-
     def flattened_procedures(self) -> Generator[dict, None, None]:
+        #  TODO - implement with gen3_tracker.meta.entites.SimplifiedFHIR
         """Return all the procedures with everything resolved"""
         loaded_db = self
         connection = sqlite3.connect(loaded_db.db_name)
@@ -393,8 +400,6 @@ class LocalFHIRDatabase:
 
             yield procedure
 
-        connection.close()
-
     def handle_units(self, value_normalized: str):
         """This function is designed to attempt to remove units string suffixes
         and attempt to store values as float. The issue arises when elastic sees
@@ -407,27 +412,25 @@ class LocalFHIRDatabase:
             if isinstance(value_normalized_split, list):
                 value_numeric = value_normalized_split[0]
                 if is_number(value_numeric):
-                    #print("VALUE NUMERIC: ", float(value_numeric))
+                    # print("VALUE NUMERIC: ", float(value_numeric))
                     value_normalized = float(value_numeric)
             return value_normalized
         return None
 
     def select_category(self, resource):
-        if self.get_nested_value(
-                resource, ["category", 0, "coding", 0]
-        ):
+        if get_nested_value(resource, ["category", 0, "coding", 0]):
             selected_coding = None
 
             # Loop through each coding entry
-            for coding in resource['category'][0]['coding']:
+            for coding in resource["category"][0]["coding"]:
                 # Check if coding system is SNOMED CT
-                if coding.get('system') == 'http://snomed.info/sct':
-                    selected_coding = coding['display']
+                if coding.get("system") == "http://snomed.info/sct":
+                    selected_coding = coding["display"]
                     break  # Found SNOMED code, exit loop
 
                 # If SNOMED code not found, select the first coding
                 if selected_coding is None:
-                    selected_coding = coding['display']
+                    selected_coding = coding["display"]
 
             # Now selected_coding contains the desired coding entry
             # Proceed with further actions or return selected_coding
@@ -448,21 +451,19 @@ class LocalFHIRDatabase:
         Returns:
             dict or None: The selected coding entry dictionary if found, or None if no coding entries exist.
         """
-        if self.get_nested_value(
-                resource, ["code", "coding", 0]
-        ):
+        if get_nested_value(resource, ["code", "coding", 0]):
             selected_coding = None
 
             # Loop through each coding entry
-            for coding in resource['code']['coding']:
+            for coding in resource["code"]["coding"]:
                 # Check if coding system is SNOMED CT
-                if coding.get('system') == 'http://snomed.info/sct':
-                    selected_coding = coding['display']
+                if coding.get("system") == "http://snomed.info/sct":
+                    selected_coding = coding["display"]
                     break  # Found SNOMED code, exit loop
 
                 # If SNOMED code not found, select the first coding
                 if selected_coding is None:
-                    selected_coding = coding['display']
+                    selected_coding = coding["display"]
 
             # Now selected_coding contains the desired coding entry
             # Proceed with further actions or return selected_coding
@@ -471,136 +472,10 @@ class LocalFHIRDatabase:
             # Handle case where no coding entries exist
             return None
 
-    def flattened_observations(self) -> Generator[dict, None, None]:
-        normalize_table = str.maketrans(
-            {
-                ".": "",
-                " ": "_",
-                "[": "",
-                "]": "",
-                "'": "",
-                ")": "",
-                "(": "",
-                ",": "",
-                "/": "_per_",
-                "-": "to",
-                "#": "number",
-                "+": "_plus_",
-                "%": "percent",
-                "&": "_and_",
-            }
-        )
-
-        loaded_db = self
-        connection = sqlite3.connect(loaded_db.db_name)
-        cursor = connection.cursor()
-        cursor.execute(
-            """
-            SELECT
-                json_extract(resource, '$.subject') AS subject,
-                focus.value AS focus,
-                json(resource) as observation
-            FROM resources,
-                 json_each(json_extract(resource, '$.focus')) AS focus
-            WHERE resource_type = ?
-            ORDER BY subject, focus
-        """,
-            ("Observation",),
-        )
-
-        def get_patient_and_id(observation):
-            patient_id = str(observation["subject"]["reference"]).removeprefix(
-                "Patient/"
-            )
-            patient = loaded_db.patient(patient_id)
-            if "identifier" in patient and isinstance(patient["identifier"], list):
-                patient["identifier"] = self.get_nested_value(
-                    patient, ["identifier", 0, "value"]
-                )
-
-            return patient, patient_id
-
-        observations_by_focus = defaultdict(list)
-
-        for row in cursor:
-            observation = json.loads(row[2])
-            selected_focus = json.dumps(observation["focus"][0]["reference"])
-            observations_by_focus[selected_focus].append(observation)
-
-        # since observations are grouped by patient this works
-        for focus, observations in observations_by_focus.items():
-            patient, _ = get_patient_and_id(observations[0])
-            # keep patient id as an artifact, but the id field needs to be unique
-            patient["patient_id"] = patient["id"]
-            # Better way to mint 'patient' ids for ease of display in elastic
-            patient["id"] = uuid.uuid5(uuid.uuid3(uuid.NAMESPACE_DNS, 'aced-idp.org'), str(focus))
-            for observation in observations:
-                value_normalized, _ = normalize_value(observation)
-                # value_normalized = self.handle_units(value_normalized)
-                #print("NORMALIZED VALUE: ", value_normalized, "ID: " , observation["id"])
-                for coding_normalized, _ in normalize_coding(observation):
-                    formatted_coding = coding_normalized[0].translate(normalize_table)
-                    if value_normalized is not None:
-                        patient[formatted_coding] = value_normalized
-                        #print("FORMATTED CODING: ", formatted_coding)
-                #print("BREAK ___________________________________________________________")
-
-                observation_category = self.get_nested_value(
-                    observation, ["category", 0, "coding", 0, "code"]
-                )
-                if observation_category is not None:
-                    patient["category"] = observation_category
-
-                for component in observation.get("component", []):
-                    for coding_normalized, coding_source in normalize_coding(component):
-                        if coding_source == "code":
-                            value_normalized, _ = normalize_value(component)
-                            # value_normalized = self.handle_units(value_normalized)
-                            formatted_coding = coding_normalized[0].translate(
-                                normalize_table
-                            )
-                            if value_normalized is not None:
-                                patient[formatted_coding] = value_normalized
-                            break
-
-                for f in observation.get("focus", []):
-                    if f["reference"].startswith("Procedure/"):
-                        patient["procedure"] = f["reference"]
-                        for k, v in self.flattened_procedure(f["reference"]).items():
-                            if k not in ["id", "subject", "resourceType"]:
-                                patient[f"procedure_{k}"] = v
-
-                    elif f["reference"].startswith("Specimen/"):
-                        for k, v in self.flattened_specimen(f["reference"]).items():
-                            if k not in ["id", "subject", "resourceType"]:
-                                if k == "parent":
-                                    patient[f"specimen_{k}"] = self.get_nested_value(v, ["parent", 0, "reference"])
-                                elif k == "type":
-                                    specimen_type = self.get_nested_value(
-                                        v, ["coding", 0, "display"]
-                                    )
-                                    patient[f"specimen_{k}"] = specimen_type
-                                else:
-                                    patient[f"specimen_{k}"] = v
-
-                    elif f["reference"].startswith("Condition/"):
-                        for k, v in self.flattened_condition(f["reference"]).items():
-                            if k not in ["id", "subject", "resourceType", "encounter"]:
-                                if k == "stage":
-                                    for j, stage in enumerate(v):
-                                        stage_coding = self.get_nested_value(
-                                            stage, ["type", "coding", 0, "display"]
-                                        )
-                                        patient[f"stage_summary_{j}"] = stage_coding
-                                else:
-                                    patient[f"condition_{k}"] = v
-
-            yield patient
-
     def flattened_research_subjects(self) -> Generator[dict, None, None]:
-        loaded_db = self
-        connection = sqlite3.connect(loaded_db.db_name)
-        cursor = connection.cursor()
+        """generator that yields research subjects populated with patient fields"""
+
+        cursor = self.connect()
         cursor.execute(
             "SELECT * FROM resources where resource_type = ?", ("ResearchSubject",)
         )
@@ -610,160 +485,132 @@ class LocalFHIRDatabase:
             research_subject = json.loads(raw_research_subject)
 
             # flatten subject and study (eg Patient)
-            subject = self.get_nested_value(
-                research_subject, ["subject", "reference"]
+            subject = get_nested_value(research_subject, ["subject", "reference"])
+            research_subject["subject_type"], research_subject["subject_id"] = (
+                subject.split("/")
             )
-            research_subject["subject_type"], research_subject["subject_id"] = subject.split("/")
             del research_subject["subject"]
 
-            study = self.get_nested_value(
-                research_subject, ["study", "reference"]
-            )
+            study = get_nested_value(research_subject, ["study", "reference"])
             research_subject["study"] = study.split("/")[1]
 
             # flatten identifier
-            research_subject["identifier"] = self.get_nested_value(
+            research_subject["identifier"] = get_nested_value(
                 research_subject, ["identifier", 0, "value"]
             )
 
             yield research_subject
 
-        connection.close()
-
     def flattened_document_references(self) -> Generator[dict, None, None]:
-        loaded_db = self
-        connection = sqlite3.connect(loaded_db.db_name)
-        cursor = connection.cursor()
+        """generator that yields document references populated
+        with DocumentReference.subject fields and Observation codes through Observation.focus
+        """
+
+        cursor = self.connect()
+        resource_type = "DocumentReference"
+
+        # get a dict mapping focus ID to its associated observations
+        observation_by_focus_id = get_observations_by_focus(self, resource_type)
+
+        # flatten each document reference
         cursor.execute(
-            "SELECT * FROM resources where resource_type = ?", ("DocumentReference",)
+            "SELECT * FROM resources where resource_type = ?", (resource_type,)
         )
-
-        for _ in cursor.fetchall():
-            key, resource_type, procedure = _
-            document_reference = json.loads(procedure)
-
-            # simplify the subject
-
-            subject = document_reference.get("subject", {"reference": None})[
-                "reference"
-            ]
-
-            if subject is not None:
-                subject_type, subject_id = subject.split("/")
-                # Look for the patient reference in specimen if it is not in docref
-                if subject_type != "Patient":
-                    document_reference[f"{inflection.underscore(subject_type)}_subject"] = subject_id
-                if subject_type == "Specimen":
-                    for k, v in self.flattened_specimen(subject).items():
-                        if k == "subject":
-                            subject_type, subject_id = v["reference"].split("/")
-                            if subject_type == "Patient":
-                                document_reference["subject"] = subject_id
-
-            docref_category = self.get_nested_value(
-                document_reference, ["category", 0, "coding", 0, "code"]
+        for _, _, resource in cursor.fetchall():
+            document_reference = json.loads(resource)
+            yield self.flattened_document_reference(
+                document_reference, observation_by_focus_id
             )
-            if docref_category is not None:
-                document_reference["category"] = docref_category
 
-            # In some places like TCGA-LUAD there is more than one identifier that could be displayed
-            document_reference["identifier"] = document_reference.get(
-                "identifier", [{"value": None}]
-            )[0]["value"]
+    def flattened_document_reference(
+        self, doc_ref: dict, observation_by_focus_id: dict
+    ) -> dict:
+        # simplify document reference
+        flat_doc_ref = SimplifiedResource.build(resource=doc_ref).simplified
 
-            for elem in normalize_coding(document_reference):
-                document_reference[elem[1]] = elem[0][0]
+        # extract the corresponding .subject and append its fields
+        flat_doc_ref.update(get_subject(self, doc_ref))
 
-            # simplify the extensions
-            if (
-                self.get_nested_value(document_reference, ["content", 0, "attachment"])
-                is not None
-            ):
-                if "extension" in document_reference["content"][0]["attachment"]:
-                    for _ in document_reference["content"][0]["attachment"][
-                        "extension"
-                    ]:
-                        value_normalized, value_source = normalize_value(_)
-                        document_reference[(_["url"].split("/")[-1])] = value_normalized
+        # populate observation data associated with the document reference document
+        if doc_ref["id"] in observation_by_focus_id:
+            associated_observations = observation_by_focus_id[doc_ref["id"]]
 
-                content_url = self.get_nested_value(
-                    document_reference, ["content", 0, "attachment", "url"]
-                )
-                if content_url is not None:
-                    document_reference["source_url"] = content_url
+            for observation in associated_observations:
+                flat_observation = SimplifiedResource.build(resource=observation).simplified
 
-            if "content" in document_reference:
-                for k, v in document_reference["content"][0]["attachment"].items():
-                    if k in ["extension"]:
-                        continue
-                    if k == "size":
-                        document_reference[k] = str(v)
-                        continue
-                    document_reference[k] = v
-
-            if "basedOn" in document_reference:
-                for i, dict_ in enumerate(document_reference["basedOn"]):
-                    document_reference[f"basedOn_{i}"] = dict_["reference"]
-                del document_reference["basedOn"]
-
-            if subject is not None and subject.startswith("Patient/"):
-                _, patient_id = subject.split("/")
-                resources = [_ for _ in loaded_db.patient_everything(patient_id)]
-                resources.append(loaded_db.patient(patient_id))
-                for resource in resources:
-
-                    if resource["resourceType"] == "Patient":
-                        identifier = self.get_nested_value(
-                            resource, ["identifier", 0, "value"]
-                        )
-                        if identifier is not None:
-                            document_reference["patient"] = identifier
-                        # document_reference['patient'] = resource['identifier'][0]['value']
-                        continue
-
-                    if (
-                        resource["resourceType"] == "Condition"
-                        and f"Condition/{resource['id']}" == procedure["reason"]
-                    ):
-                        document_reference["reason"] = resource["code"]["text"]
-                        continue
-
-                    if resource["resourceType"] == "Observation":
-                        # must be focus
-                        if f"Procedure/{procedure['id']}" not in [
-                            _["reference"] for _ in resource["focus"]
-                        ]:
-                            continue
-
-                        # TODO - pick first coding, h2 allow user to specify preferred coding
-                        code = resource["code"]["coding"][0]["code"]
-
-                        value = normalize_value(resource)
-
-                        assert value is not None, f"no value for {resource['id']}"
-                        document_reference[code] = value
-
-                        continue
-
-                    # skip these
-                    if resource["resourceType"] in [
-                        "Specimen",
-                        "Procedure",
-                        "ResearchSubject",
-                        "DocumentReference",
+                # add all component codes
+                for k, v in flat_observation.items():
+                    if k in [
+                        "resourceType",
+                        "id",
+                        "category",
+                        "code",
+                        "status",
+                        "identifier",
                     ]:
                         continue
+                    # TODO - should we prefix the component keys? e.g. observation_component_value
+                    flat_doc_ref[k] = v
 
-                    # default, add entire resource as an item of the list
-                    resource_type = inflection.underscore(resource["resourceType"])
-                    if resource_type not in procedure:
-                        document_reference[resource_type] = []
-                    document_reference[resource_type].append(resource)
+        # TODO: test this based on fhir-gdc
+        if "basedOn" in doc_ref:
+            for i, dict_ in enumerate(doc_ref["basedOn"]):
+                doc_ref[f"basedOn_{i}"] = dict_["reference"]
+            del doc_ref["basedOn"]
 
-            del document_reference["content"]
-            yield document_reference
+        return flat_doc_ref
 
-        connection.close()
+    @lru_cache(maxsize=None)
+    def flattened_specimens(self) -> Generator[dict, None, None]:
+        """generator that yields specimens populated with Specimen.subject fields
+        and Observation codes through Observation.focus"""
+
+        resource_type = "Specimen"
+        cursor = self.connect()
+
+        # get a dict mapping focus ID to its associated observations
+        observations_by_focus_id = get_observations_by_focus(self, resource_type)
+
+        # flatten each document reference
+        cursor.execute(
+            "SELECT * FROM resources where resource_type = ?", (resource_type,)
+        )
+        for _, _, resource in cursor.fetchall():
+            specimen = json.loads(resource)
+            yield self.flattened_specimen(specimen, observations_by_focus_id)
+
+    def flattened_specimen(self, specimen: dict, observation_by_id: dict) -> dict:
+        """Return the specimen with everything resolved."""
+
+        # create simple specimen dict
+        flat_specimen = SimplifiedResource.build(resource=specimen).simplified
+
+        # extract its .subject and append its fields (including id)
+        flat_specimen.update(get_subject(self, specimen))
+
+        # populate observation codes for each associated observation
+        if specimen["id"] in observation_by_id:
+            observations = observation_by_id[specimen["id"]]
+
+            for flat_observation in observations:
+                flat_observation = SimplifiedResource.build(
+                    resource=flat_observation
+                ).simplified
+
+                # add all observations codes
+                for k, v in flat_observation.items():
+                    if k in [
+                        "resourceType",
+                        "id",
+                        "category",
+                        "code",
+                        "status",
+                        "identifier",
+                    ]:
+                        continue
+                    flat_specimen[k] = v
+
+        return flat_specimen
 
 
 def create_dataframe(
@@ -780,13 +627,13 @@ def create_dataframe(
 
     if data_type == "DocumentReference":
         df = pd.DataFrame(db.flattened_document_references())
-    elif data_type == "Observation":
-        df = pd.DataFrame(db.flattened_observations())
     elif data_type == "ResearchSubject":
         df = pd.DataFrame(db.flattened_research_subjects())
+    elif data_type == "Specimen":
+        df = pd.DataFrame(db.flattened_specimens())
     else:
         raise ValueError(
-            f"{data_type} not supported yet. Supported data types are DocumentReference and Observation"
+            f"{data_type} not supported yet. Supported data types are DocumentReference, ResearchSubject, and Specimen"
         )
     assert (
         not df.empty
@@ -815,117 +662,6 @@ def create_dataframe(
     return df
 
 
-def normalize_value(resource_dict: dict) -> tuple[Optional[str], Optional[str]]:
-    """return a tuple containing the normalized value and the name of the field it was derived from"""
-    value_normalized = None
-    value_source = None
-
-    if set(resource_dict.keys()) == set(["url", "extension"]):
-        assert (
-            len(resource_dict["extension"]) > 0
-        ), f"Expected at least on extension, in {resource_dict}"
-        return normalize_value(resource_dict["extension"][0])
-    if "valueQuantity" in resource_dict:
-        value = resource_dict["valueQuantity"]
-        value_normalized = f"{value['value']} {value.get('unit', '')}"
-        value_source = "valueQuantity"
-    elif "valueCodeableConcept" in resource_dict:
-        value = resource_dict["valueCodeableConcept"]
-        # For the labkey dataset, the values from the "display" keys had system specific metadata, so first check for
-        # text key populated before going for that sub optimal display value
-        if "text" in value:
-            value_normalized = value["text"]
-        else:
-            value_normalized = " ".join(
-                [coding["display"] for coding in value.get("coding", [])]
-            )
-        value_source = "valueCodeableConcept"
-    elif "valueCoding" in resource_dict:
-        value = resource_dict["valueCoding"]
-        value_normalized = value["display"]
-        value_source = "valueCoding"
-    elif "valueString" in resource_dict:
-        value_normalized = resource_dict["valueString"]
-        value_source = "valueString"
-    elif "valueCode" in resource_dict:
-        value_normalized = resource_dict["valueCode"]
-        value_source = "valueCode"
-    elif "valueBoolean" in resource_dict:
-        value_normalized = str(resource_dict["valueBoolean"])
-        value_source = "valueBoolean"
-    elif "valueInteger" in resource_dict:
-        value_normalized = str(resource_dict["valueInteger"])
-        value_source = "valueInteger"
-    elif "valueRange" in resource_dict:
-        value = resource_dict["valueRange"]
-        low = value["low"]
-        high = value["high"]
-        value_normalized = f"{low['value']} - {high['value']} {low.get('unit', '')}"
-        value_source = "valueRange"
-    elif "valueRatio" in resource_dict:
-        value = resource_dict["valueRatio"]
-        numerator = value["numerator"]
-        denominator = value["denominator"]
-        value_normalized = f"{numerator['value']} {numerator.get('unit', '')}/{denominator['value']} {denominator.get('unit', '')}"
-        value_source = "valueRatio"
-    elif "valueSampledData" in resource_dict:
-        value = resource_dict["valueSampledData"]
-        value_normalized = value["data"]
-        value_source = "valueSampledData"
-    elif "valueTime" in resource_dict:
-        value_normalized = resource_dict["valueTime"]
-        value_source = "valueTime"
-    elif "valueDateTime" in resource_dict:
-        value_normalized = resource_dict["valueDateTime"]
-        value_source = "valueDateTime"
-    elif "valuePeriod" in resource_dict:
-        value = resource_dict["valuePeriod"]
-        value_normalized = f"{value['start']} to {value['end']}"
-        value_source = "valuePeriod"
-    # for debugging...
-    # else:
-    #     raise ValueError(f"value[x] not found in {resource_dict}")
-
-    return value_normalized, value_source
-
-
-def normalize_coding(resource_dict: dict) -> List[Tuple[str, str]]:
-    def extract_coding(coding_list):
-        # return a concatenated string
-        # return ','.join([coding.get('display', '') for coding in coding_list if 'display' in coding])
-        # or alternatively return an array
-        return [coding.get("display", coding.get("code", "")) for coding in coding_list]
-
-    def find_codings_in_dict(d: dict, parent_key: str = "") -> List[Tuple[str, str]]:
-        codings = []
-        for key, value in d.items():
-            if "valueCodeableConcept" in key:
-                continue
-            if isinstance(value, list):
-                # categories are values not codings in the pivot.
-                if "category" in key:
-                    continue
-                for item in value:
-                    if isinstance(item, dict):
-                        # valudeCodeableConcept is a value in the pivot not a coding
-                        # Check if the dict contains a 'coding' list
-                        if "coding" in item and isinstance(item["coding"], list):
-                            coding_string = extract_coding(item["coding"])
-                            codings.append((coding_string, key))
-                        # Recursively search in the dict
-                        codings.extend(find_codings_in_dict(item, key))
-            elif isinstance(value, dict):
-                # Check if the dict contains a 'coding' list
-                if "coding" in value and isinstance(value["coding"], list):
-                    coding_string = extract_coding(value["coding"])
-                    codings.append((coding_string, key))
-                # Recursively search in the dict
-                codings.extend(find_codings_in_dict(value, key))
-        return codings
-
-    return find_codings_in_dict(resource_dict)
-
-
 def is_number(s):
     """Returns True if string is a number."""
     try:
@@ -933,3 +669,48 @@ def is_number(s):
         return True
     except ValueError:
         return False
+
+
+def get_subject(db: LocalFHIRDatabase, resource: dict) -> dict:
+    """get the resource's subject field if it exists"""
+
+    # ensure resource has subject field
+    subject_key = get_nested_value(resource, ["subject", "reference"])
+    if subject_key is None:
+        return {}
+
+    # traverse the resource of the subject and return its values
+    cursor = db.connect()
+    cursor.execute("SELECT * FROM resources WHERE key = ?", (subject_key,))
+    row = cursor.fetchone()
+    assert row, f"{subject_key} not found in database"
+    _, _, raw_subject = row
+    subject = json.loads(raw_subject)
+    return traverse(subject)
+
+
+def get_observations_by_focus(db: LocalFHIRDatabase, focus_resource_type: str) -> dict:
+    """create a dict mapping from focus ID of type focus_type to the associated set of observations"""
+
+    cursor = db.connect()
+    cursor.execute(
+        """
+        SELECT *
+        FROM resources
+        WHERE resource_type = ?
+    """,
+        ("Observation",),
+    )
+
+    observation_by_focus_id = defaultdict(list)
+
+    # ensure focus exists and of correct resource type before adding to dict
+    for _, _, observation_resource in cursor.fetchall():
+        observation = json.loads(observation_resource)
+        focus_key = get_nested_value(observation, ["focus", 0, "reference"])
+
+        if focus_key and focus_resource_type in focus_key:
+            focus_id = focus_key.split("/")[-1]
+            observation_by_focus_id[focus_id].append(observation)
+
+    return observation_by_focus_id
