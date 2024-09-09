@@ -57,12 +57,12 @@ def get_projects(auth) -> dict:
         arborist_projects[_program][_project]['permissions'] = permissions
 
         # Checking for all policies granted in reader and writer role in user.yaml
-        has_read = any(_["method"]== "read" and _["service"]== "*" for _ in permissions)
-        has_read_storage = any(_["method"]== "read-storage" and _["service"]== "*" for _ in permissions)
-        has_create = any(_["method"]== "create" and _["service"]== "*" for _ in permissions)
-        has_file_upload = any(_["method"]== "file_upload" and _["service"]== "fence" for _ in permissions)
-        has_write_storage = any(_["method"]== "write-storage" and _["service"]== "*" for _ in permissions)
-        has_update = any(_["method"]== "update" and _["service"]== "*" for _ in permissions)
+        has_read = any(_["method"] == "read" and _["service"] == "*" for _ in permissions)
+        has_read_storage = any(_["method"] == "read-storage" and _["service"] == "*" for _ in permissions)
+        has_create = any(_["method"] == "create" and _["service"] == "*" for _ in permissions)
+        has_file_upload = any(_["method"] == "file_upload" and _["service"] == "fence" for _ in permissions)
+        has_write_storage = any(_["method"] == "write-storage" and _["service"] == "*" for _ in permissions)
+        has_update = any(_["method"] == "update" and _["service"] == "*" for _ in permissions)
 
         arborist_projects[_program][_project]['exists'] = False
         if all([has_read, has_read_storage, has_create, has_file_upload, has_write_storage, has_update]):

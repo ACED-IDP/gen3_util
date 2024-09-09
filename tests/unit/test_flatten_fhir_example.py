@@ -36,8 +36,8 @@ def patient_dict() -> dict:
                     "text": {"status": "generated",
                              "div": "\u003cdiv xmlns\u003d\"http://www.w3.org/1999/xhtml\"\u003eKidd, Kari. SSN:\n            444555555\u003c/div\u003e"},
                     "identifier": [{"type": {
-                        "coding": [{"system": "http://terminology.hl7.org/CodeSystem/v2-0203", "code": "SS"}]},
-                                    "system": "http://hl7.org/fhir/sid/us-ssn", "value": "444555555"}], "active": True,
+                        "coding": [{"system": "http://terminology.hl7.org/CodeSystem/v2-0203", "code": "SS", "display": "Social Security number"}]},
+                        "system": "http://hl7.org/fhir/sid/us-ssn", "value": "444555555"}], "active": True,
                     "name": [{"use": "official", "family": "Kidd", "given": ["Kari"]}],
                     "telecom": [{"system": "phone", "value": "555-555-2005", "use": "work"}], "gender": "female",
                     "address": [{"use": "home", "line": ["2222 Home Street"]}],
@@ -47,39 +47,101 @@ def patient_dict() -> dict:
 
 @pytest.fixture
 def specimen_dict():
-    return {"resourceType": "Specimen", "id": "denovo-3", "text": {"status": "generated",
-                                                                   "div": "\u003cdiv xmlns\u003d\"http://www.w3.org/1999/xhtml\"\u003e\u003cp\u003e\u003cb\u003eGenerated Narrative\u003c/b\u003e\u003c/p\u003e\u003cdiv style\u003d\"display: inline-block; background-color: #d9e0e7; padding: 6px; margin: 4px; border: 1px solid #8da1b4; border-radius: 5px; line-height: 60%\"\u003e\u003cp style\u003d\"margin-bottom: 0px\"\u003eResource \u0026quot;denovo-3\u0026quot; \u003c/p\u003e\u003c/div\u003e\u003cp\u003e\u003cb\u003eidentifier\u003c/b\u003e: id: 3\u003c/p\u003e\u003cp\u003e\u003cb\u003estatus\u003c/b\u003e: available\u003c/p\u003e\u003cp\u003e\u003cb\u003etype\u003c/b\u003e: Venous blood specimen \u003cspan style\u003d\"background: LightGoldenRodYellow; margin: 4px; border: 1px solid khaki\"\u003e (\u003ca href\u003d\"https://browser.ihtsdotools.org/\"\u003eSNOMED CT\u003c/a\u003e#122555007)\u003c/span\u003e\u003c/p\u003e\u003cp\u003e\u003cb\u003esubject\u003c/b\u003e: \u003ca href\u003d\"Patient-denovoFather.html\"\u003ePatient/denovoFather: John Doe\u003c/a\u003e \u0026quot; DOE\u0026quot;\u003c/p\u003e\u003cp\u003e\u003cb\u003ereceivedTime\u003c/b\u003e: 2021-01-01 01:01:01+0000\u003c/p\u003e\u003cp\u003e\u003cb\u003erequest\u003c/b\u003e: \u003ca href\u003d\"ServiceRequest-genomicServiceRequest.html\"\u003eServiceRequest/genomicServiceRequest\u003c/a\u003e\u003c/p\u003e\u003ch3\u003eCollections\u003c/h3\u003e\u003ctable class\u003d\"grid\"\u003e\u003ctr\u003e\u003ctd\u003e-\u003c/td\u003e\u003ctd\u003e\u003cb\u003eCollector\u003c/b\u003e\u003c/td\u003e\u003ctd\u003e\u003cb\u003eCollected[x]\u003c/b\u003e\u003c/td\u003e\u003ctd\u003e\u003cb\u003eQuantity\u003c/b\u003e\u003c/td\u003e\u003ctd\u003e\u003cb\u003eMethod\u003c/b\u003e\u003c/td\u003e\u003c/tr\u003e\u003ctr\u003e\u003ctd\u003e*\u003c/td\u003e\u003ctd\u003e\u003ca href\u003d\"Practitioner-practitioner01.html\"\u003ePractitioner/practitioner01\u003c/a\u003e \u0026quot; DOEL\u0026quot;\u003c/td\u003e\u003ctd\u003e2021-01-01 01:01:00+0000\u003c/td\u003e\u003ctd\u003e1 mL\u003c/td\u003e\u003ctd\u003eLine, Venous \u003cspan style\u003d\"background: LightGoldenRodYellow; margin: 4px; border: 1px solid khaki\"\u003e (\u003ca href\u003d\"http://terminology.hl7.org/3.1.0/CodeSystem-v2-0488.html\"\u003especimenCollectionMethod\u003c/a\u003e#LNV)\u003c/span\u003e\u003c/td\u003e\u003c/tr\u003e\u003c/table\u003e\u003c/div\u003e"},
-            "identifier": [{"system": "http://www.somesystemabc.net/identifiers/specimens", "value": "3"}],
-            "status": "available", "type": {
-            "coding": [{"system": "http://snomed.info/sct", "code": "122555007", "display": "Venous blood specimen"}]},
-            "subject": {"reference": "Patient/denovoFather", "display": "John Doe"},
-            "receivedTime": "2021-01-01T01:01:01Z", "request": [{"reference": "ServiceRequest/genomicServiceRequest"}],
-            "collection": {"collector": {"reference": "Practitioner/practitioner01"},
-                           "collectedDateTime": "2021-01-01T01:01:00Z", "quantity": {"value": 1, "unit": "mL"},
-                           "method": {
-                               "coding": [{"system": "http://terminology.hl7.org/CodeSystem/v2-0488", "code": "LNV"}]}}}
+    return {
+        "resourceType": "Specimen",
+        "id": "denovo-3",
+        "text": {
+            "status": "generated",
+            "div": "\u003cdiv xmlns\u003d\"http://www.w3.org/1999/xhtml\"\u003e\u003cp\u003e\u003cb\u003eGenerated Narrative\u003c/b\u003e\u003c/p\u003e\u003cdiv style\u003d\"display: inline-block; background-color: #d9e0e7; padding: 6px; margin: 4px; border: 1px solid #8da1b4; border-radius: 5px; line-height: 60%\"\u003e\u003cp style\u003d\"margin-bottom: 0px\"\u003eResource \u0026quot;denovo-3\u0026quot; \u003c/p\u003e\u003c/div\u003e\u003cp\u003e\u003cb\u003eidentifier\u003c/b\u003e: id: 3\u003c/p\u003e\u003cp\u003e\u003cb\u003estatus\u003c/b\u003e: available\u003c/p\u003e\u003cp\u003e\u003cb\u003etype\u003c/b\u003e: Venous blood specimen \u003cspan style\u003d\"background: LightGoldenRodYellow; margin: 4px; border: 1px solid khaki\"\u003e (\u003ca href\u003d\"https://browser.ihtsdotools.org/\"\u003eSNOMED CT\u003c/a\u003e#122555007)\u003c/span\u003e\u003c/p\u003e\u003cp\u003e\u003cb\u003esubject\u003c/b\u003e: \u003ca href\u003d\"Patient-denovoFather.html\"\u003ePatient/denovoFather: John Doe\u003c/a\u003e \u0026quot; DOE\u0026quot;\u003c/p\u003e\u003cp\u003e\u003cb\u003ereceivedTime\u003c/b\u003e: 2021-01-01 01:01:01+0000\u003c/p\u003e\u003cp\u003e\u003cb\u003erequest\u003c/b\u003e: \u003ca href\u003d\"ServiceRequest-genomicServiceRequest.html\"\u003eServiceRequest/genomicServiceRequest\u003c/a\u003e\u003c/p\u003e\u003ch3\u003eCollections\u003c/h3\u003e\u003ctable class\u003d\"grid\"\u003e\u003ctr\u003e\u003ctd\u003e-\u003c/td\u003e\u003ctd\u003e\u003cb\u003eCollector\u003c/b\u003e\u003c/td\u003e\u003ctd\u003e\u003cb\u003eCollected[x]\u003c/b\u003e\u003c/td\u003e\u003ctd\u003e\u003cb\u003eQuantity\u003c/b\u003e\u003c/td\u003e\u003ctd\u003e\u003cb\u003eMethod\u003c/b\u003e\u003c/td\u003e\u003c/tr\u003e\u003ctr\u003e\u003ctd\u003e*\u003c/td\u003e\u003ctd\u003e\u003ca href\u003d\"Practitioner-practitioner01.html\"\u003ePractitioner/practitioner01\u003c/a\u003e \u0026quot; DOEL\u0026quot;\u003c/td\u003e\u003ctd\u003e2021-01-01 01:01:00+0000\u003c/td\u003e\u003ctd\u003e1 mL\u003c/td\u003e\u003ctd\u003eLine, Venous \u003cspan style\u003d\"background: LightGoldenRodYellow; margin: 4px; border: 1px solid khaki\"\u003e (\u003ca href\u003d\"http://terminology.hl7.org/3.1.0/CodeSystem-v2-0488.html\"\u003especimenCollectionMethod\u003c/a\u003e#LNV)\u003c/span\u003e\u003c/td\u003e\u003c/tr\u003e\u003c/table\u003e\u003c/div\u003e"},
+        "identifier": [
+            {
+                "system": "http://www.somesystemabc.net/identifiers/specimens",
+                "value": "3"}],
+        "status": "available",
+        "type": {
+            "coding": [
+                {
+                    "system": "http://snomed.info/sct",
+                    "code": "122555007",
+                            "display": "Venous blood specimen"}]},
+        "subject": {
+            "reference": "Patient/denovoFather",
+            "display": "John Doe"},
+        "receivedTime": "2021-01-01T01:01:01Z",
+        "request": [
+            {
+                "reference": "ServiceRequest/genomicServiceRequest"}],
+        "collection": {
+            "collector": {
+                "reference": "Practitioner/practitioner01"},
+            "collectedDateTime": "2021-01-01T01:01:00Z",
+            "quantity": {
+                "value": 1,
+                "unit": "mL"},
+            "method": {
+                "coding": [
+                    {
+                        "system": "http://terminology.hl7.org/CodeSystem/v2-0488",
+                        "code": "LNV",
+                        "display": "Line, Venous"}]}}}
 
 
 @pytest.fixture
 def observation_eye_color_dict():
-    return {"resourceType": "Observation", "id": "eye-color", "text": {"status": "generated",
-                                                                       "div": "\u003cdiv xmlns\u003d\"http://www.w3.org/1999/xhtml\"\u003e\u003cp\u003e\u003cb\u003eGenerated Narrative: Observation\u003c/b\u003e\u003ca name\u003d\"eye-color\"\u003e \u003c/a\u003e\u003ca name\u003d\"hceye-color\"\u003e \u003c/a\u003e\u003c/p\u003e\u003cdiv style\u003d\"display: inline-block; background-color: #d9e0e7; padding: 6px; margin: 4px; border: 1px solid #8da1b4; border-radius: 5px; line-height: 60%\"\u003e\u003cp style\u003d\"margin-bottom: 0px\"\u003eResource Observation \u0026quot;eye-color\u0026quot; \u003c/p\u003e\u003c/div\u003e\u003cp\u003e\u003cb\u003estatus\u003c/b\u003e: final\u003c/p\u003e\u003cp\u003e\u003cb\u003ecode\u003c/b\u003e: eye color \u003cspan style\u003d\"background: LightGoldenRodYellow; margin: 4px; border: 1px solid khaki\"\u003e ()\u003c/span\u003e\u003c/p\u003e\u003cp\u003e\u003cb\u003esubject\u003c/b\u003e: \u003ca href\u003d\"patient-example.html\"\u003ePatient/example\u003c/a\u003e \u0026quot;Peter CHALMERS\u0026quot;\u003c/p\u003e\u003cp\u003e\u003cb\u003eeffective\u003c/b\u003e: 2016-05-18\u003c/p\u003e\u003cp\u003e\u003cb\u003evalue\u003c/b\u003e: blue\u003c/p\u003e\u003c/div\u003e"},
-            "status": "final", "code": {"text": "eye color"}, "subject": {"reference": "Patient/example"},
-            "effectiveDateTime": "2016-05-18", "valueString": "blue"}
+    return {
+        "resourceType": "Observation",
+        "id": "eye-color",
+        "text": {
+            "status": "generated",
+            "div": "\u003cdiv xmlns\u003d\"http://www.w3.org/1999/xhtml\"\u003e\u003cp\u003e\u003cb\u003eGenerated Narrative: Observation\u003c/b\u003e\u003ca name\u003d\"eye-color\"\u003e \u003c/a\u003e\u003ca name\u003d\"hceye-color\"\u003e \u003c/a\u003e\u003c/p\u003e\u003cdiv style\u003d\"display: inline-block; background-color: #d9e0e7; padding: 6px; margin: 4px; border: 1px solid #8da1b4; border-radius: 5px; line-height: 60%\"\u003e\u003cp style\u003d\"margin-bottom: 0px\"\u003eResource Observation \u0026quot;eye-color\u0026quot; \u003c/p\u003e\u003c/div\u003e\u003cp\u003e\u003cb\u003estatus\u003c/b\u003e: final\u003c/p\u003e\u003cp\u003e\u003cb\u003ecode\u003c/b\u003e: eye color \u003cspan style\u003d\"background: LightGoldenRodYellow; margin: 4px; border: 1px solid khaki\"\u003e ()\u003c/span\u003e\u003c/p\u003e\u003cp\u003e\u003cb\u003esubject\u003c/b\u003e: \u003ca href\u003d\"patient-example.html\"\u003ePatient/example\u003c/a\u003e \u0026quot;Peter CHALMERS\u0026quot;\u003c/p\u003e\u003cp\u003e\u003cb\u003eeffective\u003c/b\u003e: 2016-05-18\u003c/p\u003e\u003cp\u003e\u003cb\u003evalue\u003c/b\u003e: blue\u003c/p\u003e\u003c/div\u003e"},
+        "status": "final",
+        "code": {
+            "text": "eye color"},
+        "subject": {
+            "reference": "Patient/example"},
+        "effectiveDateTime": "2016-05-18",
+        "valueString": "blue"}
 
 
 @pytest.fixture
 def observation_bmi_dict():
-    return {"resourceType": "Observation", "id": "bmi-using-related", "text": {"status": "generated",
-                                                                               "div": "\u003cdiv xmlns\u003d\"http://www.w3.org/1999/xhtml\"\u003e\u003cp\u003e\u003cb\u003eGenerated Narrative: Observation\u003c/b\u003e\u003ca name\u003d\"bmi-using-related\"\u003e \u003c/a\u003e\u003ca name\u003d\"hcbmi-using-related\"\u003e \u003c/a\u003e\u003c/p\u003e\u003cdiv style\u003d\"display: inline-block; background-color: #d9e0e7; padding: 6px; margin: 4px; border: 1px solid #8da1b4; border-radius: 5px; line-height: 60%\"\u003e\u003cp style\u003d\"margin-bottom: 0px\"\u003eResource Observation \u0026quot;bmi-using-related\u0026quot; \u003c/p\u003e\u003c/div\u003e\u003cp\u003e\u003cb\u003estatus\u003c/b\u003e: \u003cspan title\u003d\"  \u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d need to fix vitals to removed fixed value \u0027has-member\u0027 \u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\n\t\u0026lt;meta\u0026gt;\n\t\t\u0026lt;profile value\u003d\u0026quot;http://hl7.org/fhir/StructureDefinition/vitalsigns\u0026quot;/\u0026gt;\n\t\u0026lt;/meta\u0026gt;\n     \"\u003efinal\u003c/span\u003e\u003c/p\u003e\u003cp\u003e\u003cb\u003ecategory\u003c/b\u003e: Vital Signs \u003cspan style\u003d\"background: LightGoldenRodYellow; margin: 4px; border: 1px solid khaki\"\u003e (\u003ca href\u003d\"http://terminology.hl7.org/5.5.0/CodeSystem-observation-category.html\"\u003eObservation Category Codes\u003c/a\u003e#vital-signs)\u003c/span\u003e\u003c/p\u003e\u003cp\u003e\u003cb\u003ecode\u003c/b\u003e: BMI \u003cspan style\u003d\"background: LightGoldenRodYellow; margin: 4px; border: 1px solid khaki\"\u003e (\u003ca href\u003d\"https://loinc.org/\"\u003eLOINC\u003c/a\u003e#39156-5 \u0026quot;Body mass index (BMI) [Ratio]\u0026quot;)\u003c/span\u003e\u003c/p\u003e\u003cp\u003e\u003cb\u003esubject\u003c/b\u003e: \u003ca href\u003d\"patient-example.html\"\u003ePatient/example\u003c/a\u003e \u0026quot;Peter CHALMERS\u0026quot;\u003c/p\u003e\u003cp\u003e\u003cb\u003eeffective\u003c/b\u003e: 1999-07-02\u003c/p\u003e\u003cp\u003e\u003cb\u003evalue\u003c/b\u003e: 16.2 kg/m2\u003cspan style\u003d\"background: LightGoldenRodYellow\"\u003e (Details: UCUM code kg/m2 \u003d \u0027kg/m2\u0027)\u003c/span\u003e\u003c/p\u003e\u003cp\u003e\u003cb\u003ederivedFrom\u003c/b\u003e: \u003c/p\u003e\u003cul\u003e\u003cli\u003e\u003ca href\u003d\"broken-link.html\"\u003eObservation/bodyheight: Body Height\u003c/a\u003e\u003c/li\u003e\u003cli\u003e\u003ca href\u003d\"observation-example.html\"\u003eObservation/example: Body Weight\u003c/a\u003e\u003c/li\u003e\u003c/ul\u003e\u003c/div\u003e"},
-            "status": "final", "category": [{"coding": [
-            {"system": "http://terminology.hl7.org/CodeSystem/observation-category", "code": "vital-signs",
-             "display": "Vital Signs"}], "text": "Vital Signs"}], "code": {
-            "coding": [{"system": "http://loinc.org", "code": "39156-5", "display": "Body mass index (BMI) [Ratio]"}],
-            "text": "BMI"}, "subject": {"reference": "Patient/example"}, "effectiveDateTime": "1999-07-02",
-            "valueQuantity": {"value": 16.2, "unit": "kg/m2", "system": "http://unitsofmeasure.org", "code": "kg/m2"},
-            "derivedFrom": [{"reference": "Observation/bodyheight", "display": "Body Height"},
-                            {"reference": "Observation/example", "display": "Body Weight"}]}
+    return {
+        "resourceType": "Observation",
+        "id": "bmi-using-related",
+        "text": {
+            "status": "generated",
+            "div": "\u003cdiv xmlns\u003d\"http://www.w3.org/1999/xhtml\"\u003e\u003cp\u003e\u003cb\u003eGenerated Narrative: Observation\u003c/b\u003e\u003ca name\u003d\"bmi-using-related\"\u003e \u003c/a\u003e\u003ca name\u003d\"hcbmi-using-related\"\u003e \u003c/a\u003e\u003c/p\u003e\u003cdiv style\u003d\"display: inline-block; background-color: #d9e0e7; padding: 6px; margin: 4px; border: 1px solid #8da1b4; border-radius: 5px; line-height: 60%\"\u003e\u003cp style\u003d\"margin-bottom: 0px\"\u003eResource Observation \u0026quot;bmi-using-related\u0026quot; \u003c/p\u003e\u003c/div\u003e\u003cp\u003e\u003cb\u003estatus\u003c/b\u003e: \u003cspan title\u003d\"  \u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d need to fix vitals to removed fixed value \u0027has-member\u0027 \u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\u003d\n\t\u0026lt;meta\u0026gt;\n\t\t\u0026lt;profile value\u003d\u0026quot;http://hl7.org/fhir/StructureDefinition/vitalsigns\u0026quot;/\u0026gt;\n\t\u0026lt;/meta\u0026gt;\n     \"\u003efinal\u003c/span\u003e\u003c/p\u003e\u003cp\u003e\u003cb\u003ecategory\u003c/b\u003e: Vital Signs \u003cspan style\u003d\"background: LightGoldenRodYellow; margin: 4px; border: 1px solid khaki\"\u003e (\u003ca href\u003d\"http://terminology.hl7.org/5.5.0/CodeSystem-observation-category.html\"\u003eObservation Category Codes\u003c/a\u003e#vital-signs)\u003c/span\u003e\u003c/p\u003e\u003cp\u003e\u003cb\u003ecode\u003c/b\u003e: BMI \u003cspan style\u003d\"background: LightGoldenRodYellow; margin: 4px; border: 1px solid khaki\"\u003e (\u003ca href\u003d\"https://loinc.org/\"\u003eLOINC\u003c/a\u003e#39156-5 \u0026quot;Body mass index (BMI) [Ratio]\u0026quot;)\u003c/span\u003e\u003c/p\u003e\u003cp\u003e\u003cb\u003esubject\u003c/b\u003e: \u003ca href\u003d\"patient-example.html\"\u003ePatient/example\u003c/a\u003e \u0026quot;Peter CHALMERS\u0026quot;\u003c/p\u003e\u003cp\u003e\u003cb\u003eeffective\u003c/b\u003e: 1999-07-02\u003c/p\u003e\u003cp\u003e\u003cb\u003evalue\u003c/b\u003e: 16.2 kg/m2\u003cspan style\u003d\"background: LightGoldenRodYellow\"\u003e (Details: UCUM code kg/m2 \u003d \u0027kg/m2\u0027)\u003c/span\u003e\u003c/p\u003e\u003cp\u003e\u003cb\u003ederivedFrom\u003c/b\u003e: \u003c/p\u003e\u003cul\u003e\u003cli\u003e\u003ca href\u003d\"broken-link.html\"\u003eObservation/bodyheight: Body Height\u003c/a\u003e\u003c/li\u003e\u003cli\u003e\u003ca href\u003d\"observation-example.html\"\u003eObservation/example: Body Weight\u003c/a\u003e\u003c/li\u003e\u003c/ul\u003e\u003c/div\u003e"},
+        "status": "final",
+        "category": [
+            {
+                "coding": [
+                    {
+                        "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+                        "code": "vital-signs",
+                        "display": "Vital Signs"}],
+                "text": "Vital Signs"}],
+        "code": {
+            "coding": [
+                {
+                    "system": "http://loinc.org",
+                    "code": "39156-5",
+                    "display": "Body mass index (BMI) [Ratio]"}],
+            "text": "BMI"},
+        "subject": {
+            "reference": "Patient/example"},
+        "effectiveDateTime": "1999-07-02",
+        "valueQuantity": {
+            "value": 16.2,
+            "unit": "kg/m2",
+            "system": "http://unitsofmeasure.org",
+            "code": "kg/m2"},
+        "derivedFrom": [
+            {
+                "reference": "Observation/bodyheight",
+                "display": "Body Height"},
+            {
+                "reference": "Observation/example",
+                "display": "Body Weight"}]}
 
 
 # flatteners ------------------------------------------------------------

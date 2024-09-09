@@ -6,10 +6,10 @@ from click.testing import CliRunner
 
 from gen3_tracker.config import ensure_auth, default
 from gen3_tracker.git import DVC, run_command
-from tests.integration import run, validate_document_in_elastic,validate_document_in_grip
+from tests.integration import run, validate_document_in_elastic, validate_document_in_grip
 
 
-@pytest.mark.skip()
+@pytest.mark.skip(reason="dataframer is not currently operational for adding single file use case")
 def test_simple_workflow(runner: CliRunner, project_id, tmpdir) -> None:
     """Test the init command."""
     # change to the temporary directory
@@ -57,7 +57,7 @@ def test_simple_workflow(runner: CliRunner, project_id, tmpdir) -> None:
     run(runner, ["--debug", "meta", "graph"], expected_files=["meta.html"])
 
     # create a dataframe
-    run(runner,  ["--debug", "meta", "dataframe", '--data_type', 'DocumentReference'], expected_files=["meta.csv"])
+    run(runner, ["--debug", "meta", "dataframe", '--data_type', 'DocumentReference'], expected_files=["meta.csv"])
 
     # push to the server
     run(runner, ["--debug", "push"])
@@ -104,7 +104,7 @@ def test_simple_workflow(runner: CliRunner, project_id, tmpdir) -> None:
     run(runner, ["--debug", "collaborator", "add", "foo2@bar.com", f"/programs/{program}/projects/{project}", "--write", "--approve"])
 
 
-@pytest.mark.skip()
+@pytest.mark.skip(reason="dataframer is not currently operational for adding single file use case")
 def test_simple_fhir_server_workflow(runner: CliRunner, project_id, tmpdir) -> None:
     """Test the init command."""
     # change to the temporary directory
@@ -158,7 +158,7 @@ def test_simple_fhir_server_workflow(runner: CliRunner, project_id, tmpdir) -> N
     auth = ensure_auth(config=default())
 
     # elastic not currently working with this dataframer etl image with specific metadata.
-    #validate_document_in_elastic(object_id, auth=auth)
+    # validate_document_in_elastic(object_id, auth=auth)
     validate_document_in_grip(object_id, auth=auth, project_id=project_id)
 
     # remove the project from the server.

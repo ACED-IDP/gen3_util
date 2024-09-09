@@ -22,7 +22,6 @@ import pytz
 import yaml
 from fhir.resources.documentreference import DocumentReference
 from fhir.resources.identifier import Identifier
-from fhir.resources.operationoutcome import OperationOutcome
 from fhir.resources.bundle import Bundle, BundleEntry, BundleEntryRequest
 
 from gen3.auth import Gen3AuthError
@@ -34,8 +33,7 @@ from tqdm import tqdm
 import gen3_tracker
 from gen3_tracker import Config
 from gen3_tracker.common import CLIOutput, INFO_COLOR, ERROR_COLOR, is_url, filter_dicts, SUCCESS_COLOR, \
-    read_ndjson_file, create_id
-from gen3_tracker.config import default, init as config_init
+    read_ndjson_file
 from gen3_tracker.config import init as config_init, ensure_auth
 from gen3_tracker.git import git_files, to_indexd, to_remote, dvc_data, \
     data_file_changes, modified_date, git_status, DVC, MISSING_G3T_MESSAGE
@@ -45,7 +43,7 @@ from gen3_tracker.git.adder import url_path, write_dvc_file
 from gen3_tracker.git.cloner import ls
 from gen3_tracker.git.initializer import initialize_project_server_side
 from gen3_tracker.git.snapshotter import push_snapshot
-from gen3_tracker.meta.skeleton import meta_index, _get_system, get_data_from_meta
+from gen3_tracker.meta.skeleton import meta_index, get_data_from_meta
 from gen3_tracker.common import _default_json_serializer
 # logging.basicConfig(level=logging.INFO)
 _logger = logging.getLogger(__package__)
@@ -121,7 +119,6 @@ def init(config: Config, project_id: str, approve: bool, no_server: bool, debug:
                 click.secho("Approval needed. to approve the project, a privileged user must run `g3t collaborator approve --all`", fg=INFO_COLOR, file=sys.stderr)
             else:
                 click.secho(f"Approval not needed. Project {project_id} has approved read/write", fg=INFO_COLOR, file=sys.stderr)
-
 
         if config.debug:
             for _ in logs:
@@ -234,7 +231,7 @@ def add(ctx, target, no_git_add: bool):
 
 
 @cli.command(context_settings=dict(ignore_unknown_options=True, allow_extra_args=True))
-@click.argument('targets',  nargs=-1)
+@click.argument('targets', nargs=-1)
 @click.option('--message', '-m', help='The commit message.')
 @click.option('--all', '-a', is_flag=True, default=False, help='Automatically stage files that have been modified and deleted.')
 @click.pass_context
@@ -271,7 +268,7 @@ def status(config):
             # Filter out directories, keep only files
             files = [f for f in files if os.path.isfile(f)]
         if not files:
-            click.secho(f"No files have been added.", fg=INFO_COLOR, file=sys.stderr)
+            click.secho("No files have been added.", fg=INFO_COLOR, file=sys.stderr)
         else:
             # Find the most recently changed file
             latest_file = max(files, key=os.path.getmtime)
@@ -368,7 +365,7 @@ def push(ctx, step: str, transfer_method: str, overwrite: bool, re_run: bool, wa
 
             # check git status
             branch, uncommitted = git_status()
-            assert not uncommitted, f"Uncommitted changes found.  Please commit or stash them first."
+            assert not uncommitted, "Uncommitted changes found.  Please commit or stash them first."
 
             # check dvc vs external files
             changes = data_file_changes(pathlib.Path('MANIFEST'))
@@ -389,7 +386,7 @@ def push(ctx, step: str, transfer_method: str, overwrite: bool, re_run: bool, wa
             if step not in ["publish", "fhir"]:
                 if not overwrite:
                     dvc_objects = new_dvc_objects + updated_dvc_objects
-                    assert dvc_objects, f"No new files to index.  Use --overwrite to force"
+                    assert dvc_objects, "No new files to index.  Use --overwrite to force"
 
         click.secho(f'Scanned new: {len(new_dvc_objects)}, updated: {len(updated_dvc_objects)} files', fg=INFO_COLOR, file=sys.stderr)
         if updated_dvc_objects:
@@ -441,20 +438,20 @@ def push(ctx, step: str, transfer_method: str, overwrite: bool, re_run: bool, wa
             meta_dir = pathlib.Path('META')
             bundle_file = meta_dir / "Bundle.ndjson"
             if os.path.isfile(bundle_file):
-                 with Halo(text='Sending to FHIR Server', spinner='line', placement='right', color='white'):
-                     with open(bundle_file, "r") as file:
-                         json_string = file.read()
-                     bundle_data = orjson.loads(json_string)
-                     headers = {"Authorization": f"{auth._access_token}"}
-                     result = requests.delete(url=f'{auth.endpoint}/Bundle', data=orjson.dumps(bundle_data, default=_default_json_serializer,
-                                 option=orjson.OPT_APPEND_NEWLINE).decode(), headers=headers)
+                with Halo(text='Sending to FHIR Server', spinner='line', placement='right', color='white'):
+                    with open(bundle_file, "r") as file:
+                        json_string = file.read()
+                    bundle_data = orjson.loads(json_string)
+                    headers = {"Authorization": f"{auth._access_token}"}
+                    result = requests.delete(url=f'{auth.endpoint}/Bundle', data=orjson.dumps(bundle_data, default=_default_json_serializer,
+                                                                                              option=orjson.OPT_APPEND_NEWLINE).decode(), headers=headers)
 
-                 with open("logs/publish.log", 'a') as f:
-                     log_msg = {'timestamp': datetime.now(pytz.UTC).isoformat(), "result": f"{result}"}
-                     click.secho(f'Published project. See logs/publish.log', fg=SUCCESS_COLOR, file=sys.stderr)
-                     f.write(json.dumps(log_msg, separators=(',', ':')))
-                     f.write('\n')
-                 return
+                with open("logs/publish.log", 'a') as f:
+                    log_msg = {'timestamp': datetime.now(pytz.UTC).isoformat(), "result": f"{result}"}
+                    click.secho('Published project. See logs/publish.log', fg=SUCCESS_COLOR, file=sys.stderr)
+                    f.write(json.dumps(log_msg, separators=(',', ':')))
+                    f.write('\n')
+                return
 
             project_id = config.gen3.project_id
             now = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%S.%fZ")
@@ -468,19 +465,18 @@ def push(ctx, step: str, transfer_method: str, overwrite: bool, re_run: bool, wa
                 bundle_entry = BundleEntry()
                 # See https://build.fhir.org/bundle-definitions.html#Bundle.entry.request.url
                 bundle_entry.request = BundleEntryRequest(url=f"{_['resourceType']}/{_['id']}", method='PUT')
-                bundle_entry.resource =_
+                bundle_entry.resource = _
                 bundle.entry.append(bundle_entry)
-
 
             headers = {"Authorization": f"{auth._access_token}"}
             bundle_dict = bundle.dict()
             with Halo(text='Sending to FHIR Server', spinner='line', placement='right', color='white'):
                 result = requests.put(url=f'{auth.endpoint}/Bundle', data=orjson.dumps(bundle_dict, default=_default_json_serializer,
-                            option=orjson.OPT_APPEND_NEWLINE).decode(), headers=headers)
+                                                                                       option=orjson.OPT_APPEND_NEWLINE).decode(), headers=headers)
 
             with open("logs/publish.log", 'a') as f:
                 log_msg = {'timestamp': datetime.now(pytz.UTC).isoformat(), "result": f"{result}"}
-                click.secho(f'Published project. See logs/publish.log', fg=SUCCESS_COLOR, file=sys.stderr)
+                click.secho('Published project. See logs/publish.log', fg=SUCCESS_COLOR, file=sys.stderr)
                 f.write(json.dumps(log_msg, separators=(',', ':')))
                 f.write('\n')
             return
@@ -494,7 +490,7 @@ def push(ctx, step: str, transfer_method: str, overwrite: bool, re_run: bool, wa
                 with Halo(text='Publishing', spinner='line', placement='right', color='white') as spinner:
                     # legacy, "old" fhir_import_export use publish_commits to publish the META
                     _ = publish_commits(config, wait=wait, auth=auth, bucket_name=bucket_name, spinner=spinner)
-                click.secho(f'Published project. See logs/publish.log', fg=SUCCESS_COLOR, file=sys.stderr)
+                click.secho('Published project. See logs/publish.log', fg=SUCCESS_COLOR, file=sys.stderr)
                 with open("logs/publish.log", 'a') as f:
                     log_msg = {'timestamp': datetime.now(pytz.UTC).isoformat()}
                     log_msg.update(_)
@@ -534,7 +530,6 @@ def manifest(project_id) -> tuple[list[str], list[DVC]]:
 def pull(config: Config, remote: str, worker_count: int, data_only: bool):
     """ Fetch from and integrate with a remote repository."""
     try:
-        from gen3_tracker.git.cloner import find_latest_snapshot, ls
 
         with Halo(text='Authorizing', spinner='line', placement='right', color='white'):
             auth = gen3_tracker.config.ensure_auth(config=config)
@@ -707,7 +702,6 @@ def ls_cli(config: Config, long_flag: bool, target: str):
     TARGET wild card match of guid, path or hash.
     """
     try:
-        from gen3_tracker.git.cloner import find_latest_snapshot, ls
 
         with Halo(text='Pulling file list', spinner='line', placement='right', color='white'):
             auth = gen3_tracker.config.ensure_auth(config=config)
@@ -738,7 +732,7 @@ def ls_cli(config: Config, long_flag: bool, target: str):
                         'indexd_created_date': _['created_date'],
                         'meta': _dvc_meta(dvc_objects.get(_['did'], None)),
                         'urls': _['urls']
-                     } for _ in indexd_records
+                    } for _ in indexd_records
                 ]
 
         bucket_ids = {_['did'] for _ in indexd_records}
@@ -861,7 +855,6 @@ def ping(config: Config):
             _['endpoint'] = auth.endpoint
             _['username'] = auth.curl('/user/user').json()['username']
         output.update(_)
-
 
 
 # @cli.command()

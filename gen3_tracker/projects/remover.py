@@ -3,7 +3,6 @@ import asyncio
 from gen3.jobs import Gen3Jobs
 
 from gen3_tracker.config import Config, ensure_auth
-from gen3_tracker.projects import ProjectSummaries
 
 
 def empty(config: Config, project_id: str, wait: bool = True) -> dict:

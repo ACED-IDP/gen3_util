@@ -3,7 +3,7 @@ import sys
 import click
 from halo import Halo
 
-from gen3_tracker import NaturalOrderGroup, ENV_VARIABLE_PREFIX
+from gen3_tracker import NaturalOrderGroup
 from gen3_tracker.collaborator.access.requestor import update
 from gen3_tracker.common import CLIOutput, assert_config, ERROR_COLOR, validate_email
 from gen3_tracker.config import Config, ensure_auth
@@ -75,7 +75,7 @@ def project_add_user(config: Config, username: str, resource_path: str, write: b
                     {
                         'needs_approval': [{'policy_id': r['policy_id'], 'request_id': r['request_id'], 'status': r['status'], 'username': r['username']} for r in needs_approval],
                         'msg': f"An authorized user must approve these requests to add {username} to {project_id} see --approve",
-                     })
+                    })
             else:
                 approvals = []
                 with Halo(text='Approving', spinner='line', placement='right', color='white'):
@@ -127,7 +127,7 @@ def project_rm_user(config: Config, username: str, approve: bool):
 
 @collaborator.command(name="ls")
 @click.pass_obj
-def project_rm_user(config: Config):
+def project_ls_user(config: Config):
     """List all users in project."""
     import gen3_tracker.collaborator.access.requestor
 
@@ -179,7 +179,7 @@ def project_ls_pending(config: Config):
 
 @collaborator.command(name="approve")
 @click.option('--request_id', required=False, help='Sign only this request')
-@click.option('--all',  'all_requests', required=False, is_flag=True, help='Sign all requests')
+@click.option('--all', 'all_requests', required=False, is_flag=True, help='Sign all requests')
 @click.pass_obj
 def project_approve_request(config: Config, request_id: str, all_requests: bool):
     """Sign an existing request (privileged)."""
@@ -230,7 +230,7 @@ def project_approve_request(config: Config, request_id: str, all_requests: bool)
 @click.argument('resource_path', required=True)
 @click.option('--approve', '-a', help='Approve the addition (privileged)', is_flag=True, default=False, show_default=True)
 @click.pass_obj
-def add_steward(config: Config,  resource_path: str, user_name: str, approve: bool):
+def add_steward(config: Config, resource_path: str, user_name: str, approve: bool):
     """Add a data steward user with approval rights to a program.
 
     \b

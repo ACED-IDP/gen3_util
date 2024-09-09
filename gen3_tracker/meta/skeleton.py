@@ -2,7 +2,7 @@ import pathlib
 import uuid
 from datetime import datetime
 from pytz import UTC
-from typing import List, Generator
+from typing import Generator
 
 import orjson
 from fhir.resources.attachment import Attachment
@@ -56,9 +56,9 @@ def meta_index():
 
     return id_dict
 
+
 def get_data_from_meta() -> Generator[int, None, None]:
     """Read all the ndjson files in the `META` directory and return a generator that produces all records"""
-    fhir_list = []
     meta_dir = pathlib.Path('META')
 
     for file in meta_dir.glob('*.ndjson'):
@@ -315,8 +315,8 @@ def update_meta_files(dry_run=False, project_id=None) -> list[str]:
 
         with EmitterContextManager('META') as emitter:
             emitter.emit(bundle.resource_type, file_mode='a').write(
-                    bundle.json(option=orjson.OPT_APPEND_NEWLINE)
-                )
+                bundle.json(option=orjson.OPT_APPEND_NEWLINE)
+            )
 
     after_meta_files = [_ for _ in pathlib.Path('META').glob('*.ndjson')]
     new_meta_files = [str(_) for _ in after_meta_files if _ not in before_meta_files]

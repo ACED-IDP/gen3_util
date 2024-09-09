@@ -230,7 +230,6 @@ def custom(path: [str, pathlib.Path]):
 def init(config: Config, project_id: str) -> Generator[str, None, None]:
     """Create an empty repository, adjust and write config file"""
 
-    logger = logging.getLogger(__name__)
     assert project_id, "project_id is missing"
     assert project_id.count('-') == 1, f"{project_id} should have a single '-' delimiter."
 

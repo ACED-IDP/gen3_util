@@ -230,7 +230,7 @@ class DVC(BaseModel):
                 if msg not in LOGGED_ALREADY:
                     logging.getLogger(__package__).warning(msg)
                     LOGGED_ALREADY.add(msg)
-        assert attachment.url.replace('file:///', '') == dvc_object.out.path, f"attachment and dvc path doesn't match"
+        assert attachment.url.replace('file:///', '') == dvc_object.out.path, "attachment and dvc path doesn't match"
         assert document_reference.id == dvc_object.object_id, f"Did not get expected ID {config.gen3.project_id} {attachment.url}/{document_reference.id} {dvc_object.out.path}/{dvc_object.object_id}"
         return dvc_object
 
@@ -297,7 +297,7 @@ def git_status() -> dict:
 
 def git_ls(dry_run: bool = False) -> list[dict]:
     """List the files in the git repository"""
-    results = run_command(f'git ls-files', dry_run=dry_run)
+    results = run_command('git ls-files', dry_run=dry_run)
     return json.loads(results.stdout)
 
 
@@ -523,6 +523,7 @@ class IndexdWriter(LoggingWriter):
 
 class MockJobWriter(LoggingWriter):
     """Submit a job to the submission service, return response."""
+
     def save(self, _dvc: dict) -> dict:
         self.logger.info(f'Saving {_dvc}')
         return {'job_info': ["TODO"]}  # {"job_info": ["TODO
@@ -563,6 +564,7 @@ def to_s3(dvc):
 
 class S3RemoteWriter(LoggingWriter):
     """Write files to S3."""
+
     def __init__(self, log_file=None, remote=None, work_dir=None):
         assert remote is not None, 'remote is required'
         super().__init__(log_file)
@@ -589,6 +591,7 @@ class S3RemoteWriter(LoggingWriter):
 
 class Gen3ClientRemoteWriter(LoggingWriter):
     """Write files to Gen3 using gen3-client."""
+
     def __init__(self, log_file=None, remote=None, work_dir=None):
         assert remote is not None, 'remote is required'
         super().__init__(log_file)
@@ -667,7 +670,7 @@ def to_remote(upload_method, dvc_objects, bucket_name, profile, dry_run, work_di
 
 def to_job(zip_file):
     """Upload zip files to submission"""
-    with MockJobWriter(log_file=f"logs/mock-job.log") as job_writer:
+    with MockJobWriter(log_file="logs/mock-job.log") as job_writer:
         # TODO - add to remote
         job_writer.save(zip_file)
         time.sleep(3)

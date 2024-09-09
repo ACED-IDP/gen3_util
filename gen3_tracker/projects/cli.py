@@ -2,7 +2,7 @@ import sys
 
 import click
 
-from gen3_tracker.common import CLIOutput, assert_config, ERROR_COLOR
+from gen3_tracker.common import CLIOutput
 from gen3_tracker.config import Config, ensure_auth
 from gen3_tracker.gen3.buckets import get_buckets
 from gen3_tracker.projects.lister import ls
