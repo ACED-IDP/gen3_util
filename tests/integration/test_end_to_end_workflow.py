@@ -1,5 +1,6 @@
 import os
 import pathlib
+import pytest
 
 import yaml
 from click.testing import CliRunner
@@ -13,14 +14,12 @@ def test_simple_workflow(runner: CliRunner, project_id, tmpdir) -> None:
     """Test the init command."""
     # change to the temporary directory
     assert tmpdir.chdir()
-    print(pathlib.Path.cwd())
+    print("working directory:", pathlib.Path.cwd())
+    print("project_id:", project_id)
 
-    assert os.environ.get("G3T_PROFILE"), "G3T_PROFILE environment variable must be set."
+    assert os.environ.get("G3T_PROFILE"), "Profile not found. Make sure to set and export G3T_PROFILE."
 
-    print(project_id)
-
-    run(runner, ["--debug", "init", project_id, "--approve"],
-        expected_files=[".g3t", ".git"])
+    run(runner, ["--debug", "init", project_id, "--approve"], expected_files=[".g3t", ".git"])
 
     # create a test file
     test_file = pathlib.Path("my-project-data/hello.txt")
@@ -28,12 +27,12 @@ def test_simple_workflow(runner: CliRunner, project_id, tmpdir) -> None:
     test_file.write_text('hello\n')
 
     # add the file
-    run(runner, ["--debug", "add", str(test_file)], expected_files=["MANIFEST/my-project-data/hello.txt.dvc"])
+    dvc_file = pathlib.Path(f"MANIFEST/{test_file}.dvc")
+    run(runner, ["--debug", "add", str(test_file)], expected_files=[dvc_file])
 
     # should create a dvc file
-    dvc_path = pathlib.Path("MANIFEST/my-project-data/hello.txt.dvc")
-    assert dvc_path.exists(), f"{dvc_path} does not exist."
-    with open(dvc_path) as f:
+    assert dvc_file.exists(), f"generated DVC {dvc_file} does not exist."
+    with open(dvc_file) as f:
         yaml_data = yaml.safe_load(f)
     assert yaml_data
     dvc = DVC.model_validate(yaml_data)
@@ -42,6 +41,7 @@ def test_simple_workflow(runner: CliRunner, project_id, tmpdir) -> None:
     # capture expected object_id
     dvc.project_id = project_id
     object_id = dvc.object_id
+    print("object_id:", object_id)
 
     # create the meta file
     run(runner, ["--debug", "meta", "init"], expected_files=["META/DocumentReference.ndjson"])
@@ -66,22 +66,23 @@ def test_simple_workflow(runner: CliRunner, project_id, tmpdir) -> None:
 
     # check the files exist in the graph and flat databases
     auth = ensure_auth(config=default())
-    validate_document_in_psql_graph(object_id, auth=auth)
+
+    # TODO: replace with grip testing
+    # validate_document_in_psql_graph(object_id, auth=auth)
+
     validate_document_in_elastic(object_id, auth=auth)
 
-    # clone the project
-
-    # create a new directory, cd to it
-    os.mkdir("clone")
-    os.chdir("clone")
-
-    # clone the project
+    # clone the project in new directory
+    clone_dir = pathlib.Path("clone")
+    os.mkdir(clone_dir)
+    os.chdir(clone_dir)
     run(runner, ["--debug", "clone", project_id])
+
     # pull the data
     run(runner, ["--debug", "pull"])
+    
     # check the files exist in the cloned directory
-    run_command("ls -l")
-    assert pathlib.Path("my-project-data/hello.txt").exists(), "hello.txt does not exist in the cloned directory."
+    assert test_file.exists(), "hello.txt does not exist in the cloned directory."
 
     # remove the project from the server.
     # TODO note, this does not remove the files from the bucket (UChicago bug)
