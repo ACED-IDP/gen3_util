@@ -36,9 +36,11 @@ def test_change_patient(runner: CliRunner, project_id, tmpdir) -> None:
     """Ensure bundle gets created when `meta init` orphans records."""
     # change to the temporary directory
     assert tmpdir.chdir()
-    print(pathlib.Path.cwd())
 
-    print(project_id)
+
+    print("current_dir:", pathlib.Path.cwd())
+    print("project_id:", project_id)
+    assert os.environ.get("G3T_PROFILE"), "Profile not found. Make sure to set and export G3T_PROFILE."
 
     run(runner, ["--debug", "init", project_id, "--approve", "--no-server"],
         expected_files=[".g3t", ".git"])
@@ -65,7 +67,11 @@ def test_change_file(runner: CliRunner, project_id, tmpdir) -> None:
     """Ensure bundle gets created when `meta init` orphans records.."""
     # change to the temporary directory
     assert tmpdir.chdir()
-    print(pathlib.Path.cwd())
+
+    print("current_dir:", pathlib.Path.cwd())
+    print("project_id:", project_id)
+    
+    assert os.environ.get("G3T_PROFILE"), "Profile not found. Make sure to set and export G3T_PROFILE."
 
     print(project_id)
 

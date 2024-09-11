@@ -39,9 +39,11 @@ def test_bucket_import(runner: CliRunner, project_id, tmpdir) -> None:
     """Test import from sources other than filesystem."""
     # change to the temporary directory
     assert tmpdir.chdir()
-    print(pathlib.Path.cwd())
 
-    print(project_id)
+    print("current_dir:", pathlib.Path.cwd())
+    print("project_id:", project_id)
+
+    assert os.environ.get("G3T_PROFILE"), "Profile not found. Make sure to set and export G3T_PROFILE."
 
     run(runner, ["--debug", "init", project_id, "--approve", "--no-server"],
         expected_files=[".g3t", ".git"])
