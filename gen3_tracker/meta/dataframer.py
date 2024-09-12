@@ -538,24 +538,11 @@ class LocalFHIRDatabase:
         # populate observation data associated with the document reference document
         if doc_ref["id"] in observation_by_focus_id:
             associated_observations = observation_by_focus_id[doc_ref["id"]]
-
+            
             # TODO: assumes there are no duplicate column names in each observation
             for observation in associated_observations:
-                flat_observation = SimplifiedResource.build(resource=observation).simplified
-
-                # add all component codes
-                for k, v in flat_observation.items():
-                    if k in [
-                        "resourceType",
-                        "id",
-                        "category",
-                        "code",
-                        "status",
-                        "identifier",
-                    ]:
-                        continue
-                    # TODO - should we prefix the component keys? e.g. observation_component_value
-                    flat_doc_ref[k] = v
+                flat_observation = SimplifiedResource.build(resource=observation).values
+                flat_doc_ref.update(flat_observation)
 
         # TODO: test this based on fhir-gdc
         if "basedOn" in doc_ref:
@@ -598,23 +585,9 @@ class LocalFHIRDatabase:
             observations = observation_by_id[specimen["id"]]
 
             # TODO: assumes there are no duplicate column names in each observation
-            for flat_observation in observations:
-                flat_observation = SimplifiedResource.build(
-                    resource=flat_observation
-                ).simplified
-
-                # add all observations codes
-                for k, v in flat_observation.items():
-                    if k in [
-                        "resourceType",
-                        "id",
-                        "category",
-                        "code",
-                        "status",
-                        "identifier",
-                    ]:
-                        continue
-                    flat_specimen[k] = v
+            for observation in observations:
+                flat_observation = SimplifiedResource.build(resource=observation).values
+                flat_specimen.update(flat_observation)
 
         return flat_specimen
 
@@ -693,7 +666,7 @@ def get_subject(db: LocalFHIRDatabase, resource: dict) -> dict:
     return traverse(subject)
  
 def get_resources_by_reference(db: LocalFHIRDatabase, resource_type: str, reference_field: str, reference_type: str) -> dict[str, list]:
-    '''given a set of resources of type resource_type, map each unique reference in reference field of type reference_type to its associated resources 
+    '''given a set of rescode ources of type resource_type, map each unique reference in reference field of type reference_type to its associated resources 
     ex: use all Observations with a Specimen focus, map Specimen IDs to its list of associated Observations and return the map'''
 
     # ensure reference field is allowed
@@ -710,9 +683,8 @@ def get_resources_by_reference(db: LocalFHIRDatabase, resource_type: str, refere
         (resource_type,),
     )
 
-    observation_by_reference_id = defaultdict(list)
+    resource_by_reference_id = defaultdict(list)
 
-    print(f"looking for {resource_type}")
     for _, _, raw_resource in cursor.fetchall():
         resource = json.loads(raw_resource)
 
@@ -729,9 +701,9 @@ def get_resources_by_reference(db: LocalFHIRDatabase, resource_type: str, refere
         reference_key = get_nested_value(resource, [*nested_keys, "reference"])
         if reference_key is not None and reference_type in reference_key:
             reference_id = reference_key.split("/")[-1]
-            observation_by_reference_id[reference_id].append(resource)
+            resource_by_reference_id[reference_id].append(resource)
     
-    return observation_by_reference_id
+    return resource_by_reference_id
 
 def get_observations_by_focus(db: LocalFHIRDatabase, focus_type: str) -> dict[str, list]:
     '''get all Observations that have a focus of resource type focus_type'''
