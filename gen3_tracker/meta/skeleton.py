@@ -2,6 +2,7 @@ import pathlib
 import uuid
 from datetime import datetime
 from pytz import UTC
+from typing import Generator
 
 import orjson
 from fhir.resources.attachment import Attachment
@@ -54,6 +55,21 @@ def meta_index():
                     id_dict[f"{resource_type}/{_id}"] = official_identifier
 
     return id_dict
+
+
+def get_data_from_meta() -> Generator[int, None, None]:
+    """Read all the ndjson files in the `META` directory and return a generator that produces all records"""
+    meta_dir = pathlib.Path('META')
+
+    for file in meta_dir.glob('*.ndjson'):
+        with open(file, 'r') as f:
+            for line in f:
+                record = orjson.loads(line)
+                resource_type = record.get('resourceType')
+                if resource_type == 'Bundle':
+                    break
+
+                yield record
 
 
 def update_document_reference(document_reference: DocumentReference, dvc_data: DVC):
@@ -154,6 +170,7 @@ def create_skeleton(dvc: dict, project_id: str, meta_index: set[str] = []) -> li
     document_reference = DocumentReference(status='current', content=[{'attachment': {'url': "file://"}}])
     document_reference.id = document_reference_id
     document_reference.identifier = [
+
         Identifier(value=document_reference_id, system=_get_system(document_reference_id, project_id=project_id),
                    use='official')]
     update_document_reference(document_reference, dvc)
@@ -284,7 +301,7 @@ def update_meta_files(dry_run=False, project_id=None) -> list[str]:
         now = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%S.%fZ")
         bundle = Bundle(type='transaction', timestamp=now)
 
-        bundle.identifier = Identifier(value=now, system=_get_system(project_id, project_id=project_id), use='official')
+        bundle.identifier = Identifier(value=project_id, system="https://aced-idp.org/project_id", use='official')
         bundle.id = create_id(bundle, project_id)
 
         bundle.entry = []
@@ -298,8 +315,8 @@ def update_meta_files(dry_run=False, project_id=None) -> list[str]:
 
         with EmitterContextManager('META') as emitter:
             emitter.emit(bundle.resource_type, file_mode='a').write(
-                    bundle.json(option=orjson.OPT_APPEND_NEWLINE)
-                )
+                bundle.json(option=orjson.OPT_APPEND_NEWLINE)
+            )
 
     after_meta_files = [_ for _ in pathlib.Path('META').glob('*.ndjson')]
     new_meta_files = [str(_) for _ in after_meta_files if _ not in before_meta_files]

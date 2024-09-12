@@ -66,18 +66,18 @@ def cp(config: Config,
     stat = zipfile_path.stat()
     md5_sum = calculate_hash('md5', zipfile_path)
     my_dvc = DVC(
-            meta=DVCMeta(),
-            outs=[
-                DVCItem(
-                    path=object_name,
-                    md5=md5_sum,
-                    hash='md5',
-                    modified=modified_date(zipfile_path),
-                    size=stat.st_size,
+        meta=DVCMeta(),
+        outs=[
+            DVCItem(
+                path=object_name,
+                md5=md5_sum,
+                hash='md5',
+                modified=modified_date(zipfile_path),
+                size=stat.st_size,
 
-                )
-            ]
-        )
+            )
+        ]
+    )
 
     metadata = write_indexd(
         auth=auth,
@@ -178,7 +178,7 @@ async def async_run_job_and_wait(self, job_name, job_input, spinner=None, _ssl=N
             logging.info(f"{status}")
 
     if not spinner:
-        logging.info(f"Job is finished!")
+        logging.info("Job is finished!")
     else:
         spinner.text = f"{status.get('name')} {status.get('status')}"
 

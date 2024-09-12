@@ -12,7 +12,7 @@ import gen3_tracker
 from gen3_tracker import Config
 from gen3_tracker.gen3.buckets import get_program_bucket
 from gen3_tracker.gen3.indexd import write_indexd
-from gen3_tracker.git import calculate_hash, DVC, DVCMeta, DVCItem, git_archive, modified_date, run_command
+from gen3_tracker.git import calculate_hash, DVC, DVCMeta, DVCItem, git_archive, modified_date
 
 
 def _validate_parameters(from_: str) -> pathlib.Path:
@@ -26,7 +26,6 @@ def push_snapshot(config: Config, auth: Gen3Auth, project_id: str = None, from_:
     """Zip the git repo and push it to the server."""
     # create a zip of the git repo and associate it with the project
     # TODO should we query git to get the list of files to zip?
-    files_to_zip = ['.git', 'MANIFEST', 'META', '.gitignore', '.g3t']
 
     proj_id = project_id or config.gen3.project_id
     program, _ = proj_id.split('-')
@@ -72,7 +71,7 @@ def push_snapshot(config: Config, auth: Gen3Auth, project_id: str = None, from_:
         auth = gen3_tracker.config.ensure_auth(config=config)
 
     bucket_name = get_program_bucket(config=config, program=program, auth=auth)
-    metadata = write_indexd(
+    _ = write_indexd(
         auth=auth,
         project_id=proj_id,
         bucket_name=bucket_name,

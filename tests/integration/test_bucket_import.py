@@ -1,5 +1,4 @@
 import json
-import os
 import pathlib
 
 from tests.integration import run
@@ -58,7 +57,7 @@ def test_bucket_import(runner: CliRunner, project_id, tmpdir) -> None:
             run(runner, _.split())
 
     # test the ls command
-    result = run(runner, ["--debug", "--format", "json",  "ls"])
+    result = run(runner, ["--debug", "--format", "json", "ls"])
     listing = json.loads(result.stdout)
 
     for _ in ['bucket', 'committed', 'uncommitted']:
@@ -71,13 +70,13 @@ def test_bucket_import(runner: CliRunner, project_id, tmpdir) -> None:
     run(runner, ["--debug", "commit", "-am", "initial commit"])
 
     # test the ls command, should now be in committed
-    result = run(runner, ["--debug", "--format", "json",  "ls"])
+    result = run(runner, ["--debug", "--format", "json", "ls"])
     listing = json.loads(result.stdout)
     assert len(listing['committed']) == len(SHOULD_SUCCEED)
 
     # test the ls filter
     for _ in EXPECTED_MANIFEST_PATHS:
         bucket_name = _.split('/')[1]
-        result = run(runner, ["--debug", "--format", "json",  "ls", bucket_name])
+        result = run(runner, ["--debug", "--format", "json", "ls", bucket_name])
         listing = json.loads(result.stdout)
         assert len(listing['committed']) == 1
