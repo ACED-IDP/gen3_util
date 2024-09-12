@@ -136,7 +136,14 @@ def project_ls_user(config: Config):
                 existing_requests = gen3_tracker.collaborator.access.requestor.ls(config=config, mine=False, auth=auth).requests
                 # filter for project
                 existing_requests_for_project = [r for r in existing_requests if r.get('resource_display_name', None) == project_id]
-                output.update({'existing': [{'policy_id': r['policy_id'], 'resource_display_name': r['resource_display_name'], 'request_id': r['request_id'], 'status': r['status'], 'username': r['username'], 'updated_time': r['updated_time']} for r in existing_requests_for_project]})
+                output.update({
+                                'existing': [{'policy_id': r['policy_id'],
+                                              'resource_display_name': r['resource_display_name'],
+                                              'request_id': r['request_id'],
+                                              'status': r['status'],
+                                              'username': r['username'],
+                                              'updated_time': r['updated_time']
+                                              } for r in existing_requests_for_project]})
 
         except Exception as e:
             output.update({'msg': str(e)})

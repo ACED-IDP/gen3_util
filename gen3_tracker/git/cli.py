@@ -120,7 +120,6 @@ def init(config: Config, project_id: str, approve: bool, no_server: bool, debug:
             else:
                 click.secho(f"Approval not needed. Project {project_id} has approved read/write", fg=INFO_COLOR, file=sys.stderr)
 
-
         if config.debug:
             for _ in logs:
                 click.secho(_, fg=INFO_COLOR, file=sys.stderr)

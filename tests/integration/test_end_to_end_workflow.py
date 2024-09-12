@@ -9,7 +9,7 @@ from gen3_tracker.git import DVC, run_command
 from tests.integration import run, validate_document_in_elastic, validate_document_in_grip
 
 
-#@pytest.mark.skip(reason="dataframer is not currently operational for adding single file use case")
+# @pytest.mark.skip(reason="dataframer is not currently operational for adding single file use case")
 def test_simple_workflow(runner: CliRunner, project_id, tmpdir) -> None:
     """Test the init command."""
     # change to the temporary directory
@@ -69,7 +69,6 @@ def test_simple_workflow(runner: CliRunner, project_id, tmpdir) -> None:
     auth = ensure_auth(config=default())
     validate_document_in_grip(object_id, auth=auth, project_id=project_id)
     validate_document_in_elastic(object_id, auth=auth)
-
 
     # clone the project in new directory
     clone_dir = pathlib.Path("clone")

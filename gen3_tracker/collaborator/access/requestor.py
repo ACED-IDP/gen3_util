@@ -107,7 +107,7 @@ def update(config: Config, request_id: str, status: str, auth: Gen3Auth = None) 
     })
 
 
-def add_user(config: Config, project_id: str, user_name: str, write: bool, delete: bool, auth: Gen3Auth, existing_requests = []) -> LogAccess:
+def add_user(config: Config, project_id: str, user_name: str, write: bool, delete: bool, auth: Gen3Auth, existing_requests=[]) -> LogAccess:
     """Add user to project by assigning them policies."""
 
     # implement read from resource_path
