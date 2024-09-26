@@ -1,6 +1,5 @@
 import os
 import pathlib
-import pytest
 import yaml
 from click.testing import CliRunner
 
@@ -9,7 +8,6 @@ from gen3_tracker.git import DVC, run_command
 from tests.integration import run, validate_document_in_elastic, validate_document_in_grip
 
 
-# @pytest.mark.skip(reason="dataframer is not currently operational for adding single file use case")
 def test_simple_workflow(runner: CliRunner, project_id, tmpdir) -> None:
     """Test the init command."""
     # change to the temporary directory
@@ -111,7 +109,6 @@ def test_simple_workflow(runner: CliRunner, project_id, tmpdir) -> None:
     run(runner, ["--debug", "collaborator", "add", "foo2@bar.com", f"/programs/{program}/projects/{project}", "--write", "--approve"])
 
 
-@pytest.mark.skip(reason="dataframer is not currently operational for adding single file use case")
 def test_simple_fhir_server_workflow(runner: CliRunner, project_id, tmpdir) -> None:
     """Test the init command."""
     # change to the temporary directory
@@ -167,6 +164,7 @@ def test_simple_fhir_server_workflow(runner: CliRunner, project_id, tmpdir) -> N
     # elastic not currently working with this dataframer etl image with specific metadata.
     # validate_document_in_elastic(object_id, auth=auth)
     validate_document_in_grip(object_id, auth=auth, project_id=project_id)
+    validate_document_in_elastic(object_id, auth=auth)
 
     # remove the project from the server.
     # TODO note, this does not remove the files from the bucket (UChicago bug)
