@@ -319,9 +319,8 @@ def create_id(resource, project_id) -> str:
     from gen3_tracker import ACED_NAMESPACE
     assert resource, "resource required"
     assert project_id, "project_id required"
-    # identifier string is not unique when it complies with FHIR server. Using something else
-    # identifier_string = identifier_to_string(resource.identifier)
-    return str(uuid.uuid5(ACED_NAMESPACE, f"{project_id}/{resource.resource_type}/{resource}"))
+    identifier_string = identifier_to_string(resource.identifier)
+    return str(uuid.uuid5(ACED_NAMESPACE, f"{project_id}/{resource.resource_type}/{identifier_string}"))
 
 
 class Commit(BaseModel):
