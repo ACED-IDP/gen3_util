@@ -7,6 +7,7 @@ from typing import Dict, List, Optional, Tuple
 # FHIR HELPER METHODS #
 #######################
 
+
 def get_nested_value(d: dict, keys: list):
     for key in keys:
         try:
@@ -128,6 +129,7 @@ def normalize_value(resource_dict: dict) -> tuple[Optional[str], Optional[str]]:
         # raise ValueError(f"value[x] not found in {resource_dict}")
 
     return value_normalized, value_source
+
 
 def normalize_for_guppy(key: str):
     """normalize a key so that it can be loaded into Guppy as a column name"""
@@ -421,3 +423,4 @@ class SimplifiedResource(object):
         if resource_type == "Condition":
             return SimplifiedCondition(resource=resource)
         return SimplifiedFHIR(resource=resource)
+

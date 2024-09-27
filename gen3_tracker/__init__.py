@@ -138,6 +138,7 @@ class Config(BaseModel):
 class NaturalOrderGroup(click.Group):
     """Allow listing Commands in order of appearance, with common parameters."""
     # see https://github.com/pallets/click/issues/513
+
     def __init__(self, name=None, commands=None, **attrs):
         if commands is None:
             commands = OrderedDict()

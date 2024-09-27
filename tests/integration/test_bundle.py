@@ -1,5 +1,3 @@
-import json
-import os
 import pathlib
 
 from fhir.resources.bundle import Bundle
@@ -7,7 +5,6 @@ from fhir.resources.bundle import Bundle
 from gen3_tracker.common import read_ndjson_file
 from tests.integration import run
 from click.testing import CliRunner
-import pytest
 
 
 # user made a mistake and changed the patient id,  "P1" to "P1-prime".  This will create a bundle with two entries, to delete the entries for P1 one for the patient and one for the ResearchSubject.

@@ -20,7 +20,7 @@ def access_group(config: Config):
 @click.option('--roles', show_default=True, default=None, help='Add comma-delimited role permissions to the access request, ex: --roles "storage_writer,file_uploader"')
 @click.option('--steward', show_default=True, is_flag=True, default=False, help='Add steward role to the program')
 @click.pass_obj
-def access_touch(config: Config,  resource_path: str, user_name: str, roles: str, steward: bool):
+def access_touch(config: Config, resource_path: str, user_name: str, roles: str, steward: bool):
     """Create a request a specific role.
 
     \b
@@ -98,7 +98,7 @@ def sign(config: Config, username: str, request_id: str):
 
 @access_group.command(name="ls")
 @click.option('--username', required=False, default=None, help='Sign all requests for user within a project')
-@click.option('--mine',  is_flag=True, show_default=True, default=False, help="List current user's requests. Otherwise, list all the requests the current user has access to see.")
+@click.option('--mine', is_flag=True, show_default=True, default=False, help="List current user's requests. Otherwise, list all the requests the current user has access to see.")
 @click.option('--all', 'active', is_flag=True, show_default=True, default=True, help='Only unsigned requests')
 @click.pass_obj
 def access_ls(config: Config, mine: bool, active: bool, username: str):

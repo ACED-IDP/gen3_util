@@ -6,7 +6,6 @@ from typing import Iterator, Any, Optional, Callable
 
 # TODO fix me, make configurable
 from fhir.resources import FHIRAbstractModel
-from fhir.resources.bundle import BundleEntry
 from nested_lookup import nested_lookup
 from pydantic.v1 import ValidationError, validator
 from pydantic import BaseModel, ConfigDict
@@ -88,7 +87,6 @@ def _has_entries(_: ParseResult):
 def directory_reader(directory_path: str,
                      recurse: bool = True,
                      validate: bool = False) -> Iterator[ParseResult]:
-
     """Extract FHIR resources from directory
 
     Read any type of json file, return itemized resources by iterating through Bundles and Lists

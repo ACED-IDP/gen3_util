@@ -7,13 +7,11 @@ from gen3_tracker.projects import ProjectSummaries, get_projects, ProjectSummary
 def ls(config: Config, resource_filter: str = None, msgs: list[str] = [], auth: Gen3Auth = None, full: bool = True) -> ProjectSummaries:
     """List projects."""
     # improve startup time by importing only what is needed
-    from gen3.submission import Gen3Submission
 
     if not auth:
         auth = ensure_auth(config=config)
-    submission = Gen3Submission(auth)
 
-    projects = get_projects(auth, submission)
+    projects = get_projects(auth)
 
     if full:
         project_messages = {'complete': {}, 'incomplete': {}}
@@ -27,7 +25,7 @@ def ls(config: Config, resource_filter: str = None, msgs: list[str] = [], auth: 
                 project_messages[_][
                     f"/programs/{_program}/projects/{_project}"
                 ] = ProjectSummary(
-                    in_sheepdog=projects[_program][_project]['exists'],
+                    user_perms=True if _ == 'complete' else False,
                     permissions=projects[_program][_project]['permissions'],
                 )
     else:
@@ -43,9 +41,9 @@ def ls(config: Config, resource_filter: str = None, msgs: list[str] = [], auth: 
                 else:
                     project_messages['complete'].append(f"/programs/{_program}/projects/{_project}")
         if any_incomplete:
-            msgs.append("incomplete projects are missing sheepdog records")
+            msgs.append("some available projects are missing read/write permissions")
         else:
-            msgs.append("all projects exist in sheepdog")
+            msgs.append("user has read/write permissions to all available projects")
 
     if len(project_messages) == 0:
         msgs.append("No projects found.")

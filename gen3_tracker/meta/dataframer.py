@@ -1,5 +1,5 @@
 ###########################
-### LOCAL FHIR DATABASE ###
+# LOCAL FHIR DATABASE ###
 ###########################
 
 import inflection
@@ -9,7 +9,6 @@ import numpy as np
 import pandas as pd
 import pathlib
 import sqlite3
-import uuid
 
 from collections import defaultdict
 from deepmerge import always_merger

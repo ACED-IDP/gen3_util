@@ -2,6 +2,7 @@ import csv
 import json
 import logging
 import os
+import decimal
 import pathlib
 import re
 import shutil
@@ -14,7 +15,6 @@ from typing import Mapping, Iterator, Dict, TextIO, Generator
 from urllib.parse import urlparse
 
 import click
-import dateutil
 from dateutil import parser as dateutil_parser
 
 import orjson
@@ -71,6 +71,15 @@ This is crucial to prevent unauthorized access and to comply with security and p
 
 Thank you for your cooperation in maintaining the security and confidentiality of our data.
 """
+
+
+def _default_json_serializer(obj):
+    """JSON Serializer, render decimal and bytes types."""
+    if isinstance(obj, decimal.Decimal):
+        return float(obj)
+    if isinstance(obj, bytes):
+        return obj.decode()
+    raise TypeError
 
 
 def print_formatted(config, output: Mapping) -> None:
@@ -310,8 +319,9 @@ def create_id(resource, project_id) -> str:
     from gen3_tracker import ACED_NAMESPACE
     assert resource, "resource required"
     assert project_id, "project_id required"
-    identifier_string = identifier_to_string(resource.identifier)
-    return str(uuid.uuid5(ACED_NAMESPACE, f"{project_id}/{resource.resource_type}/{identifier_string}"))
+    # identifier string is not unique when it complies with FHIR server. Using something else
+    # identifier_string = identifier_to_string(resource.identifier)
+    return str(uuid.uuid5(ACED_NAMESPACE, f"{project_id}/{resource.resource_type}/{resource}"))
 
 
 class Commit(BaseModel):
@@ -444,6 +454,7 @@ def to_metadata_dict(project_id=None, is_metadata=None, is_snapshot=None, md5=No
 
 class CommandOutput(object):
     """Output object for commands."""
+
     def __init__(self):
         self.obj = None
         self.exit_code = 0
@@ -456,6 +467,7 @@ class CommandOutput(object):
 class CLIOutput:
     """Ensure output, exceptions and exit code are returned to user consistently."""
     from gen3_tracker import Config
+
     def __init__(self, config: Config, exit_on_error: bool = True):
         self.output = CommandOutput()
         self.config = config
