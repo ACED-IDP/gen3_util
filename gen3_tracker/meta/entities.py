@@ -416,6 +416,7 @@ class SimplifiedCondition(SimplifiedFHIR):
         return {key: value}
 
 
+
 class SimplifiedResource(object):
     """A simplified FHIR resource, a factory method."""
 
