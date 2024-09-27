@@ -61,6 +61,12 @@ def simplified_resources(
             "collection": "Breast",
             "processing": "Double-Spun",
         },
+        # TODO: untested... current pulling in of Condition into ResearchSubject
+        "Condition/21daaeb4-b59d-589f-b35e-af36d4055579": {
+            "id": "21daaeb4-b59d-589f-b35e-af36d4055579",
+            "identifier": "TCGA-R6-A8W5_diagnosis",
+            "resourceType": "Condition",
+        },
         "Observation/cec32723-9ede-5f24-ba63-63cb8c6a02cf": {
             "identifier": "patientX_1234-9ae7e542-767f-4b03-a854-7ceed17152cb-sequencer",
             "resourceType": "Observation",
@@ -106,6 +112,52 @@ def simplified_resources(
             "Chromosome": "chr17",
             "result": "gain of function (GOF)",
         },
+        "Observation/3a2d2abe-290a-5731-9390-927b4affad03": {
+            "category": "Laboratory",
+            "effectiveDateTime": "2017-07-26T00:00:00",
+            "id": "3a2d2abe-290a-5731-9390-927b4affad03",
+            "identifier": "6789",
+            "resourceType": "Observation",
+            "status": "final",
+            "valueCodeableConcept": "American Joint Committee on Cancer M1a",
+        },
+        "Observation/691d801d-645f-51b7-acd0-79d865990107": {
+            "category": "Laboratory",
+            "effectiveDateTime": "2016-03-09T00:00:00",
+            "id": "691d801d-645f-51b7-acd0-79d865990107",
+            "identifier": "0032-16113-0434/enrollment_diagnosis/Sarcoma-stage_group-2016-03-09 "
+            "00:00:00.000",
+            "resourceType": "Observation",
+            "status": "final",
+            "valueCodeableConcept": "American Joint Committee on Cancer stage IVA",
+        },
+        "Observation/6a61bcc0-fa67-5399-8869-470323b62273": {
+            "category": "Laboratory",
+            "effectiveDateTime": "2017-07-26T00:00:00",
+            "id": "6a61bcc0-fa67-5399-8869-470323b62273",
+            "identifier": "99000",
+            "resourceType": "Observation",
+            "status": "final",
+            "valueCodeableConcept": "American Joint Committee on Cancer grade G2",
+        },
+        "Observation/7b1bef0e-6aaa-5ba4-8391-979c8e2c4210": {
+            "category": "Laboratory",
+            "effectiveDateTime": "2017-07-26T00:00:00",
+            "id": "7b1bef0e-6aaa-5ba4-8391-979c8e2c4210",
+            "identifier": "12345",
+            "resourceType": "Observation",
+            "status": "final",
+            "valueCodeableConcept": "American Joint Committee on Cancer T3",
+        },
+        "Observation/bb1005a1-4c27-5372-9368-c19a083d5156": {
+            "category": "Laboratory",
+            "effectiveDateTime": "2017-07-26T00:00:00",
+            "id": "bb1005a1-4c27-5372-9368-c19a083d5156",
+            "identifier": "2345",
+            "resourceType": "Observation",
+            "status": "final",
+            "valueCodeableConcept": "American Joint Committee on Cancer N1",
+        },
         "ResearchStudy/7dacd4d0-3c8e-470b-bf61-103891627d45": {
             "identifier": "labA",
             "resourceType": "ResearchStudy",
@@ -131,6 +183,12 @@ def simplified_resources(
             "resourceType": "Patient",
             "id": "bc4e1aa6-cb52-40e9-8f20-594d9c84f920",
             "active": True,
+        },
+        "Encounter/007f4f7c-dc02-56c2-8b27-4e51f22b72a8": {
+            "id": "007f4f7c-dc02-56c2-8b27-4e51f22b72a8",
+            "identifier": "7f1c5ad2-03f7-5695-bf0f-1a957dfd06be",
+            "resourceType": "Encounter",
+            "status": "completed",
         },
     }
 
@@ -211,9 +269,9 @@ def research_subject_row(simplified_resources, research_subject_key):
     """Based on metadata files, create an expected Observations dataframe"""
     return {
         **simplified_resources[research_subject_key],
-        'patient_active': True,
-        'patient_id': 'bc4e1aa6-cb52-40e9-8f20-594d9c84f920',
-        'patient_identifier': 'patientX_1234',
+        "patient_active": True,
+        "patient_id": "bc4e1aa6-cb52-40e9-8f20-594d9c84f920",
+        "patient_identifier": "patientX_1234",
     }
 
 
