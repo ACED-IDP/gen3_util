@@ -258,10 +258,14 @@ class SimplifiedFHIR(BaseModel):
                 for elem in v:
                     if isinstance(elem, dict):
                         for value, source in normalize_coding(elem):
-                            _codings[k] = value
+                            if len(v) > 1 and get_nested_value(elem, [source, 0, 'system']):
+                                _codings[elem[source][0]["system"].split("/")[-1]] = value
+                            else:
+                                _codings[k] = value
             elif isinstance(v, dict):
                 for value, elem in normalize_coding(v):
                     _codings[k] = value
+
         return _codings
 
     @property
@@ -384,7 +388,6 @@ class SimplifiedDocumentReference(SimplifiedFHIR):
                         continue
                     _values[k] = v
         return _values
-
 
 class SimplifiedResource(object):
     """A simplified FHIR resource, a factory method."""
