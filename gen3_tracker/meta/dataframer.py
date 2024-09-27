@@ -484,7 +484,9 @@ class LocalFHIRDatabase:
         # get research subject and associated .subject patient
         for _, _, raw_research_subject in cursor.fetchall():
             research_subject = json.loads(raw_research_subject)
-            flat_research_subject = SimplifiedResource.build(resource=research_subject).simplified
+            flat_research_subject = SimplifiedResource.build(
+                resource=research_subject
+            ).simplified
 
             # return with .subject (ie Patient) fields
             patient = get_subject(self, research_subject)
@@ -493,7 +495,7 @@ class LocalFHIRDatabase:
             # get condition code, eg enrollment diagnosis
             if patient["patient_id"] in conditions_by_patient_id:
                 conditions = conditions_by_patient_id[patient["patient_id"]]
-            
+
                 # TODO: assumes there are no duplicate column names in each condition
                 for condition in conditions:
                     for k, v in traverse(condition).items():
@@ -535,7 +537,7 @@ class LocalFHIRDatabase:
         # populate observation data associated with the document reference document
         if doc_ref["id"] in observation_by_focus_id:
             associated_observations = observation_by_focus_id[doc_ref["id"]]
-            
+
             # TODO: assumes there are no duplicate column names in each observation
             for observation in associated_observations:
                 flat_observation = SimplifiedResource.build(resource=observation).values
@@ -637,6 +639,7 @@ def create_dataframe(
     df = df.replace({np.nan: ""})
     return df
 
+
 def is_number(s):
     """Returns True if string is a number."""
     try:
@@ -644,6 +647,7 @@ def is_number(s):
         return True
     except ValueError:
         return False
+
 
 def get_subject(db: LocalFHIRDatabase, resource: dict) -> dict:
     """get the resource's subject field if it exists"""
@@ -661,14 +665,20 @@ def get_subject(db: LocalFHIRDatabase, resource: dict) -> dict:
     _, _, raw_subject = row
     subject = json.loads(raw_subject)
     return traverse(subject)
- 
-def get_resources_by_reference(db: LocalFHIRDatabase, resource_type: str, reference_field: str, reference_type: str) -> dict[str, list]:
-    '''given a set of rescode ources of type resource_type, map each unique reference in reference field of type reference_type to its associated resources 
-    ex: use all Observations with a Specimen focus, map Specimen IDs to its list of associated Observations and return the map'''
+
+
+def get_resources_by_reference(
+    db: LocalFHIRDatabase, resource_type: str, reference_field: str, reference_type: str
+) -> dict[str, list]:
+    """given a set of rescode ources of type resource_type, map each unique reference in reference field of type reference_type to its associated resources
+    ex: use all Observations with a Specimen focus, map Specimen IDs to its list of associated Observations and return the map
+    """
 
     # ensure reference field is allowed
     allowed_fields = ["focus", "subject"]
-    assert reference_field in allowed_fields, f"Field not implemented, choose between {allowed_fields}"
+    assert (
+        reference_field in allowed_fields
+    ), f"Field not implemented, choose between {allowed_fields}"
 
     cursor = db.connect()
     cursor.execute(
@@ -689,23 +699,31 @@ def get_resources_by_reference(db: LocalFHIRDatabase, resource_type: str, refere
         if reference_field == "focus":
             # error if multiple focuses
             if reference_field in resource:
-                assert len(resource["focus"]) <= 1, "unable to support more than 1 focus for a single observation"
-            nested_keys=["focus", 0]
+                assert (
+                    len(resource["focus"]) <= 1
+                ), "unable to support more than 1 focus for a single observation"
+            nested_keys = ["focus", 0]
         elif reference_field == "subject":
-            nested_keys=["subject"]
-        
+            nested_keys = ["subject"]
+
         # add observation to dict if a reference resource exists
         reference_key = get_nested_value(resource, [*nested_keys, "reference"])
         if reference_key is not None and reference_type in reference_key:
             reference_id = reference_key.split("/")[-1]
             resource_by_reference_id[reference_id].append(resource)
-    
+
     return resource_by_reference_id
 
-def get_observations_by_focus(db: LocalFHIRDatabase, focus_type: str) -> dict[str, list]:
-    '''get all Observations that have a focus of resource type focus_type'''
+
+def get_observations_by_focus(
+    db: LocalFHIRDatabase, focus_type: str
+) -> dict[str, list]:
+    """get all Observations that have a focus of resource type focus_type"""
     return get_resources_by_reference(db, "Observation", "focus", focus_type)
 
-def get_conditions_by_subject(db: LocalFHIRDatabase, subject_type: str) -> dict[str, list]:
-    '''get all Conditions that have a subject of resource type subject_type'''
+
+def get_conditions_by_subject(
+    db: LocalFHIRDatabase, subject_type: str
+) -> dict[str, list]:
+    """get all Conditions that have a subject of resource type subject_type"""
     return get_resources_by_reference(db, "Condition", "subject", subject_type)
