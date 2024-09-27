@@ -472,33 +472,39 @@ class LocalFHIRDatabase:
             return None
 
     def flattened_research_subjects(self) -> Generator[dict, None, None]:
-        """generator that yields research subjects populated with patient fields"""
 
+        # get all observations with a Observation.subject=Patient, mapped from patient ID to observation
+        resource_type = "ResearchSubject"
+        conditions_by_patient_id = get_conditions_by_subject(self, "Patient")
+
+        # get all ResearchSubjects
         cursor = self.connect()
         cursor.execute(
-            "SELECT * FROM resources where resource_type = ?", ("ResearchSubject",)
+            "SELECT * FROM resources where resource_type = ?", (resource_type,)
         )
 
-        # for each research subject row
+        # get research subject and associated .subject patient
         for _, _, raw_research_subject in cursor.fetchall():
             research_subject = json.loads(raw_research_subject)
+            flat_research_subject = SimplifiedResource.build(
+                resource=research_subject
+            ).simplified
 
-            # flatten subject and study (eg Patient)
-            subject = get_nested_value(research_subject, ["subject", "reference"])
-            research_subject["subject_type"], research_subject["subject_id"] = (
-                subject.split("/")
-            )
-            del research_subject["subject"]
+            # return with .subject (ie Patient) fields
+            patient = get_subject(self, research_subject)
+            flat_research_subject.update(patient)
 
-            study = get_nested_value(research_subject, ["study", "reference"])
-            research_subject["study"] = study.split("/")[1]
+            # get condition code, eg enrollment diagnosis
+            if patient["patient_id"] in conditions_by_patient_id:
+                conditions = conditions_by_patient_id[patient["patient_id"]]
 
-            # flatten identifier
-            research_subject["identifier"] = get_nested_value(
-                research_subject, ["identifier", 0, "value"]
-            )
+                # TODO: assumes there are no duplicate column names in each condition
+                for condition in conditions:
+                    for k, v in traverse(condition).items():
+                        if k not in set(["condition_id", "condition_identifier"]):
+                            flat_research_subject[k] = v
 
-            yield research_subject
+            yield flat_research_subject
 
     def flattened_document_references(self) -> Generator[dict, None, None]:
         """generator that yields document references populated
@@ -534,22 +540,10 @@ class LocalFHIRDatabase:
         if doc_ref["id"] in observation_by_focus_id:
             associated_observations = observation_by_focus_id[doc_ref["id"]]
 
+            # TODO: assumes there are no duplicate column names in each observation
             for observation in associated_observations:
-                flat_observation = SimplifiedResource.build(resource=observation).simplified
-
-                # add all component codes
-                for k, v in flat_observation.items():
-                    if k in [
-                        "resourceType",
-                        "id",
-                        "category",
-                        "code",
-                        "status",
-                        "identifier",
-                    ]:
-                        continue
-                    # TODO - should we prefix the component keys? e.g. observation_component_value
-                    flat_doc_ref[k] = v
+                flat_observation = SimplifiedResource.build(resource=observation).values
+                flat_doc_ref.update(flat_observation)
 
         # TODO: test this based on fhir-gdc
         if "basedOn" in doc_ref:
@@ -591,23 +585,10 @@ class LocalFHIRDatabase:
         if specimen["id"] in observation_by_id:
             observations = observation_by_id[specimen["id"]]
 
-            for flat_observation in observations:
-                flat_observation = SimplifiedResource.build(
-                    resource=flat_observation
-                ).simplified
-
-                # add all observations codes
-                for k, v in flat_observation.items():
-                    if k in [
-                        "resourceType",
-                        "id",
-                        "category",
-                        "code",
-                        "status",
-                        "identifier",
-                    ]:
-                        continue
-                    flat_specimen[k] = v
+            # TODO: assumes there are no duplicate column names in each observation
+            for observation in observations:
+                flat_observation = SimplifiedResource.build(resource=observation).values
+                flat_specimen.update(flat_observation)
 
         return flat_specimen
 
@@ -688,8 +669,18 @@ def get_subject(db: LocalFHIRDatabase, resource: dict) -> dict:
     return traverse(subject)
 
 
-def get_observations_by_focus(db: LocalFHIRDatabase, focus_resource_type: str) -> dict:
-    """create a dict mapping from focus ID of type focus_type to the associated set of observations"""
+def get_resources_by_reference(
+    db: LocalFHIRDatabase, resource_type: str, reference_field: str, reference_type: str
+) -> dict[str, list]:
+    """given a set of rescode ources of type resource_type, map each unique reference in reference field of type reference_type to its associated resources
+    ex: use all Observations with a Specimen focus, map Specimen IDs to its list of associated Observations and return the map
+    """
+
+    # ensure reference field is allowed
+    allowed_fields = ["focus", "subject"]
+    assert (
+        reference_field in allowed_fields
+    ), f"Field not implemented, choose between {allowed_fields}"
 
     cursor = db.connect()
     cursor.execute(
@@ -698,18 +689,43 @@ def get_observations_by_focus(db: LocalFHIRDatabase, focus_resource_type: str) -
         FROM resources
         WHERE resource_type = ?
     """,
-        ("Observation",),
+        (resource_type,),
     )
 
-    observation_by_focus_id = defaultdict(list)
+    resource_by_reference_id = defaultdict(list)
 
-    # ensure focus exists and of correct resource type before adding to dict
-    for _, _, observation_resource in cursor.fetchall():
-        observation = json.loads(observation_resource)
-        focus_key = get_nested_value(observation, ["focus", 0, "reference"])
+    for _, _, raw_resource in cursor.fetchall():
+        resource = json.loads(raw_resource)
 
-        if focus_key and focus_resource_type in focus_key:
-            focus_id = focus_key.split("/")[-1]
-            observation_by_focus_id[focus_id].append(observation)
+        # determine which how to process the field
+        if reference_field == "focus":
+            # error if multiple focuses
+            if reference_field in resource:
+                assert (
+                    len(resource["focus"]) <= 1
+                ), "unable to support more than 1 focus for a single observation"
+            nested_keys = ["focus", 0]
+        elif reference_field == "subject":
+            nested_keys = ["subject"]
 
-    return observation_by_focus_id
+        # add observation to dict if a reference resource exists
+        reference_key = get_nested_value(resource, [*nested_keys, "reference"])
+        if reference_key is not None and reference_type in reference_key:
+            reference_id = reference_key.split("/")[-1]
+            resource_by_reference_id[reference_id].append(resource)
+
+    return resource_by_reference_id
+
+
+def get_observations_by_focus(
+    db: LocalFHIRDatabase, focus_type: str
+) -> dict[str, list]:
+    """get all Observations that have a focus of resource type focus_type"""
+    return get_resources_by_reference(db, "Observation", "focus", focus_type)
+
+
+def get_conditions_by_subject(
+    db: LocalFHIRDatabase, subject_type: str
+) -> dict[str, list]:
+    """get all Conditions that have a subject of resource type subject_type"""
+    return get_resources_by_reference(db, "Condition", "subject", subject_type)
