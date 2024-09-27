@@ -393,7 +393,7 @@ class SimplifiedDocumentReference(SimplifiedFHIR):
                         continue
                     _values[k] = v
         return _values
-    
+
 class SimplifiedCondition(SimplifiedFHIR):
     @computed_field
     @property
@@ -401,7 +401,7 @@ class SimplifiedCondition(SimplifiedFHIR):
         # only go through the work if code exists
         if "code" not in self.resource:
             return {}
-        
+
         # get field name
         codings_dict = super().codings
         if "category" in codings_dict:
@@ -409,7 +409,7 @@ class SimplifiedCondition(SimplifiedFHIR):
             del codings_dict["category"]
         else:
             key = "code"
-        
+
         # TODO: implement hierarchy of codes rather than just taking last code?
         value, _ = normalize_coding(self.resource["code"])[-1]
         return {key: value}
@@ -427,10 +427,6 @@ class SimplifiedResource(object):
             return SimplifiedObservation(resource=resource)
         if resource_type == "DocumentReference":
             return SimplifiedDocumentReference(resource=resource)
-<<<<<<< HEAD
-        return SimplifiedFHIR(resource=resource)
-=======
         if resource_type == "Condition":
             return SimplifiedCondition(resource=resource)
         return SimplifiedFHIR(resource=resource)
->>>>>>> 1e502e4 (add SimplifiedCondition to override codings() method)
