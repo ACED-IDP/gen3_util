@@ -270,7 +270,6 @@ class SimplifiedFHIR(BaseModel):
 
         return _codings
 
-
     @computed_field
     @property
     def identifiers(self) -> dict:
@@ -281,10 +280,10 @@ class SimplifiedFHIR(BaseModel):
         if not identifiers_len:
             return {"identifier": None}
         elif identifiers_len == 1:
-            return  {"identifier": identifiers[0].get('value')}
+            return {"identifier": identifiers[0].get('value')}
         else:
             base_identifier = {"identifier": identifiers[0].get('value')}
-            base_identifier.update({identifier.get("system").split("/")[-1]:identifier.get("value") for identifier in identifiers[1:]})
+            base_identifier.update({identifier.get("system").split("/")[-1]: identifier.get("value") for identifier in identifiers[1:]})
             return base_identifier
 
     @computed_field
@@ -394,27 +393,6 @@ class SimplifiedDocumentReference(SimplifiedFHIR):
                     _values[k] = v
         return _values
 
-class SimplifiedCondition(SimplifiedFHIR):
-    @computed_field
-    @property
-    def codings(self) -> dict:
-        # only go through the work if code exists
-        if "code" not in self.resource:
-            return {}
-
-        # get field name
-        codings_dict = super().codings
-        if "category" in codings_dict:
-            key = codings_dict["category"]
-            del codings_dict["category"]
-        else:
-            key = "code"
-
-        # TODO: implement hierarchy of codes rather than just taking last code?
-        value, _ = normalize_coding(self.resource["code"])[-1]
-        return {key: value}
-
-
 
 class SimplifiedCondition(SimplifiedFHIR):
     @computed_field
@@ -435,7 +413,6 @@ class SimplifiedCondition(SimplifiedFHIR):
         # TODO: implement hierarchy of codes rather than just taking last code?
         value, _ = normalize_coding(self.resource["code"])[-1]
         return {key: value}
-
 
 
 class SimplifiedResource(object):

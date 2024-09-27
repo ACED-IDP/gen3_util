@@ -176,7 +176,7 @@ def simplified_resources(
             "identifier": "LabA_ORGANIZATION",
             "resourceType": "Organization",
             "id": "89c8dc4c-2d9c-48c7-8862-241a49a78f14",
-            "type": "Educational Institute",
+            "organization-type": "Educational Institute",
         },
         patient_key: {
             "identifier": "patientX_1234",

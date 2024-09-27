@@ -100,9 +100,9 @@ def render_graph(config: Config, directory_path: str, output_path: str, browser:
 
 @meta.command("dataframe")
 @click.argument('data_type',
-                 required=True,
-                 type=click.Choice(['Specimen', 'DocumentReference', 'ResearchSubject']),
-                 default=None)
+                required=True,
+                type=click.Choice(['Specimen', 'DocumentReference', 'ResearchSubject']),
+                default=None)
 @click.argument("directory_path",
                 type=click.Path(exists=True, file_okay=False),
                 default="./META", required=False)
@@ -134,5 +134,6 @@ def render_df(config: Config, directory_path: str, output_path: str, launch_dtal
         click.secho(str(e), fg=ERROR_COLOR, file=sys.stderr)
         if config.debug or debug:
             raise
+
 
 meta.add_command(render_df, name='df')
