@@ -128,8 +128,8 @@ def render_df(config: Config, directory_path: str, output_path: str, launch_dtal
             dtale.show(df, subprocess=False, open_browser=True, port=40000)
         else:
             # export to csv
-            df.to_csv(output_path, index=False)
-            click.secho(f"Saved {output_path}", fg=INFO_COLOR, file=sys.stderr)
+            df.to_csv(f"{data_type}.csv", index=False)
+            click.secho(f"Saved {data_type}.csv", fg=INFO_COLOR, file=sys.stderr)
     except Exception as e:
         click.secho(str(e), fg=ERROR_COLOR, file=sys.stderr)
         if config.debug or debug:
