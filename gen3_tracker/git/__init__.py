@@ -1,13 +1,12 @@
 import json
 import logging
+import mimetypes
 import multiprocessing
 import os
 import pathlib
-import re
 import subprocess
 import time
 import typing
-import uuid
 import zipfile
 from abc import abstractmethod
 from datetime import datetime
@@ -21,11 +20,7 @@ from fhir.resources.attachment import Attachment
 from gen3.auth import Gen3Auth
 from pydantic import BaseModel, ConfigDict, field_validator
 
-from gen3_tracker import ACED_NAMESPACE
-from gen3_tracker.common import ACCEPTABLE_HASHES, parse_iso_tz_date
-
-import mimetypes
-
+from gen3_tracker.common import ACCEPTABLE_HASHES, parse_iso_tz_date, create_object_id
 
 # constants ---------------------------------------------------------------------
 INIT_MESSAGE = 'Initializing a new repository...'
@@ -103,13 +98,7 @@ class DVCItem(BaseModel):
         """ create a unique did for this object within a project"""
         assert self.path, 'path is required'
 
-        def _normalize_file_url(path: str) -> str:
-            """Strip leading ./ and file:/// from file urls."""
-            path = re.sub(r'^file:\/\/\/', '', path)
-            path = re.sub(r'^\.\/', '', path)
-            return path
-
-        self.object_id = str(uuid.uuid5(ACED_NAMESPACE, project_id + f"::{_normalize_file_url(self.path)}"))
+        self.object_id = create_object_id(self.path, project_id)
         return self.object_id
 
 

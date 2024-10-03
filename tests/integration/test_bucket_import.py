@@ -1,7 +1,7 @@
 import json
 import pathlib
 
-from tests.integration import run
+from tests import run
 from click.testing import CliRunner
 import pytest
 

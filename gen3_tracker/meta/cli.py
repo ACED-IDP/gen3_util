@@ -35,13 +35,14 @@ def init(ctx, project_id, debug):
                 project_id = config.gen3.project_id
             updated_files = update_meta_files(config.dry_run, project_id)
         click.secho(f"Updated {len(updated_files)} metadata files.", fg=INFO_COLOR, file=sys.stderr)
-        result = validate_dir('META')
+        result = validate_dir('META', project_id)
         click.secho(result, fg=INFO_COLOR, file=sys.stderr)
 
     except Exception as e:
         click.secho(str(e), fg=ERROR_COLOR, file=sys.stderr)
         if ctx.obj.debug or debug:
             raise
+        exit(1)
 
 
 @meta.command()
@@ -53,15 +54,16 @@ def validate(ctx, directory, debug):
     try:
         from gen3_tracker.meta.validator import validate as validate_dir
         with Halo(text='Validating', spinner='line', placement='right', color='white'):
-            result = validate_dir(directory)
+            result = validate_dir(directory, project_id=ctx.gen3.project_id)
         click.secho(result.resources, fg=INFO_COLOR, file=sys.stderr)
         for _ in result.exceptions:
             click.secho(f"{_.path}:{_.offset} {_.exception}", fg=ERROR_COLOR, file=sys.stderr)
+        if result.exceptions:
+            sys.exit(1)
     except Exception as e:
         click.secho(str(e), fg=ERROR_COLOR, file=sys.stderr)
-        raise
-        # if ctx.obj.debug:
-        #     raise
+        if debug or ctx.debug:
+            raise
 
 
 @meta.command("graph")

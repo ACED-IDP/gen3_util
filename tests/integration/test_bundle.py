@@ -3,7 +3,7 @@ import pathlib
 from fhir.resources.bundle import Bundle
 
 from gen3_tracker.common import read_ndjson_file
-from tests.integration import run
+from tests import run
 from click.testing import CliRunner
 
 
