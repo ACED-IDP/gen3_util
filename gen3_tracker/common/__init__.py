@@ -20,6 +20,7 @@ from dateutil import parser as dateutil_parser
 import orjson
 import yaml
 from dateutil.tz import tzutc
+from fhir.resources.documentreference import DocumentReference
 from fhir.resources.identifier import Identifier
 from pydantic import BaseModel
 from pydantic.json import pydantic_encoder
@@ -314,13 +315,47 @@ def identifier_to_string(identifier: list[Identifier]) -> str:
     return _.value
 
 
-def create_id(resource, project_id) -> str:
+def create_resource_id(resource, project_id) -> str:
     """Return id from identifier and project_id."""
     from gen3_tracker import ACED_NAMESPACE
     assert resource, "resource required"
     assert project_id, "project_id required"
     identifier_string = identifier_to_string(resource.identifier)
     return str(uuid.uuid5(ACED_NAMESPACE, f"{project_id}/{resource.resource_type}/{identifier_string}"))
+
+
+def create_object_id(path: str, project_id: str) -> str:
+    """Create a unique did for this object within a project i.e. DocumentReference."""
+    from gen3_tracker import ACED_NAMESPACE
+
+    def _normalize_file_url(_path: str) -> str:
+        """Strip leading ./ and file:/// from file urls."""
+        _path = re.sub(r'^file:\/\/\/', '', _path)
+        _path = re.sub(r'^\.\/', '', _path)
+        return _path
+
+    base = f"{project_id}::{_normalize_file_url(path)}".encode()
+    object_id = str(uuid.uuid5(ACED_NAMESPACE, base))
+
+    return object_id
+
+
+def assert_valid_id(resource, project_id):
+    """Ensure that the id is correct."""
+    assert resource, "resource required"
+    assert project_id, "project_id required"
+    if resource.resource_type == "DocumentReference":
+        document_reference: DocumentReference = resource
+        official_identifier = document_reference.content[0].attachment.url
+        recreate_id = create_object_id(official_identifier, project_id)
+    else:
+        official = [_ for _ in resource.identifier if _.use == 'official']
+        official_identifier = official[0].value if official else None
+        recreate_id = create_resource_id(resource, project_id)
+    if resource.id == recreate_id:
+        return
+    msg = f"The current {resource.resource_type}.id {resource.id} does not equal the calculated one {recreate_id}, has the project id changed? current:{project_id} {resource.resource_type}:{official_identifier}"
+    raise Exception(msg)
 
 
 class Commit(BaseModel):

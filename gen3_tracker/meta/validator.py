@@ -1,4 +1,5 @@
 import pathlib
+from collections import Counter
 from collections import defaultdict
 from typing import List
 from urllib.parse import urlparse
@@ -10,8 +11,8 @@ from fhir.resources.reference import Reference
 from nested_lookup import nested_lookup
 from pydantic import BaseModel, ConfigDict
 
+from gen3_tracker.common import assert_valid_id
 from gen3_tracker.meta import ParseResult, directory_reader
-from collections import Counter
 
 
 class ValidateDirectoryResult(BaseModel):
@@ -70,7 +71,7 @@ def _check_reference(self: Reference, *args, **kwargs):
     return orig_reference_dict(self, *args, **kwargs)
 
 
-def validate(directory_path: pathlib.Path) -> ValidateDirectoryResult:
+def validate(directory_path: pathlib.Path, project_id=None) -> ValidateDirectoryResult:
     """Check FHIR data, accumulate results."""
     exceptions = []
     resources = defaultdict(int)
@@ -82,6 +83,14 @@ def validate(directory_path: pathlib.Path) -> ValidateDirectoryResult:
         if parse_result.exception:
             exceptions.append(parse_result)
             continue
+
+        try:
+            assert_valid_id(parse_result.resource, project_id)
+        except Exception as e:
+            parse_result.exception = e
+            exceptions.append(parse_result)
+            continue
+
         _ = parse_result.resource
         ids.append(f"{_.resource_type}/{_.id}")
         nested_references = nested_lookup('reference', parse_result.json_obj)
