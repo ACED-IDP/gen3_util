@@ -325,8 +325,9 @@ def status(config):
 @click.option('--re-run', show_default=True, default=False, is_flag=True, help='Re-run the last publish step')
 @click.option('--fhir-server', show_default=True, default=False, is_flag=True, help='Push data in META directory to FHIR Server. Whatever FHIR data that exists in META dir will be upserted into the fhir server')
 @click.option('--debug', is_flag=True)
+@click.option('--skip_validate', is_flag=True, help='Skip validation of the metadata')
 @click.pass_context
-def push(ctx, step: str, transfer_method: str, overwrite: bool, re_run: bool, wait: bool, dry_run: bool, fhir_server: bool, debug: bool):
+def push(ctx, step: str, transfer_method: str, overwrite: bool, re_run: bool, wait: bool, dry_run: bool, fhir_server: bool, debug: bool, skip_validate: bool):
     """Push changes to the remote repository.
     \b
     steps:
@@ -354,6 +355,9 @@ def push(ctx, step: str, transfer_method: str, overwrite: bool, re_run: bool, wa
         try:
             with Halo(text='Checking', spinner='line', placement='right', color='white'):
                 run_command("g3t status")
+                if not skip_validate:
+                    run_command("g3t meta validate", no_capture=True)
+
         except Exception as e:
             click.secho("Please correct issues before pushing.", fg=ERROR_COLOR, file=sys.stderr)
             click.secho(str(e), fg=ERROR_COLOR, file=sys.stderr)
