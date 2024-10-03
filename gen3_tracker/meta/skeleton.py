@@ -155,12 +155,15 @@ def create_skeleton(dvc: dict, project_id: str, meta_index: set[str] = []) -> li
     _ = f'Specimen/{specimen_id}'
     if _ in meta_index:
         specimen = meta_index[_]
+
     _ = f'Patient/{patient_id}'
     if _ in meta_index:
         patient = meta_index[_]
+
     _ = f'Task/{task_id}'
     if _ in meta_index:
         task = meta_index[_]
+
     _ = f'Observation/{observation_id}'
     if _ in meta_index:
         observation = meta_index[_]
@@ -182,6 +185,7 @@ def create_skeleton(dvc: dict, project_id: str, meta_index: set[str] = []) -> li
             Identifier(value=project_id, system=_get_system(project_id, project_id=project_id),
                        use='official')]
         research_study.id = create_id(research_study, project_id)
+        research_study.id = create_id(research_study, project_id)
 
     if not patient and patient_identifier:
         patient = Patient()
@@ -195,6 +199,7 @@ def create_skeleton(dvc: dict, project_id: str, meta_index: set[str] = []) -> li
         )
         research_subject.identifier = [Identifier(value=patient_identifier, system=_get_system(patient_identifier, project_id=project_id), use='official')]
         research_subject.id = create_id(research_subject, project_id)
+        patient_id = patient.id
 
     if not observation and observation_identifier:
         observation = Observation(status='final', code={'text': 'unknown'})
@@ -202,8 +207,7 @@ def create_skeleton(dvc: dict, project_id: str, meta_index: set[str] = []) -> li
         observation.id = create_id(observation, project_id)
 
         assert patient, "patient required for observation"
-        observation.subject = {'reference': f"Patient/{patient.id}"}
-        patient_id = patient.id
+        observation.subject = {'reference': f"Patient/{patient_id}"}
 
     if not specimen and specimen_identifier:
 
@@ -217,7 +221,7 @@ def create_skeleton(dvc: dict, project_id: str, meta_index: set[str] = []) -> li
         specimen_id = specimen.id
 
         assert patient, "patient required for specimen"
-        specimen.subject = {'reference': f"Patient/{patient.id}"}
+        specimen.subject = {'reference': f"Patient/{patient_id}"}
 
     if not task and task_identifier:
         task = Task(intent='unknown', status='completed')
