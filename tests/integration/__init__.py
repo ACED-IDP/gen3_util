@@ -40,6 +40,7 @@ def validate_document_in_grip(did: str, auth=None, project_id=None):
     result = requests.get(f"{auth.endpoint}/grip/writer/graphql/CALIPER/get-vertex/{did}/{project_id}",
                           headers={"Authorization": f"bearer {token}"}
                           ).json()
+    assert 'data' in result, f"Failed to query grip for {did} {result}"
     assert result['data']['gid'] == did
 
 
