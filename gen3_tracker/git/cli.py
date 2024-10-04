@@ -5,6 +5,8 @@ import multiprocessing
 import os
 import pathlib
 import uuid
+from collections import defaultdict
+
 import orjson
 import re
 import shutil
@@ -35,6 +37,7 @@ from gen3_tracker import Config
 from gen3_tracker.common import CLIOutput, INFO_COLOR, ERROR_COLOR, is_url, filter_dicts, SUCCESS_COLOR, \
     read_ndjson_file
 from gen3_tracker.config import init as config_init, ensure_auth
+from gen3_tracker.gen3.buckets import get_buckets
 from gen3_tracker.git import git_files, to_indexd, to_remote, dvc_data, \
     data_file_changes, modified_date, git_status, DVC, MISSING_G3T_MESSAGE
 from gen3_tracker.git import run_command, \
@@ -857,7 +860,32 @@ def ping(config: Config):
         _ = {'msg': _ + ', '.join(msgs)}
         if auth:
             _['endpoint'] = auth.endpoint
-            _['username'] = auth.curl('/user/user').json()['username']
+            user_info = auth.curl('/user/user').json()
+            _['username'] = user_info['username']
+            buckets = get_buckets(config=config)
+            bucket_info = {}
+            program_info = defaultdict(list)
+            for k, v in buckets['S3_BUCKETS'].items():
+                bucket_info[k] = {}
+                if 'programs' not in v:
+                    bucket_info[k] = "No `programs` found"
+                    click.secho(f"WARNING: No `programs` found for bucket {k}", fg=INFO_COLOR, file=sys.stderr)
+                    continue
+                bucket_info[k] = ",".join(v['programs'])
+                for program in v['programs']:
+                    program_info[program].append(k)
+            _['bucket_programs'] = bucket_info
+
+            for k, v in program_info.items():
+                if len(v) > 1:
+                    click.secho(f"WARNING: {k} is in multiple buckets: {', '.join(v)}", fg=INFO_COLOR, file=sys.stderr)
+
+            assert 'authz' in user_info, "No authz found"
+            authz_info = defaultdict(dict)
+            for k, v in user_info['authz'].items():
+                authz_info[k] = ",".join(set([_['method'] for _ in v]))
+            _['your_access'] = dict(authz_info)
+
         output.update(_)
 
 
