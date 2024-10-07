@@ -17,21 +17,57 @@ on:
 
 jobs:
   pytest:
-    runs-on: ubuntu-latest
+    # We're testing 'cbds' by default so we can use the self-hosted runner to access htps://idp.cbds.ohsu.edu
+    # https://github.com/ACED-IDP/gen3_util/settings/actions/runners/21
+    # https://docs.github.com/en/actions/hosting-your-own-runners/managing-self-hosted-runners/adding-self-hosted-runners#adding-a-self-hosted-runner-to-a-repository
+    environment: cbds
+    runs-on: self-hosted
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up Python 3.10
+      - name: Set up Python 3.12
         uses: actions/setup-python@v4
         with:
-          python-version: "3.10"
+          python-version: "3.12"
 
+      - name: Install gen3-client
+        id: install-gen3-client
+        run: |
+          wget https://github.com/ACED-IDP/cdis-data-client/releases/latest/download/gen3-client-linux-amd64.zip
+          unzip gen3-client-linux-amd64.zip
+          mkdir -p ~/.gen3
+          mv gen3-client ~/.gen3/gen3-client
+          echo 'export PATH=$PATH:~/.gen3' >> ~/.bash_profile
+          source ~/.bash_profile
+          gen3-client
+        
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
           pip install -r requirements-dev.txt
           pip install -e .
+
+      - name: Configure gen3-client
+        id: configure-gen3-client
+        env:
+          CREDENTIALS: ${{ secrets.CREDENTIALS }}
+        run: |
+          source ~/.bash_profile
+          echo $CREDENTIALS > ~/.gen3/credentials.json
+
+          # Hardcoding the endpoint for now
+          # TODO: Should we make this configurable to run `pytest` against all Gen3 instances?
+          export ENDPOINT="https://idp.cbds.ohsu.edu"
+
+          gen3-client configure --profile=CALIPER --cred=~/.gen3/credentials.json --apiendpoint="$ENDPOINT"
+          export G3T_PROFILE=CALIPER
+          echo "G3T_PROFILE=CALIPER" >> $GITHUB_ENV
+          g3t ping
+
+          # A 'local' profile appears to be required for the `pytest` tests
+          # So we just "duplicate" the existing 'CALIPER' profile
+          gen3-client configure --profile=local --cred=~/.gen3/credentials.json --apiendpoint="$ENDPOINT"
 
       - name: Pytest
         run: |
