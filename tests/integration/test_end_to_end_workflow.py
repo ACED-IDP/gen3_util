@@ -5,7 +5,8 @@ from click.testing import CliRunner
 
 from gen3_tracker.config import ensure_auth, default
 from gen3_tracker.git import DVC, run_command
-from tests.integration import run, validate_document_in_elastic, validate_document_in_grip
+from tests.integration import validate_document_in_elastic, validate_document_in_grip
+from tests import run
 
 
 def test_simple_workflow(runner: CliRunner, project_id, tmpdir) -> None:

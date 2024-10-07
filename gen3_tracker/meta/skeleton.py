@@ -20,7 +20,7 @@ from fhir.resources.specimen import Specimen
 from fhir.resources.task import Task, TaskOutput, TaskInput
 
 from gen3_tracker import ACED_NAMESPACE
-from gen3_tracker.common import create_id, EmitterContextManager
+from gen3_tracker.common import create_resource_id, EmitterContextManager
 from gen3_tracker.git import DVC, run_command, dvc_data
 
 
@@ -155,12 +155,15 @@ def create_skeleton(dvc: dict, project_id: str, meta_index: set[str] = []) -> li
     _ = f'Specimen/{specimen_id}'
     if _ in meta_index:
         specimen = meta_index[_]
+
     _ = f'Patient/{patient_id}'
     if _ in meta_index:
         patient = meta_index[_]
+
     _ = f'Task/{task_id}'
     if _ in meta_index:
         task = meta_index[_]
+
     _ = f'Observation/{observation_id}'
     if _ in meta_index:
         observation = meta_index[_]
@@ -181,12 +184,12 @@ def create_skeleton(dvc: dict, project_id: str, meta_index: set[str] = []) -> li
         research_study.identifier = [
             Identifier(value=project_id, system=_get_system(project_id, project_id=project_id),
                        use='official')]
-        research_study.id = create_id(research_study, project_id)
+        research_study.id = create_resource_id(research_study, project_id)
 
     if not patient and patient_identifier:
         patient = Patient()
         patient.identifier = [Identifier(value=patient_identifier, system=_get_system(patient_identifier, project_id=project_id), use='official')]
-        patient.id = create_id(patient, project_id)
+        patient.id = create_resource_id(patient, project_id)
 
         research_subject = ResearchSubject(
             status='active',
@@ -194,16 +197,16 @@ def create_skeleton(dvc: dict, project_id: str, meta_index: set[str] = []) -> li
             subject={'reference': f"Patient/{patient.id}"}
         )
         research_subject.identifier = [Identifier(value=patient_identifier, system=_get_system(patient_identifier, project_id=project_id), use='official')]
-        research_subject.id = create_id(research_subject, project_id)
+        research_subject.id = create_resource_id(research_subject, project_id)
+        patient_id = patient.id
 
     if not observation and observation_identifier:
         observation = Observation(status='final', code={'text': 'unknown'})
         observation.identifier = [Identifier(value=observation_identifier, system=_get_system(observation_identifier, project_id=project_id), use='official')]
-        observation.id = create_id(observation, project_id)
+        observation.id = create_resource_id(observation, project_id)
 
         assert patient, "patient required for observation"
-        observation.subject = {'reference': f"Patient/{patient.id}"}
-        patient_id = patient.id
+        observation.subject = {'reference': f"Patient/{patient_id}"}
 
     if not specimen and specimen_identifier:
 
@@ -213,17 +216,17 @@ def create_skeleton(dvc: dict, project_id: str, meta_index: set[str] = []) -> li
 
         specimen = Specimen()
         specimen.identifier = [Identifier(value=specimen_identifier, system=_get_system(specimen_identifier, project_id=project_id), use='official')]
-        specimen.id = create_id(specimen, project_id)
+        specimen.id = create_resource_id(specimen, project_id)
         specimen_id = specimen.id
 
         assert patient, "patient required for specimen"
-        specimen.subject = {'reference': f"Patient/{patient.id}"}
+        specimen.subject = {'reference': f"Patient/{patient_id}"}
 
     if not task and task_identifier:
         task = Task(intent='unknown', status='completed')
         task.identifier = [Identifier(value=task_identifier, system=_get_system(task_identifier, project_id=project_id),
                                       use='official')]
-        task.id = create_id(task, project_id)
+        task.id = create_resource_id(task, project_id)
         task_id = task.id
 
     # create relationships
@@ -302,7 +305,7 @@ def update_meta_files(dry_run=False, project_id=None) -> list[str]:
         bundle = Bundle(type='transaction', timestamp=now)
 
         bundle.identifier = Identifier(value=project_id, system="https://aced-idp.org/project_id", use='official')
-        bundle.id = create_id(bundle, project_id)
+        bundle.id = create_resource_id(bundle, project_id)
 
         bundle.entry = []
         outcome = OperationOutcome(issue=[{'severity': 'warning', 'code': 'processing', 'diagnostics': 'Meta data items no longer in study.'}])
