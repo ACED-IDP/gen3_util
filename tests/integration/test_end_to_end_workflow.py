@@ -22,6 +22,9 @@ def test_simple_workflow(runner: CliRunner, project_id, tmpdir) -> None:
     run(runner, ["--debug", "init", project_id, "--approve"],
         expected_files=[".g3t", ".git"])
 
+    # check ping
+    run(runner, ["--debug", "ping"], expected_output=["bucket_programs", "your_access", "endpoint", "username"])
+
     # create a test file
     test_file = pathlib.Path("my-project-data/hello.txt")
     test_file.parent.mkdir(parents=True, exist_ok=True)
