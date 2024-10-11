@@ -405,13 +405,11 @@ class LocalFHIRDatabase:
         string and float data in the same column and gives errors because it is expecting
         only one data type per column"""
 
-        print("UNITS: ", value_normalized)
         if value_normalized is not None:
             value_normalized_split = value_normalized.split(" ")
             if isinstance(value_normalized_split, list):
                 value_numeric = value_normalized_split[0]
                 if is_number(value_numeric):
-                    # print("VALUE NUMERIC: ", float(value_numeric))
                     value_normalized = float(value_numeric)
             return value_normalized
         return None

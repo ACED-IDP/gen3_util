@@ -3,6 +3,7 @@ import inflection
 from pydantic import BaseModel, computed_field
 from typing import Dict, List, Optional, Tuple
 
+
 #######################
 # FHIR HELPER METHODS #
 #######################
@@ -185,7 +186,7 @@ class SimplifiedFHIR(BaseModel):
     @computed_field()
     @property
     def simplified(self) -> dict:
-        _ = {"identifier": self.identifier.get("value", None)}
+        _ = self.identifiers.copy() if self.identifiers else {}
         _.update(self.scalars)
         _.update(self.codings)
         _.update(self.extensions)
@@ -259,25 +260,31 @@ class SimplifiedFHIR(BaseModel):
                     if isinstance(elem, dict):
                         # TODO: implement hierarchy of codes rather than just taking last code?
                         for value, source in normalize_coding(elem):
-                            _codings[k] = value
+                            if len(v) > 1 and get_nested_value(elem, [source, 0, 'system']):
+                                _codings[elem[source][0]["system"].split("/")[-1]] = value
+                            else:
+                                _codings[k] = value
             elif isinstance(v, dict):
                 for value, elem in normalize_coding(v):
                     _codings[k] = value
+
         return _codings
 
+    @computed_field
     @property
-    def identifier(self) -> dict:
-        """Return the official identifier, or first of a resource."""
+    def identifiers(self) -> dict:
+        """Return the first of a resource and any other resources"""
         identifiers = self.resource.get("identifier", [])
-        official_identifiers = [
-            _ for _ in identifiers if _.get("use", "") == "official"
-        ]
-        if not official_identifiers and identifiers:
-            return identifiers[0]
-        elif official_identifiers:
-            return official_identifiers[0]
+        identifiers_len = len(identifiers)
+
+        if not identifiers_len:
+            return {"identifier": None}
+        elif identifiers_len == 1:
+            return {"identifier": identifiers[0].get('value')}
         else:
-            return {}
+            base_identifier = {"identifier": identifiers[0].get('value')}
+            base_identifier.update({identifier.get("system").split("/")[-1]: identifier.get("value") for identifier in identifiers[1:]})
+            return base_identifier
 
     @computed_field
     @property
