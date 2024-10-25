@@ -1,0 +1,40 @@
+name: Main Integration Test
+
+on:
+  push:
+  workflow_dispatch: # Allow manual triggering of the workflow
+
+jobs:
+  production:
+    with:
+      environment: production
+      endpoint: https://aced-idp.org
+    secrets:
+      CREDENTIALS: ${{ secrets.CREDENTIALS }}
+    uses: ./.github/workflows/integration.yaml
+
+  staging:
+    with:
+      environment: staging
+      endpoint: https://staging.aced-idp.org
+    secrets:
+      CREDENTIALS: ${{ secrets.CREDENTIALS }}
+    uses: ./.github/workflows/integration.yaml
+
+  development:
+    with:
+      environment: development
+      endpoint: https://development.aced-idp.org
+    secrets:
+      CREDENTIALS: ${{ secrets.CREDENTIALS }}
+    uses: ./.github/workflows/integration.yaml
+
+  cbds:
+    with:
+      environment: cbds
+      endpoint: https://idp.cbds.ohsu.edu
+      runs-on: self-hosted
+      program: cbds
+    secrets:
+      CREDENTIALS: ${{ secrets.CREDENTIALS }}
+    uses: ./.github/workflows/integration.yaml
