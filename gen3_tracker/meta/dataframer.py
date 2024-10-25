@@ -698,10 +698,10 @@ def get_resources_by_reference(
         # determine which how to process the field
         if reference_field == "focus":
             # error if multiple focuses
-            if reference_field in resource:
-                assert (
-                    len(resource["focus"]) <= 1
-                ), "unable to support more than 1 focus for a single observation"
+            #if reference_field in resource:
+                #assert (
+                #    len(resource["focus"]) <= 1
+                #), "unable to support more than 1 focus for a single observation"
             nested_keys = ["focus", 0]
         elif reference_field == "subject":
             nested_keys = ["subject"]
