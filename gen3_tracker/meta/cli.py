@@ -109,8 +109,7 @@ def render_graph(config: Config, directory_path: str, output_path: str, browser:
                 type=click.Path(exists=True, file_okay=False),
                 default="./META", required=False)
 @click.argument("output_path",
-                type=click.Path(file_okay=True),
-                default="meta.csv", required=False)
+                type=click.Path(file_okay=True), required=False)
 @click.option('--dtale', 'launch_dtale', default=False, show_default=True, is_flag=True, help='Open the graph in a browser using the dtale package for interactive data exploration.')
 @click.option('--debug', is_flag=True)
 @click.pass_obj
@@ -130,8 +129,9 @@ def render_df(config: Config, directory_path: str, output_path: str, launch_dtal
             dtale.show(df, subprocess=False, open_browser=True, port=40000)
         else:
             # export to csv
-            df.to_csv(f"{data_type}.csv", index=False)
-            click.secho(f"Saved {data_type}.csv", fg=INFO_COLOR, file=sys.stderr)
+            file_name = output_path if output_path else f"{data_type}.csv"
+            df.to_csv(file_name, index=False)
+            click.secho(f"Saved {file_name}", fg=INFO_COLOR, file=sys.stderr)
     except Exception as e:
         click.secho(str(e), fg=ERROR_COLOR, file=sys.stderr)
         if config.debug or debug:
