@@ -246,6 +246,7 @@ class SimplifiedFHIR(BaseModel):
             if (not isinstance(v, list) and not isinstance(v, dict))
         }
 
+
     @computed_field
     @property
     def codings(self) -> dict:
@@ -371,6 +372,9 @@ class SimplifiedObservation(SimplifiedFHIR):
                     if not value:
                         continue
                     _values[source] = value
+        if "code" in self.resource and "text" in self.resource["code"]:
+            _values["observation_code"] = self.resource["code"]["text"]
+
 
         assert len(_values) > 0, f"no values found in Observation: {self.resource}"
 
