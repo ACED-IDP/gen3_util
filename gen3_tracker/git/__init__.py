@@ -598,7 +598,14 @@ class Gen3ClientRemoteWriter(LoggingWriter):
             self.manifest.append(to_manifest(dvc))
         return 'OK'
 
-    def commit(self, dry_run=False, profile=None, upload_path=None, bucket_name=None, worker_count=(multiprocessing.cpu_count() - 1)):
+    @staticmethod
+    def default_worker_count():
+        """Get the default worker count."""
+        if 'G3T_NUM_PARALLEL' in os.environ:
+            return int(os.environ.get('G3T_NUM_PARALLEL'))
+        return multiprocessing.cpu_count() - 1
+
+    def commit(self, dry_run=False, profile=None, upload_path=None, bucket_name=None, worker_count=default_worker_count()):
         with open(self.manifest_file_path, 'w') as f:
             json.dump(self.manifest, f)
         if len(self.manifest) > 0:
