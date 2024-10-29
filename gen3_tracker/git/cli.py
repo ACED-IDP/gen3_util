@@ -254,7 +254,13 @@ def commit(ctx, targets, message, all):
     if all:
         command.append("-a")
 
-    run_command(" ".join(command), dry_run=config.dry_run, no_capture=True)
+    try:
+        run_command(" ".join(command), dry_run=config.dry_run, no_capture=True)
+    except Exception as e:
+        click.secho(str(e), fg=ERROR_COLOR, file=sys.stderr)
+        if config.debug:
+            raise
+        exit(1)
 
 
 @cli.command()
