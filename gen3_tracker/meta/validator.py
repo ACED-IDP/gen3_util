@@ -72,7 +72,12 @@ def _check_reference(self: Reference, *args, **kwargs):
 
 
 def validate(directory_path: pathlib.Path, project_id=None) -> ValidateDirectoryResult:
-    """Check FHIR data, accumulate results."""
+    """Check FHIR data, accumulate results.
+
+    Args:
+        directory_path: pathlib.Path
+        project_id: str, optional if set, check that the resource id is valid for the project_id
+    """
     exceptions = []
     resources = defaultdict(int)
     # add resources to bundle
@@ -85,7 +90,8 @@ def validate(directory_path: pathlib.Path, project_id=None) -> ValidateDirectory
             continue
 
         try:
-            assert_valid_id(parse_result.resource, project_id)
+            if project_id:
+                assert_valid_id(parse_result.resource, project_id)
         except Exception as e:
             parse_result.exception = e
             exceptions.append(parse_result)
