@@ -312,6 +312,7 @@ def git_files(dry_run=False) -> list[str]:
         to_upload = set()
         for _ in git_logs:
             to_upload.update([_ for _ in _['files'] if _.startswith('MANIFEST')])
+            break
         return list(to_upload)
     return []
 
