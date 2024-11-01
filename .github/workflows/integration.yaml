@@ -1,0 +1,237 @@
+# Workflow for running Integration Tests with g3t and gen3-client
+#
+# Optionally debug via SSH
+# Ref: https://fleetdm.com/engineering/tips-for-github-actions-usability
+#
+# To use this step uncomment and place anywhere in the build steps. The build will pause on this step and
+# output a ssh address associated with the Github action worker. Helpful for debugging build steps and
+# and intermediary files/artifacts.
+#
+# - name: Setup tmate session
+#   uses: mxschmitt/action-tmate@v3
+
+name: Integration Tests
+
+
+on:
+  workflow_call:
+    secrets:
+      CREDENTIALS:
+        description: 'The contents of credentials.json for the gen3-client'
+        required: true
+
+    inputs:
+      environment:
+        description: The target environment for this run (e.g. development, staging, production, cbds)
+        required: true
+        type: string
+
+      endpoint:
+        description: The Gen3 instance endpoint (e.g. https://aced-idp.org)
+        required: true
+        type: string
+
+      program:
+        description: The program used for the test project (e.g. aced, cbds)
+        required: false
+        default: aced
+        type: string
+
+      runs-on:
+        description: The runner for the target environment (e.g. ubuntu-latest, self-hosted)
+        required: false
+        default: ubuntu-latest
+        type: string
+
+jobs:
+  integration:
+    environment: ${{ inputs.environment }}
+    runs-on: ${{ inputs.runs-on }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        id: setup-python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        id: install-dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install -r requirements-dev.txt
+          pip install -e .
+
+      - name: Install gen3-client
+        id: install-gen3-client
+        run: |
+          wget https://github.com/ACED-IDP/cdis-data-client/releases/latest/download/gen3-client-linux-amd64.zip
+          unzip gen3-client-linux-amd64.zip
+          mkdir -p ~/.gen3
+          mv gen3-client ~/.gen3/gen3-client
+          echo 'export PATH=$PATH:~/.gen3' >> ~/.bash_profile
+          source ~/.bash_profile
+          gen3-client
+
+      - name: Configure gen3-client
+        id: configure-gen3-client
+        env:
+          CREDENTIALS: ${{ secrets.CREDENTIALS }}
+        run: |
+          source ~/.bash_profile
+          echo $CREDENTIALS > ~/.gen3/credentials.json
+
+          gen3-client configure --profile=CALIPER --cred=~/.gen3/credentials.json --apiendpoint="${{ inputs.endpoint }}"
+          export G3T_PROFILE=CALIPER
+          echo "G3T_PROFILE=CALIPER" >> $GITHUB_ENV
+          g3t ping
+
+      - name: Create Project
+        id: create-project
+        run: |
+          START=$(date +%s)
+
+          git config --global user.email "you@example.com"
+          git config --global user.name "Your Name"
+
+          export PROJECT="${{ inputs.program }}-integration_test_$RANDOM"
+          mkdir $PROJECT
+          cd $PROJECT
+
+          g3t init $PROJECT
+          g3t collaborator approve --all
+
+          echo "PROJECT=$PROJECT" >> $GITHUB_ENV
+
+          END=$(date +%s)
+          echo "CREATE_PROJECT_TIME=$(( END - START ))" >> $GITHUB_ENV
+
+      - name: Add Data
+        id: add-data
+        run: |
+          START=$(date +%s)
+
+          cd $PROJECT
+          mkdir -p DATA/subdir
+          echo "Example Data 1" > DATA/foo.txt
+          echo "Example Data 2" > DATA/subdir/bar.txt
+
+          g3t add DATA/foo.txt
+          g3t add DATA/subdir/bar.txt
+          g3t meta init
+          g3t meta validate
+          g3t status
+          g3t commit -m "Adding files"
+
+          END=$(date +%s)
+          echo "ADD_DATA_TIME=$(( END - START ))" >> $GITHUB_ENV
+
+      - name: Upload Data
+        id: upload-data
+        run: |
+          START=$(date +%s)
+
+          source ~/.bash_profile
+          cd $PROJECT
+
+          g3t push
+
+          END=$(date +%s)
+          echo "UPLOAD_DATA_TIME=$(( END - START ))" >> $GITHUB_ENV
+
+      - name: Download Data
+        id: download-data
+        run: |
+          START=$(date +%s)
+
+          source ~/.bash_profile
+          mkdir download-test
+          cd download-test
+
+          g3t clone $PROJECT
+          cd $PROJECT
+          g3t pull
+
+          if [ ! -f DATA/foo.txt ]; then
+            ERR="Expected data file DATA/foo.txt is missing"
+            echo "DOWNLOAD_DATA_ERR=$ERR" >> $GITHUB_ENV
+            echo $ERR
+            exit 1
+          fi
+
+          if [ ! -f DATA/subdir/bar.txt ]; then
+            ERR="Expected data file DATA/subdir/bar.txt is missing"
+            echo "DOWNLOAD_DATA_ERR=$ERR" >> $GITHUB_ENV
+            echo $ERR
+            exit 1
+          fi
+
+          EXPECTED="Example Data 1"
+          ACTUAL=$(cat DATA/foo.txt)
+          if [ "$EXPECTED" != "$ACTUAL" ]; then
+            ERR="Expected $EXPECTED but got $ACTUAL from DATA/foo.txt"
+            echo "DOWNLOAD_DATA_ERR=$ERR" >> $GITHUB_ENV
+            echo $ERR
+            exit 1
+          fi
+
+          EXPECTED="Example Data 2"
+          ACTUAL=$(cat DATA/subdir/bar.txt)
+          if [ "$EXPECTED" != "$ACTUAL" ]; then
+            ERR="Expected $EXPECTED but got $ACTUAL from DATA/subdir/bar.txt"
+            echo "DOWNLOAD_DATA_ERR=$ERR" >> $GITHUB_ENV
+            echo $ERR
+            exit 1
+          fi
+
+          END=$(date +%s)
+          echo "DOWNLOAD_DATA_TIME=$(( END - START ))" >> $GITHUB_ENV
+
+      - name: Remove Project
+        if: always()
+        id: remove-project
+        run: |
+          START=$(date +%s)
+
+          g3t projects empty --project_id $PROJECT --confirm empty
+
+          END=$(date +%s)
+          echo "REMOVE_PROJECT_TIME=$(( END - START ))" >> $GITHUB_ENV
+
+      - name: Create Summary
+        uses: WcAServices/markdown-template-action@v1
+        if: always()
+        with:
+          variables: >-
+            ENVIRONMENT="${{ inputs.environment }}"
+            CREATE_PROJECT="${{ steps.create-project.outcome == 'success' && '✅' || '❌ $CREATE_PROJECT_ERR' }}"
+            ADD_DATA="${{ steps.add-data.outcome             == 'success' && '✅' || '❌ $ADD_DATA_ERR' }}"
+            UPLOAD_DATA="${{ steps.upload-data.outcome       == 'success' && '✅' || '❌ $UPLOAD_DATA_ERR' }}"
+            DOWNLOAD_DATA="${{ steps.download-data.outcome   == 'success' && '✅' || '❌ $DOWNLOAD_DATA_ERR' }}"
+            REMOVE_PROJECT="${{ steps.remove-project.outcome == 'success' && '✅' || '❌ $REMOVE_PROJECT_ERR' }}"
+            COMMIT_SHA="${{ github.sha }}"
+            SHORT_SHA=${COMMIT_SHA:0:7}
+
+          template: |
+            # Integration Tests Summary [$ENVIRONMENT](${{ inputs.endpoint }})
+
+            | Step 👣      | Command(s) ⚙️       | Time (seconds) ⏰    | Status 🧪              |
+            |----------------|-----------------------|----------------------|-------------------|
+            | Create Project | `g3t init`            | $CREATE_PROJECT_TIME | `$CREATE_PROJECT` |
+            | Add Data       | `g3t add/meta/commit` | $ADD_DATA_TIME       | `$ADD_DATA`       |
+            | Upload Data    | `g3t push`            | $UPLOAD_DATA_TIME    | `$UPLOAD_DATA`    |
+            | Download Data  | `g3t clone`           | $DOWNLOAD_DATA_TIME  | `$DOWNLOAD_DATA`  |
+            | Remove Project | `g3t projects empty`  | $REMOVE_PROJECT_TIME | `$REMOVE_PROJECT` |
+
+            > Endpoint: $ENVIRONMENT — [${{ inputs.endpoint }}](${{ inputs.endpoint }})
+            > Test Project: [$PROJECT](https://aced-idp.org)
+
+            ## Additional Resources 📚
+            - [gen3-tracker PyPi](https://pypi.org/project/gen3-tracker/)
+            - [CALIPER Docs](https://aced-idp.github.io)
+            - [CALIPER](https://aced-idp.org)
+
+            ### Commit Information
+            > Commit: [`$SHORT_SHA`]($COMMIT_SHA)
