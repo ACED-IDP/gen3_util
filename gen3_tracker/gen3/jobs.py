@@ -134,6 +134,7 @@ def publish_commits(config: Config, wait: bool, auth: Gen3Auth, bucket_name: str
         _ = asyncio.run(jobs_client.async_run_job_and_wait(job_name='fhir_import_export', job_input=args, spinner=spinner))
     else:
         _ = jobs_client.create_job('fhir_import_export', args)
+
     if not isinstance(_, dict):
         _ = {'output': _}
     if isinstance(_['output'], str):

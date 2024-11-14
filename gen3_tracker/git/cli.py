@@ -495,9 +495,14 @@ def push(ctx, step: str, transfer_method: str, overwrite: bool, re_run: bool, wa
 
             if transfer_method == 'gen3':
                 with Halo(text='Publishing', spinner='line', placement='right', color='white') as spinner:
-                    # legacy, "old" fhir_import_export use publish_commits to publish the META
-                    _ = publish_commits(config, wait=wait, auth=auth, bucket_name=bucket_name, spinner=spinner)
-                click.secho('Published project. See logs/publish.log', fg=SUCCESS_COLOR, file=sys.stderr)
+                    try:
+                        # legacy, "old" fhir_import_export use publish_commits to publish the META
+                        _ = publish_commits(config, wait=wait, auth=auth, bucket_name=bucket_name, spinner=spinner)
+                    except Exception as e:
+                        click.secho('Unable to publish project. See logs/publish.log', fg=ERROR_COLOR, file=sys.stderr)
+                        raise e
+
+                click.secho('Published project. For more info, see logs/publish.log', fg=SUCCESS_COLOR, file=sys.stderr)
                 with open("logs/publish.log", 'a') as f:
                     log_msg = {'timestamp': datetime.now(pytz.UTC).isoformat()}
                     log_msg.update(_)
