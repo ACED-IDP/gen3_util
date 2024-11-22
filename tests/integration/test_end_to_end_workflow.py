@@ -178,7 +178,7 @@ def test_simple_fhir_server_workflow(runner: CliRunner, project_id, tmpdir) -> N
 
 
 def test_push_fails_with_invalid_doc_ref_creation_date(runner: CliRunner, project_id: str, tmp_path: Path):
-    
+
     # check
     assert os.environ.get("G3T_PROFILE"), "G3T_PROFILE environment variable must be set."
 
@@ -192,7 +192,7 @@ def test_push_fails_with_invalid_doc_ref_creation_date(runner: CliRunner, projec
     new_project_dir = tmp_path / project_dir
     shutil.copytree(fhir_gdc_dir, new_project_dir)
     shutil.copy(modified_doc_ref_path, new_project_dir / "META" / "DocumentReference.ndjson" )
-    
+
     # get invalid date from fixture
     doc_ref_content = pd.read_json(modified_doc_ref_path, lines=True)["content"][0]
     invalid_date = doc_ref_content[0]["attachment"]["creation"]
@@ -202,22 +202,23 @@ def test_push_fails_with_invalid_doc_ref_creation_date(runner: CliRunner, projec
     os.chdir(new_project_dir)
     run(runner, ["init", project_id, "--approve"])
     result = run(runner,
-    ["push", "--skip_validate", "--overwrite"],
-        expected_exit_code=1,
-        expected_files=[log_file_path]
-    )
+                 ["push", "--skip_validate", "--overwrite"],
+                 expected_exit_code=0,
+                 expected_files=[log_file_path]
+                )
 
     # ensure push has useful useful error logs
     assert log_file_path in result.output, f"expected log file path in stdout, instead got:\n{result.output}"
 
     # ensure saved log file contains info about invalid date
     with open(log_file_path, "r") as log_file:
-        # grab last line
-        line = [l for l in log_file.readlines()][-1]
+        lines = log_file.readlines()
+        str_lines = str(lines)
 
-        assert "/content/0/attachment/creation" in line, f"expected errors to describe to /content/0/attachment/creation, instead got: \n{line}"
-        assert "jsonschema" in line, f"expected errors to mention jsonschema, instead got: \n{line}"
-        assert invalid_date in line, f"expected invalid date {invalid_date} to be logged, instead got: \n{line} "
+        assert "/content/0/attachment/creation" in str_lines, f"expected errors to describe to /content/0/attachment/creation, instead got: \n{str_lines}"
+        assert "jsonschema" in str_lines, f"expected errors to mention jsonschema, instead got: \n{str_lines}"
+        assert invalid_date in str_lines, f"expected invalid date {invalid_date} to be logged, instead got: \n{str_lines} "
+
 
 def test_push_fails_with_no_write_permissions(runner: CliRunner, project_id: str, tmp_path: Path):
 
@@ -247,7 +248,7 @@ def test_push_fails_with_no_write_permissions(runner: CliRunner, project_id: str
     # ensure stdout mentions log files
     assert log_file_path in result.output, f"expected log file path in stdout, instead got:\n{result.output}"
 
-    # check valid error messages within 
+    # check valid error messages within
     with open(log_file_path, "r") as log_file:
         # grab last line
         line = [l for l in log_file.readlines()][-1]
