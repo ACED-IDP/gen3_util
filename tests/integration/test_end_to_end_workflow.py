@@ -1,10 +1,12 @@
 import os
-import pathlib
+import shutil
+import pandas as pd
 import yaml
 from click.testing import CliRunner
 
 from gen3_tracker.config import ensure_auth, default
 from gen3_tracker.git import DVC, run_command
+from pathlib import Path
 from tests.integration import validate_document_in_elastic, validate_document_in_grip
 from tests import run
 
@@ -13,7 +15,7 @@ def test_simple_workflow(runner: CliRunner, project_id, tmpdir) -> None:
     """Test the init command."""
     # change to the temporary directory
     assert tmpdir.chdir()
-    print(pathlib.Path.cwd())
+    print(Path.cwd())
 
     assert os.environ.get("G3T_PROFILE"), "G3T_PROFILE environment variable must be set."
 
@@ -26,7 +28,7 @@ def test_simple_workflow(runner: CliRunner, project_id, tmpdir) -> None:
     run(runner, ["--debug", "ping"], expected_output=["bucket_programs", "your_access", "endpoint", "username"])
 
     # create a test file
-    test_file = pathlib.Path("my-project-data/hello.txt")
+    test_file = Path("my-project-data/hello.txt")
     test_file.parent.mkdir(parents=True, exist_ok=True)
     test_file.write_text('hello\n')
 
@@ -34,7 +36,7 @@ def test_simple_workflow(runner: CliRunner, project_id, tmpdir) -> None:
     run(runner, ["--debug", "add", str(test_file)], expected_files=["MANIFEST/my-project-data/hello.txt.dvc"])
 
     # should create a dvc file
-    dvc_path = pathlib.Path("MANIFEST/my-project-data/hello.txt.dvc")
+    dvc_path = Path("MANIFEST/my-project-data/hello.txt.dvc")
     assert dvc_path.exists(), f"{dvc_path} does not exist."
     with open(dvc_path) as f:
         yaml_data = yaml.safe_load(f)
@@ -73,7 +75,7 @@ def test_simple_workflow(runner: CliRunner, project_id, tmpdir) -> None:
     validate_document_in_elastic(object_id, auth=auth)
 
     # clone the project in new directory
-    clone_dir = pathlib.Path("clone")
+    clone_dir = Path("clone")
     os.mkdir(clone_dir)
     os.chdir("clone")
     run(runner, ["--debug", "clone", project_id])
@@ -91,7 +93,7 @@ def test_simple_workflow(runner: CliRunner, project_id, tmpdir) -> None:
     # check the files exist in the cloned directory
     run_command("ls -l")
 
-    assert pathlib.Path("my-project-data/hello.txt").exists(), "hello.txt does not exist in the cloned directory."
+    assert Path("my-project-data/hello.txt").exists(), "hello.txt does not exist in the cloned directory."
 
     # remove the project from the server.
     # TODO note, this does not remove the files from the bucket (UChicago bug)
@@ -117,7 +119,7 @@ def test_simple_fhir_server_workflow(runner: CliRunner, project_id, tmpdir) -> N
     """Test the init command."""
     # change to the temporary directory
     assert tmpdir.chdir()
-    print(pathlib.Path.cwd())
+    print(Path.cwd())
 
     assert os.environ.get("G3T_PROFILE"), "G3T_PROFILE environment variable must be set."
 
@@ -127,7 +129,7 @@ def test_simple_fhir_server_workflow(runner: CliRunner, project_id, tmpdir) -> N
         expected_files=[".g3t", ".git"])
 
     # create a test file
-    test_file = pathlib.Path("my-project-data/hello.txt")
+    test_file = Path("my-project-data/hello.txt")
     test_file.parent.mkdir(parents=True, exist_ok=True)
     test_file.write_text('hello\n')
 
@@ -135,7 +137,7 @@ def test_simple_fhir_server_workflow(runner: CliRunner, project_id, tmpdir) -> N
     run(runner, ["--debug", "add", str(test_file)], expected_files=["MANIFEST/my-project-data/hello.txt.dvc"])
 
     # should create a dvc file
-    dvc_path = pathlib.Path("MANIFEST/my-project-data/hello.txt.dvc")
+    dvc_path = Path("MANIFEST/my-project-data/hello.txt.dvc")
     assert dvc_path.exists(), f"{dvc_path} does not exist."
     with open(dvc_path) as f:
         yaml_data = yaml.safe_load(f)
@@ -173,3 +175,82 @@ def test_simple_fhir_server_workflow(runner: CliRunner, project_id, tmpdir) -> N
     # TODO note, this does not remove the files from the bucket (UChicago bug)
     # See https://ohsucomputationalbio.slack.com/archives/C043HPV0VMY/p1714065633867229
     run(runner, ["--debug", "projects", "empty", "--project_id", project_id, "--confirm", "empty"])
+
+
+def test_push_fails_with_invalid_doc_ref_creation_date(runner: CliRunner, project_id: str, tmp_path: Path):
+
+    # check
+    assert os.environ.get("G3T_PROFILE"), "G3T_PROFILE environment variable must be set."
+
+    # copy fixture to temp test dir
+    project_dir = "fhir-gdc-examples"
+    fixtures_path = Path(os.path.dirname(__file__)).parent / "fixtures"
+    fhir_gdc_dir = fixtures_path / project_dir
+    modified_doc_ref_path = fixtures_path / "negative-examples/fhir-gdc-DocumentReference-invalid-date.ndjson"
+
+    # init project
+    new_project_dir = tmp_path / project_dir
+    shutil.copytree(fhir_gdc_dir, new_project_dir)
+    shutil.copy(modified_doc_ref_path, new_project_dir / "META" / "DocumentReference.ndjson" )
+
+    # get invalid date from fixture
+    doc_ref_content = pd.read_json(modified_doc_ref_path, lines=True)["content"][0]
+    invalid_date = doc_ref_content[0]["attachment"]["creation"]
+
+    # ensure that push fails and writes to logs
+    log_file_path = "logs/publish.log"
+    os.chdir(new_project_dir)
+    run(runner, ["init", project_id, "--approve"])
+    result = run(runner,
+                 ["push", "--skip_validate", "--overwrite"],
+                 expected_exit_code=0,
+                 expected_files=[log_file_path]
+                )
+
+    # ensure push has useful useful error logs
+    assert log_file_path in result.output, f"expected log file path in stdout, instead got:\n{result.output}"
+
+    # ensure saved log file contains info about invalid date
+    with open(log_file_path, "r") as log_file:
+        lines = log_file.readlines()
+        str_lines = str(lines)
+
+        assert "/content/0/attachment/creation" in str_lines, f"expected errors to describe to /content/0/attachment/creation, instead got: \n{str_lines}"
+        assert "jsonschema" in str_lines, f"expected errors to mention jsonschema, instead got: \n{str_lines}"
+        assert invalid_date in str_lines, f"expected invalid date {invalid_date} to be logged, instead got: \n{str_lines} "
+
+
+def test_push_fails_with_no_write_permissions(runner: CliRunner, project_id: str, tmp_path: Path):
+
+    # setup
+    assert os.environ.get("G3T_PROFILE"), "G3T_PROFILE environment variable must be set."
+    os.chdir(tmp_path)
+
+    # initialize project without approving permissions
+    log_file_path = "logs/publish.log"
+    run(runner, [ "init", project_id],
+        expected_files=[".g3t", ".git"])
+
+    # create test file
+    test_file = Path("my-project-data/hello.txt")
+    test_file.parent.mkdir(parents=True, exist_ok=True)
+    test_file.write_text('hello\n')
+
+    # prepare test file for submission
+    run(runner, ["add", str(test_file)], expected_files=["MANIFEST/my-project-data/hello.txt.dvc"])
+    run(runner, ["meta", "init"], expected_files=["META/DocumentReference.ndjson"])
+    print("current directory:",os.getcwd())
+    run(runner, ["commit", "-m", "initial commit"])
+
+    # push
+    result = run(runner, ["push"], expected_exit_code=1, expected_files=[log_file_path])
+
+    # ensure stdout mentions log files
+    assert log_file_path in result.output, f"expected log file path in stdout, instead got:\n{result.output}"
+
+    # check valid error messages within
+    with open(log_file_path, "r") as log_file:
+        # grab last line
+        line = [l for l in log_file.readlines()][-1]
+        for output in ["401", "permission"]:
+            assert "401" in line, f"expected {log_file_path} to contain {output}, instead got: \n{line}"
