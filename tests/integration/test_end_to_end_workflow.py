@@ -57,6 +57,16 @@ def test_simple_workflow(runner: CliRunner, project_id, tmpdir) -> None:
     # validate the meta files
     run(runner, ["--debug", "meta", "validate"])
 
+    # update the file
+    test_file = pathlib.Path("my-project-data/hello.txt")
+    test_file.parent.mkdir(parents=True, exist_ok=True)
+    test_file.write_text('hello UPDATE\n')
+    # re-add the file
+    run(runner, ["--debug", "add", str(test_file)], expected_files=["MANIFEST/my-project-data/hello.txt.dvc"])
+    run(runner, ["--debug", "meta", "init"], expected_files=["META/DocumentReference.ndjson"])
+    run(runner, ["--debug", "commit", "-am", "updated"])
+    run(runner, ["--debug", "meta", "validate"])
+
     # create a visualisation
     run(runner, ["--debug", "meta", "graph"], expected_files=["meta.html"])
 

@@ -6,6 +6,7 @@ from click.testing import CliRunner
 
 import gen3_tracker.config
 from gen3_tracker.git import run_command
+from gen3_tracker.meta.validator import validate
 from tests import run
 
 
@@ -62,6 +63,10 @@ def test_assert_object_id_invalid_on_project_id_change(runner: CliRunner, projec
     with open('.g3t/config.yaml', 'w') as f:
         yaml.dump(config.model_dump(), f)
     run(runner, ["commit", "-m",  "restore-project_id", '.g3t/config.yaml'])
+
+    # ensure we can validate without passing project id
+    results = validate(directory_path="META")
+    assert len(results.exceptions) == 0, "Expected no exceptions."
 
     run(runner, ["--debug", "meta", "validate"], expected_exit_code=0)
     run(runner, ["--debug", "push", "--dry-run"], expected_exit_code=0)
