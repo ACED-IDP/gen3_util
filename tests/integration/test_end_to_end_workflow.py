@@ -58,7 +58,7 @@ def test_simple_workflow(runner: CliRunner, project_id, tmpdir) -> None:
     run(runner, ["--debug", "meta", "validate"])
 
     # update the file
-    test_file = pathlib.Path("my-project-data/hello.txt")
+    test_file = Path("my-project-data/hello.txt")
     test_file.parent.mkdir(parents=True, exist_ok=True)
     test_file.write_text('hello UPDATE\n')
     # re-add the file
@@ -213,7 +213,7 @@ def test_push_fails_with_invalid_doc_ref_creation_date(runner: CliRunner, projec
     run(runner, ["init", project_id, "--approve"])
     result = run(runner,
                  ["push", "--skip_validate", "--overwrite"],
-                 expected_exit_code=0,
+                 expected_exit_code=1,
                  expected_files=[log_file_path]
                 )
 
@@ -225,9 +225,8 @@ def test_push_fails_with_invalid_doc_ref_creation_date(runner: CliRunner, projec
         lines = log_file.readlines()
         str_lines = str(lines)
 
-        assert "/content/0/attachment/creation" in str_lines, f"expected errors to describe to /content/0/attachment/creation, instead got: \n{str_lines}"
-        assert "jsonschema" in str_lines, f"expected errors to mention jsonschema, instead got: \n{str_lines}"
-        assert invalid_date in str_lines, f"expected invalid date {invalid_date} to be logged, instead got: \n{str_lines} "
+        for keyword in ["/content/0/attachment/creation", "jsonschema", invalid_date]:
+            assert keyword in str_lines, f'expected log file to contain keyword "{keyword}", instead got: \n{str_lines}'
 
 
 def test_push_fails_with_no_write_permissions(runner: CliRunner, project_id: str, tmp_path: Path):
