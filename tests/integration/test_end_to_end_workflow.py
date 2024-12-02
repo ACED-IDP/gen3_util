@@ -300,12 +300,11 @@ def test_push_fails_with_invalid_doc_ref_creation_date(
     log_file_path = "logs/publish.log"
     os.chdir(new_project_dir)
     run(runner, ["init", project_id, "--approve"])
-    result = run(
-        runner,
-        ["push", "--skip_validate", "--overwrite"],
-        expected_exit_code=1,
-        expected_files=[log_file_path],
-    )
+    result = run(runner,
+                 ["push", "--skip_validate", "--overwrite"],
+                 expected_exit_code=1,
+                 expected_files=[log_file_path]
+                )
 
     # ensure push has useful useful error logs
     assert (
@@ -316,10 +315,9 @@ def test_push_fails_with_invalid_doc_ref_creation_date(
     with open(log_file_path, "r") as log_file:
         lines = log_file.readlines()
         str_lines = str(lines)
+
         for keyword in ["/content/0/attachment/creation", "jsonschema", invalid_date]:
-            assert (
-                keyword in str_lines
-            ), f'expected log file to contain keyword "{keyword}", instead got: \n{str_lines}'
+            assert keyword in str_lines, f'expected log file to contain keyword "{keyword}", instead got: \n{str_lines}'
 
 
 def test_push_fails_with_no_write_permissions(
