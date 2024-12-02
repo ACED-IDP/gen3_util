@@ -9,6 +9,7 @@ from zipfile import ZipFile
 
 from gen3.auth import Gen3Auth
 from gen3.jobs import Gen3Jobs
+import pytz
 
 from gen3_tracker import Config
 from gen3_tracker.common import Push, Commit
@@ -129,11 +130,13 @@ def publish_commits(config: Config, wait: bool, auth: Gen3Auth, bucket_name: str
     from cdislogging import get_logger  # noqa
     cdis_logging = get_logger("__name__")
     cdis_logging.setLevel(logging.WARN)
-
+    
     if wait:
+        # async_run_job_and_wait monkeypatched below
         _ = asyncio.run(jobs_client.async_run_job_and_wait(job_name='fhir_import_export', job_input=args, spinner=spinner))
     else:
         _ = jobs_client.create_job('fhir_import_export', args)
+
     if not isinstance(_, dict):
         _ = {'output': _}
     if isinstance(_['output'], str):
@@ -183,7 +186,15 @@ async def async_run_job_and_wait(self, job_name, job_input, spinner=None, _ssl=N
         spinner.text = f"{status.get('name')} {status.get('status')}"
 
     if status.get("status") != "Completed":
-        raise Exception(f"Job status not complete: {status.get('status')}.")
+        # write failed output to log file before raising exception
+        response = await self.async_get_output(job_create_response.get("uid"))
+        with open("logs/publish.log", 'a') as f:
+                log_msg = {'timestamp': datetime.now(pytz.UTC).isoformat()}
+                log_msg.update(response)
+                f.write(json.dumps(log_msg, separators=(',', ':')))
+                f.write('\n')
+        
+        raise Exception(f"Job status not complete: {status.get('status')}")
 
     response = await self.async_get_output(job_create_response.get("uid"))
     return response

@@ -405,13 +405,11 @@ class LocalFHIRDatabase:
         string and float data in the same column and gives errors because it is expecting
         only one data type per column"""
 
-        print("UNITS: ", value_normalized)
         if value_normalized is not None:
             value_normalized_split = value_normalized.split(" ")
             if isinstance(value_normalized_split, list):
                 value_numeric = value_normalized_split[0]
                 if is_number(value_numeric):
-                    # print("VALUE NUMERIC: ", float(value_numeric))
                     value_normalized = float(value_numeric)
             return value_normalized
         return None
@@ -699,20 +697,19 @@ def get_resources_by_reference(
 
         # determine which how to process the field
         if reference_field == "focus":
-            # error if multiple focuses
-            if reference_field in resource:
-                assert (
-                    len(resource["focus"]) <= 1
-                ), "unable to support more than 1 focus for a single observation"
-            nested_keys = ["focus", 0]
-        elif reference_field == "subject":
-            nested_keys = ["subject"]
+            # add the resource (eg observation) for each focus reference to the dict
+            for i in range(len(resource["focus"])):
+                reference_key = get_nested_value(resource, [reference_field, i, "reference"])
+                if reference_key is not None and reference_type in reference_key:
+                    reference_id = reference_key.split("/")[-1]
+                    resource_by_reference_id[reference_id].append(resource)
 
-        # add observation to dict if a reference resource exists
-        reference_key = get_nested_value(resource, [*nested_keys, "reference"])
-        if reference_key is not None and reference_type in reference_key:
-            reference_id = reference_key.split("/")[-1]
-            resource_by_reference_id[reference_id].append(resource)
+        elif reference_field == "subject":
+            # add the resource (eg observation) to the dict
+            reference_key = get_nested_value(resource, [reference_field, "reference"])
+            if reference_key is not None and reference_type in reference_key:
+                reference_id = reference_key.split("/")[-1]
+                resource_by_reference_id[reference_id].append(resource)
 
     return resource_by_reference_id
 

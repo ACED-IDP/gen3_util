@@ -452,7 +452,7 @@ def push(ctx, step: str, transfer_method: str, overwrite: bool, re_run: bool, wa
                     headers = {"Authorization": f"{auth._access_token}"}
                     result = requests.delete(url=f'{auth.endpoint}/Bundle', data=orjson.dumps(bundle_data, default=_default_json_serializer,
                                                                                               option=orjson.OPT_APPEND_NEWLINE).decode(), headers=headers)
-
+                
                 with open("logs/publish.log", 'a') as f:
                     log_msg = {'timestamp': datetime.now(pytz.UTC).isoformat(), "result": f"{result}"}
                     click.secho('Published project. See logs/publish.log', fg=SUCCESS_COLOR, file=sys.stderr)
@@ -489,20 +489,28 @@ def push(ctx, step: str, transfer_method: str, overwrite: bool, re_run: bool, wa
             return
 
         if step in ['publish', 'all'] and not fhir_server:
+            log_path = "logs/publish.log"
+
             with Halo(text='Uploading snapshot', spinner='line', placement='right', color='white'):
                 # push the snapshot of the `.git` sub-directory in the current directory
                 push_snapshot(config, auth=auth)
 
             if transfer_method == 'gen3':
-                with Halo(text='Publishing', spinner='line', placement='right', color='white') as spinner:
+                try:
                     # legacy, "old" fhir_import_export use publish_commits to publish the META
-                    _ = publish_commits(config, wait=wait, auth=auth, bucket_name=bucket_name, spinner=spinner)
-                click.secho('Published project. See logs/publish.log', fg=SUCCESS_COLOR, file=sys.stderr)
-                with open("logs/publish.log", 'a') as f:
+                    with Halo(text='Publishing', spinner='line', placement='right', color='white') as spinner:
+                        _ = publish_commits(config, wait=wait, auth=auth, bucket_name=bucket_name, spinner=spinner)
+                except Exception as e:
+                    click.secho(f'Unable to publish project. See {log_path} for more info', fg=ERROR_COLOR, file=sys.stderr)
+                    raise e
+
+                # print success message and save logs
+                with open(log_path, 'a') as f:
                     log_msg = {'timestamp': datetime.now(pytz.UTC).isoformat()}
                     log_msg.update(_)
                     f.write(json.dumps(log_msg, separators=(',', ':')))
                     f.write('\n')
+                click.secho(f'Published project. Logs found at {log_path}', fg=SUCCESS_COLOR, file=sys.stderr)
             else:
                 click.secho(f'Auto-publishing not supported for {transfer_method}. Please use --step publish after uploading', fg=ERROR_COLOR, file=sys.stderr)
 
