@@ -5,13 +5,11 @@ import sys
 import typing
 import uuid
 from collections import OrderedDict
-from typing import Union, Optional
+from typing import Optional
 
 import click
-import pydantic
 from click import Context, Command
 from pydantic import BaseModel, field_validator
-
 
 ACED_NAMESPACE = uuid.uuid3(uuid.NAMESPACE_DNS, b'aced-idp.org')
 ENV_VARIABLE_PREFIX = 'G3T_'
@@ -22,28 +20,6 @@ FILE_TRANSFER_METHODS = {
     's3': '(admin) s3 to/from local',
     's3-map': '(admin) s3 index only external s3',
 }
-
-
-def monkey_patch_url_validate():
-    # monkey patch to allow file: urls
-    import fhir.resources.fhirtypes
-    from pydantic import FileUrl
-
-    original_url_validate = fhir.resources.fhirtypes.Url.validate
-
-    @classmethod
-    def better_url_validate(cls, value: str, field: "ModelField", config: "BaseConfig") -> Union["AnyUrl", str]:    # noqa
-        """Allow file: urls. see https://github.com/pydantic/pydantic/issues/1983
-        bugfix: addresses issue introduced with `fhir.resources`==7.0.1
-        """
-        if value.startswith("file:"):
-            _ = FileUrl(value)
-            return value
-            # return FileUrl.validate(value, field, config)
-        value = original_url_validate(value, field, config)
-        return value
-
-    fhir.resources.fhirtypes.Url.validate = better_url_validate
 
 
 class LogConfig(BaseModel):
@@ -177,12 +153,3 @@ class NaturalOrderGroup(click.Group):
                 # os._exit(1)  # noqa
 
             raise e
-
-
-# main
-monkey_patch_url_validate()
-
-# default initializers for path
-pydantic.v1.json.ENCODERS_BY_TYPE[pathlib.PosixPath] = str
-pydantic.v1.json.ENCODERS_BY_TYPE[pathlib.WindowsPath] = str
-pydantic.v1.json.ENCODERS_BY_TYPE[pathlib.Path] = str
