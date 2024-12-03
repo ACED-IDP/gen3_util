@@ -195,7 +195,7 @@ def flatten_scalars(self: DomainResource) -> dict:
     """Convert the DomainResource instance to a dictionary."""
     _ = {
         k: _isodate(v)
-        for k, v in self.dict().items()
+        for k, v in self.model_dump().items()
         if not isinstance(v, (list, dict))
     }
     return _
@@ -203,7 +203,7 @@ def flatten_scalars(self: DomainResource) -> dict:
 
 def flatten_references(self: DomainResource) -> dict:
     """Convert the DomainResource instance to a dictionary."""
-    fields = [_ for _ in self.__fields__.keys() if not _.endswith("__ext")]
+    fields = [_ for _ in self.model_fields.keys() if not _.endswith("__ext")]
     _ = {}
     # if any top level field in this resource is a Reference, use the Reference.reference https://build.fhir.org/references-definitions.html#Reference.reference
     for k in fields:
@@ -327,7 +327,7 @@ def patched_scalars_references_identifiers_observation() -> bool:
 def test_patient_without_flatten(patient_dict: dict):
     """This patient object should NOT have a 'flatten' method."""
     # without path dependency, just have a plain patient object with no flatten method
-    patient = Patient.parse_obj(patient_dict)
+    patient = Patient.model_validate(patient_dict)
     assert not hasattr(
         patient, "flatten"
     ), "Patient object should not have a 'flatten' method"
@@ -335,7 +335,7 @@ def test_patient_without_flatten(patient_dict: dict):
 
 def test_patient_with_simple(patched_domain_resource_simple: bool, patient_dict: dict):
     """This patient object should have a 'flatten' method."""
-    patient = Patient.parse_obj(patient_dict)
+    patient = Patient.model_validate(patient_dict)
     assert hasattr(
         patient, "flatten"
     ), "Patient object does not have a 'flatten' method"
@@ -346,7 +346,7 @@ def test_patient_with_simple(patched_domain_resource_simple: bool, patient_dict:
 
 def test_patient_with_scalars(patched_scalars: bool, patient_dict: dict):
     """This patient object should have a 'flatten' method that returns a dict of scalar values."""
-    patient = Patient.parse_obj(patient_dict)
+    patient = Patient.model_validate(patient_dict)
     assert hasattr(
         patient, "flatten"
     ), "Patient object does not have a 'flatten' method"
@@ -362,7 +362,7 @@ def test_patient_with_scalars_and_references(
     patched_scalars_and_references: bool, patient_dict: dict
 ):
     """This patient object should have a 'flatten' method that returns a dict of scalar values and references."""
-    patient = Patient.parse_obj(patient_dict)
+    patient = Patient.model_validate(patient_dict)
     assert hasattr(
         patient, "flatten"
     ), "Patient object does not have a 'flatten' method"
@@ -379,7 +379,7 @@ def test_patient_with_scalars_references_identifiers(
     patched_scalars_references_identifiers: bool, patient_dict: dict
 ):
     """This patient object should have a 'flatten' method that returns a dict of scalar values and references."""
-    patient = Patient.parse_obj(patient_dict)
+    patient = Patient.model_validate(patient_dict)
     assert hasattr(
         patient, "flatten"
     ), "Patient object does not have a 'flatten' method"
@@ -397,7 +397,7 @@ def test_specimen_with_scalars_references_identifiers(
     patched_scalars_references_identifiers: bool, specimen_dict: dict
 ):
     """This patient object should have a 'flatten' method that returns a dict of scalar values and references."""
-    specimen = Specimen.parse_obj(specimen_dict)
+    specimen = Specimen.model_validate(specimen_dict)
     assert hasattr(
         specimen, "flatten"
     ), "Specimen object does not have a 'flatten' method"
@@ -416,7 +416,7 @@ def test_eye_color_observation(
     observation_eye_color_dict: dict,
 ):
     """This patient object should have a 'flatten' method that returns a dict of scalar values and references."""
-    observation = Observation.parse_obj(observation_eye_color_dict)
+    observation = Observation.model_validate(observation_eye_color_dict)
     assert hasattr(
         observation, "flatten"
     ), "Observation object does not have a 'flatten' method"
@@ -424,7 +424,7 @@ def test_eye_color_observation(
         "resourceType": "Observation",
         "id": "eye-color",
         "status": "final",
-        "effectiveDateTime": "2016-05-18",
+        "effectiveDateTime": "2016-05-18T00:00:00",
         "value": "blue",
         "subject": "Patient/example",
     }
@@ -434,12 +434,12 @@ def test_bmi_observation(
     patched_scalars_references_identifiers_observation: bool, observation_bmi_dict: dict
 ):
     """This patient object should have a 'flatten' method that returns a dict of scalar values and references."""
-    observation = Observation.parse_obj(observation_bmi_dict)
+    observation = Observation.model_validate(observation_bmi_dict)
     assert hasattr(
         observation, "flatten"
     ), "Observation object does not have a 'flatten' method"
     assert observation.flatten() == {
-        "effectiveDateTime": "1999-07-02",
+        "effectiveDateTime": "1999-07-02T00:00:00",
         "id": "bmi-using-related",
         "resourceType": "Observation",
         "status": "final",
