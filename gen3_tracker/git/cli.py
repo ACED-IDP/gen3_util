@@ -677,7 +677,7 @@ def push(
                 bundle.entry.append(bundle_entry)
 
             headers = {"Authorization": f"{auth._access_token}"}
-            bundle_dict = bundle.dict()
+            bundle_dict = bundle.model_dump()
             with Halo(
                 text="Sending to FHIR Server",
                 spinner="line",

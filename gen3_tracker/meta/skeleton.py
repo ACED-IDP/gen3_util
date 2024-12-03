@@ -7,8 +7,7 @@ from typing import Generator
 import orjson
 from fhir.resources.attachment import Attachment
 from fhir.resources.bundle import Bundle, BundleEntry, BundleEntryRequest
-from fhir.resources.documentreference import DocumentReference
-from fhir.resources.fhirtypes import DocumentReferenceContentType
+from fhir.resources.documentreference import DocumentReference, DocumentReferenceContent
 from fhir.resources.identifier import Identifier
 from fhir.resources.observation import Observation
 from fhir.resources.operationoutcome import OperationOutcome
@@ -74,7 +73,7 @@ def get_data_from_meta() -> Generator[int, None, None]:
 
 def update_document_reference(document_reference: DocumentReference, dvc_data: DVC):
     """Update document reference with index record."""
-    assert document_reference.resource_type == 'DocumentReference'
+    assert document_reference.get_resource_type() == 'DocumentReference'
     assert dvc_data.out.object_id == document_reference.id, f"{dvc_data['did']} != {document_reference.id}"
     assert dvc_data.out.modified, f"dvc_data missing modified: {dvc_data}"
     document_reference.docStatus = 'final'
@@ -108,7 +107,7 @@ def update_document_reference(document_reference: DocumentReference, dvc_data: D
     attachment.title = pathlib.Path(dvc_data.out.path).name
     attachment.creation = dvc_data.out.modified
 
-    content = DocumentReferenceContentType(attachment=attachment)
+    content = DocumentReferenceContent(attachment=attachment)
 
     document_reference.content = [content]
 
@@ -289,10 +288,10 @@ def update_meta_files(dry_run=False, project_id=None) -> list[str]:
         for _ in dvc_data(dvc_files):
             resources = create_skeleton(_, project_id, meta_index())
             for resource in resources:
-                key = f"{resource.resource_type}/{resource.id}"
+                key = f"{resource.get_resource_type()}/{resource.id}"
                 if key not in emitted_already:
-                    emitter.emit(resource.resource_type).write(
-                        resource.json(option=orjson.OPT_APPEND_NEWLINE)
+                    emitter.emit(resource.get_resource_type()).write(
+                        resource.model_dump_json() + '\n'
                     )
                     emitted_already.append(key)
 
@@ -317,8 +316,8 @@ def update_meta_files(dry_run=False, project_id=None) -> list[str]:
             bundle.entry.append(bundle_entry)
 
         with EmitterContextManager('META') as emitter:
-            emitter.emit(bundle.resource_type, file_mode='a').write(
-                bundle.json(option=orjson.OPT_APPEND_NEWLINE)
+            emitter.emit(bundle.get_resource_type(), file_mode='a').write(
+                bundle.model_dump_json() + '\n'
             )
 
     after_meta_files = [_ for _ in pathlib.Path('META').glob('*.ndjson')]
