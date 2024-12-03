@@ -34,20 +34,36 @@ from tqdm import tqdm
 
 import gen3_tracker
 from gen3_tracker import Config
-from gen3_tracker.common import CLIOutput, INFO_COLOR, ERROR_COLOR, is_url, filter_dicts, SUCCESS_COLOR, \
-    read_ndjson_file
+from gen3_tracker.common import (
+    CLIOutput,
+    INFO_COLOR,
+    ERROR_COLOR,
+    is_url,
+    filter_dicts,
+    SUCCESS_COLOR,
+    read_ndjson_file,
+)
 from gen3_tracker.config import init as config_init, ensure_auth
 from gen3_tracker.gen3.buckets import get_buckets
-from gen3_tracker.git import git_files, to_indexd, to_remote, dvc_data, \
-    data_file_changes, modified_date, git_status, DVC, MISSING_G3T_MESSAGE
-from gen3_tracker.git import run_command, \
-    MISSING_GIT_MESSAGE, git_repository_exists
+from gen3_tracker.git import (
+    git_files,
+    to_indexd,
+    to_remote,
+    dvc_data,
+    data_file_changes,
+    modified_date,
+    git_status,
+    DVC,
+    MISSING_G3T_MESSAGE,
+)
+from gen3_tracker.git import run_command, MISSING_GIT_MESSAGE, git_repository_exists
 from gen3_tracker.git.adder import url_path, write_dvc_file
 from gen3_tracker.git.cloner import ls
 from gen3_tracker.git.initializer import initialize_project_server_side
 from gen3_tracker.git.snapshotter import push_snapshot
 from gen3_tracker.meta.skeleton import meta_index, get_data_from_meta
 from gen3_tracker.common import _default_json_serializer
+
 # logging.basicConfig(level=logging.INFO)
 _logger = logging.getLogger(__package__)
 
@@ -66,14 +82,20 @@ _logger = logging.getLogger(__package__)
 #     if debug:
 #         _logger.setLevel(logging.DEBUG)
 
+
 def _check_parameters(config, project_id):
     """Common parameter checks."""
     if not project_id:
         raise AssertionError("project_id is required")
-    if not project_id.count('-') == 1:
-        raise AssertionError(f"project_id must be of the form program-project {project_id}")
+    if not project_id.count("-") == 1:
+        raise AssertionError(
+            f"project_id must be of the form program-project {project_id}"
+        )
     if not config.gen3.profile:
-        click.secho("No profile set. Continuing in disconnected mode. Use `set profile <profile>`", fg='yellow')
+        click.secho(
+            "No profile set. Continuing in disconnected mode. Use `set profile <profile>`",
+            fg="yellow",
+        )
 
 
 @click.group(cls=gen3_tracker.NaturalOrderGroup)
@@ -84,10 +106,34 @@ def cli():
 
 @cli.command(context_settings=dict(ignore_unknown_options=True))
 # @click.option('--force', '-f', is_flag=True, help='Force the init.')
-@click.argument('project_id', default=None, required=False, envvar=f"{gen3_tracker.ENV_VARIABLE_PREFIX}PROJECT_ID")
-@click.option('--approve', '-a', help='Approve the addition (privileged)', is_flag=True, default=False, show_default=True)
-@click.option('--no-server', help='Skip server setup (testing)', is_flag=True, default=False, show_default=True, hidden=True)
-@click.option('--debug', is_flag=True, envvar='G3T_DEBUG', help='Enable debug mode. G3T_DEBUG environment variable can also be used.')
+@click.argument(
+    "project_id",
+    default=None,
+    required=False,
+    envvar=f"{gen3_tracker.ENV_VARIABLE_PREFIX}PROJECT_ID",
+)
+@click.option(
+    "--approve",
+    "-a",
+    help="Approve the addition (privileged)",
+    is_flag=True,
+    default=False,
+    show_default=True,
+)
+@click.option(
+    "--no-server",
+    help="Skip server setup (testing)",
+    is_flag=True,
+    default=False,
+    show_default=True,
+    hidden=True,
+)
+@click.option(
+    "--debug",
+    is_flag=True,
+    envvar="G3T_DEBUG",
+    help="Enable debug mode. G3T_DEBUG environment variable can also be used.",
+)
 @click.pass_obj
 def init(config: Config, project_id: str, approve: bool, no_server: bool, debug: bool):
     """Initialize a new repository."""
@@ -113,15 +159,29 @@ def init(config: Config, project_id: str, approve: bool, no_server: bool, debug:
         ensure_git_repo(config)
 
         if not no_server:
-            init_logs, approval_needed = initialize_project_server_side(config, project_id)
+            init_logs, approval_needed = initialize_project_server_side(
+                config, project_id
+            )
             logs.extend(init_logs)
 
             if approve and approval_needed:
-                run_command('g3t collaborator approve --all', dry_run=config.dry_run, no_capture=True)
+                run_command(
+                    "g3t collaborator approve --all",
+                    dry_run=config.dry_run,
+                    no_capture=True,
+                )
             elif approval_needed and not approve:
-                click.secho("Approval needed. to approve the project, a privileged user must run `g3t collaborator approve --all`", fg=INFO_COLOR, file=sys.stderr)
+                click.secho(
+                    "Approval needed. to approve the project, a privileged user must run `g3t collaborator approve --all`",
+                    fg=INFO_COLOR,
+                    file=sys.stderr,
+                )
             else:
-                click.secho(f"Approval not needed. Project {project_id} has approved read/write", fg=INFO_COLOR, file=sys.stderr)
+                click.secho(
+                    f"Approval not needed. Project {project_id} has approved read/write",
+                    fg=INFO_COLOR,
+                    file=sys.stderr,
+                )
 
         if config.debug:
             for _ in logs:
@@ -135,26 +195,34 @@ def init(config: Config, project_id: str, approve: bool, no_server: bool, debug:
 
 def ensure_git_repo(config):
     # ensure a git repo
-    if pathlib.Path('.git').exists():
+    if pathlib.Path(".git").exists():
         return
 
-    if not pathlib.Path('.git').exists():
-        command = 'git init'
+    if not pathlib.Path(".git").exists():
+        command = "git init"
         run_command(command, dry_run=config.dry_run, no_capture=True)
     else:
-        click.secho('Git repository already exists.', fg=INFO_COLOR, file=sys.stderr)
-    pathlib.Path('MANIFEST').mkdir(exist_ok=True)
-    pathlib.Path('META').mkdir(exist_ok=True)
-    pathlib.Path('LOGS').mkdir(exist_ok=True)
-    with open('.gitignore', 'w') as f:
-        f.write('LOGS/\n')
-        f.write('.g3t/state/\n')  # legacy
-    with open('META/README.md', 'w') as f:
-        f.write('This directory contains metadata files for the data files in the MANIFEST directory.\n')
-    with open('MANIFEST/README.md', 'w') as f:
-        f.write('This directory contains dvc files that reference the data files.\n')
-    run_command('git add MANIFEST META .gitignore .g3t', dry_run=config.dry_run, no_capture=True)
-    run_command('git commit -m "initialized" MANIFEST META .gitignore .g3t', dry_run=config.dry_run, no_capture=True)
+        click.secho("Git repository already exists.", fg=INFO_COLOR, file=sys.stderr)
+    pathlib.Path("MANIFEST").mkdir(exist_ok=True)
+    pathlib.Path("META").mkdir(exist_ok=True)
+    pathlib.Path("LOGS").mkdir(exist_ok=True)
+    with open(".gitignore", "w") as f:
+        f.write("LOGS/\n")
+        f.write(".g3t/state/\n")  # legacy
+    with open("META/README.md", "w") as f:
+        f.write(
+            "This directory contains metadata files for the data files in the MANIFEST directory.\n"
+        )
+    with open("MANIFEST/README.md", "w") as f:
+        f.write("This directory contains dvc files that reference the data files.\n")
+    run_command(
+        "git add MANIFEST META .gitignore .g3t", dry_run=config.dry_run, no_capture=True
+    )
+    run_command(
+        'git commit -m "initialized" MANIFEST META .gitignore .g3t',
+        dry_run=config.dry_run,
+        no_capture=True,
+    )
 
 
 # Note: The commented code below is an example of how to use context settings to allow extra arguments.
@@ -165,8 +233,8 @@ def ensure_git_repo(config):
 
 
 @cli.command(context_settings=dict(ignore_unknown_options=True, allow_extra_args=True))
-@click.argument('target')
-@click.option('--no-git-add', default=False, is_flag=True, hidden=True)
+@click.argument("target")
+@click.option("--no-git-add", default=False, is_flag=True, hidden=True)
 @click.pass_context
 def add(ctx, target, no_git_add: bool):
     """
@@ -211,10 +279,10 @@ def add(ctx, target, no_git_add: bool):
         assert not config.no_config_found, MISSING_G3T_MESSAGE
 
         # needs to have a target
-        assert target, 'No targets specified.'
+        assert target, "No targets specified."
 
         # Expand wildcard paths
-        if is_url(target) and not target.startswith('file://'):
+        if is_url(target) and not target.startswith("file://"):
             all_changed_files, updates = add_url(ctx, target)
         else:
             all_changed_files, updates = add_file(ctx, target)
@@ -224,8 +292,12 @@ def add(ctx, target, no_git_add: bool):
         #
         adds = [str(_) for _ in all_changed_files if _ not in updates]
         if adds and not no_git_add:
-            adds.append('.gitignore')
-            run_command(f'git add {" ".join([str(_) for _ in adds])}', dry_run=config.dry_run, no_capture=True)
+            adds.append(".gitignore")
+            run_command(
+                f'git add {" ".join([str(_) for _ in adds])}',
+                dry_run=config.dry_run,
+                no_capture=True,
+            )
 
     except Exception as e:
         click.secho(str(e), fg=ERROR_COLOR, file=sys.stderr)
@@ -234,9 +306,15 @@ def add(ctx, target, no_git_add: bool):
 
 
 @cli.command(context_settings=dict(ignore_unknown_options=True, allow_extra_args=True))
-@click.argument('targets', nargs=-1)
-@click.option('--message', '-m', help='The commit message.')
-@click.option('--all', '-a', is_flag=True, default=False, help='Automatically stage files that have been modified and deleted.')
+@click.argument("targets", nargs=-1)
+@click.option("--message", "-m", help="The commit message.")
+@click.option(
+    "--all",
+    "-a",
+    is_flag=True,
+    default=False,
+    help="Automatically stage files that have been modified and deleted.",
+)
 @click.pass_context
 def commit(ctx, targets, message, all):
     """Commit the changes
@@ -269,11 +347,11 @@ def status(config):
     """Show changed files."""
     soft_error = False
     try:
-        with Halo(text='Scanning', spinner='line', placement='right', color='white'):
-            manifest_path = pathlib.Path('MANIFEST')
+        with Halo(text="Scanning", spinner="line", placement="right", color="white"):
+            manifest_path = pathlib.Path("MANIFEST")
             changes = data_file_changes(manifest_path)
             # Get a list of all files in the MANIFEST directory and its subdirectories
-            files = glob.glob('MANIFEST/**/*.dvc', recursive=True)
+            files = glob.glob("MANIFEST/**/*.dvc", recursive=True)
             # Filter out directories, keep only files
             files = [f for f in files if os.path.isfile(f)]
         if not files:
@@ -284,28 +362,46 @@ def status(config):
 
             document_reference_mtime = 0
 
-            if pathlib.Path('META/DocumentReference.ndjson').exists():
+            if pathlib.Path("META/DocumentReference.ndjson").exists():
                 # Get the modification time
-                document_reference_mtime = os.path.getmtime('META/DocumentReference.ndjson')
+                document_reference_mtime = os.path.getmtime(
+                    "META/DocumentReference.ndjson"
+                )
 
             latest_file_mtime = os.path.getmtime(latest_file)
             if document_reference_mtime < latest_file_mtime:
-                document_reference_mtime = datetime.fromtimestamp(document_reference_mtime).isoformat()
-                latest_file_mtime = datetime.fromtimestamp(latest_file_mtime).isoformat()
-                click.secho(f"WARNING: DocumentReference.ndjson is out of date {document_reference_mtime}. The most recently changed file is {latest_file} {latest_file_mtime}.  Please check DocumentReferences.ndjson", fg=INFO_COLOR, file=sys.stderr)
+                document_reference_mtime = datetime.fromtimestamp(
+                    document_reference_mtime
+                ).isoformat()
+                latest_file_mtime = datetime.fromtimestamp(
+                    latest_file_mtime
+                ).isoformat()
+                click.secho(
+                    f"WARNING: DocumentReference.ndjson is out of date {document_reference_mtime}. The most recently changed file is {latest_file} {latest_file_mtime}.  Please check DocumentReferences.ndjson",
+                    fg=INFO_COLOR,
+                    file=sys.stderr,
+                )
                 soft_error = True
 
             if changes:
-                click.secho(f"# There are {len(changes)} data files that you need to update via `g3t add`:", fg=INFO_COLOR, file=sys.stderr)
+                click.secho(
+                    f"# There are {len(changes)} data files that you need to update via `g3t add`:",
+                    fg=INFO_COLOR,
+                    file=sys.stderr,
+                )
                 cwd = pathlib.Path.cwd()
                 for _ in changes:
-                    data_path = str(_.data_path).replace(str(cwd) + '/', "")
-                    click.secho(f'  g3t add {data_path} # changed: {modified_date(_.data_path)},  last added: {modified_date(_.dvc_path)}', fg=INFO_COLOR, file=sys.stderr)
+                    data_path = str(_.data_path).replace(str(cwd) + "/", "")
+                    click.secho(
+                        f"  g3t add {data_path} # changed: {modified_date(_.data_path)},  last added: {modified_date(_.dvc_path)}",
+                        fg=INFO_COLOR,
+                        file=sys.stderr,
+                    )
                     soft_error = True
             else:
                 click.secho("No data file changes.", fg=INFO_COLOR, file=sys.stderr)
 
-        _ = run_command('git status')
+        _ = run_command("git status")
         print(_.stdout)
         if soft_error:
             exit(1)
@@ -316,27 +412,66 @@ def status(config):
 
 
 @cli.command()
-@click.option('--step',
-              type=click.Choice(['index', 'upload', 'publish', 'all', 'fhir']),
-              default='all',
-              show_default=True,
-              help='The step to run '
-              )
-@click.option('--transfer-method',
-              type=click.Choice(gen3_tracker.FILE_TRANSFER_METHODS.keys()),
-              default='gen3',
-              show_default=True,
-              help='The upload method.'
-              )
-@click.option('--overwrite', is_flag=True, help='(index): Overwrite previously submitted files.')
-@click.option('--wait', default=True, is_flag=True, show_default=True, help="(publish): Wait for metadata completion.")
-@click.option('--dry-run', show_default=True, default=False, is_flag=True, help='Print the commands that would be executed, but do not execute them.')
-@click.option('--re-run', show_default=True, default=False, is_flag=True, help='Re-run the last publish step')
-@click.option('--fhir-server', show_default=True, default=False, is_flag=True, help='Push data in META directory to FHIR Server. Whatever FHIR data that exists in META dir will be upserted into the fhir server')
-@click.option('--debug', is_flag=True)
-@click.option('--skip_validate', is_flag=True, help='Skip validation of the metadata')
+@click.option(
+    "--step",
+    type=click.Choice(["index", "upload", "publish", "all", "fhir"]),
+    default="all",
+    show_default=True,
+    help="The step to run ",
+)
+@click.option(
+    "--transfer-method",
+    type=click.Choice(gen3_tracker.FILE_TRANSFER_METHODS.keys()),
+    default="gen3",
+    show_default=True,
+    help="The upload method.",
+)
+@click.option(
+    "--overwrite", is_flag=True, help="(index): Overwrite previously submitted files."
+)
+@click.option(
+    "--wait",
+    default=True,
+    is_flag=True,
+    show_default=True,
+    help="(publish): Wait for metadata completion.",
+)
+@click.option(
+    "--dry-run",
+    show_default=True,
+    default=False,
+    is_flag=True,
+    help="Print the commands that would be executed, but do not execute them.",
+)
+@click.option(
+    "--re-run",
+    show_default=True,
+    default=False,
+    is_flag=True,
+    help="Re-run the last publish step",
+)
+@click.option(
+    "--fhir-server",
+    show_default=True,
+    default=False,
+    is_flag=True,
+    help="Push data in META directory to FHIR Server. Whatever FHIR data that exists in META dir will be upserted into the fhir server",
+)
+@click.option("--debug", is_flag=True)
+@click.option("--skip_validate", is_flag=True, help="Skip validation of the metadata")
 @click.pass_context
-def push(ctx, step: str, transfer_method: str, overwrite: bool, re_run: bool, wait: bool, dry_run: bool, fhir_server: bool, debug: bool, skip_validate: bool):
+def push(
+    ctx,
+    step: str,
+    transfer_method: str,
+    overwrite: bool,
+    re_run: bool,
+    wait: bool,
+    dry_run: bool,
+    fhir_server: bool,
+    debug: bool,
+    skip_validate: bool,
+):
     """Push changes to the remote repository.
     \b
     steps:
@@ -362,27 +497,35 @@ def push(ctx, step: str, transfer_method: str, overwrite: bool, re_run: bool, wa
             raise NotImplementedError("Re-run not implemented")
 
         try:
-            with Halo(text='Checking', spinner='line', placement='right', color='white'):
+            with Halo(
+                text="Checking", spinner="line", placement="right", color="white"
+            ):
                 run_command("g3t status")
                 if not skip_validate:
                     run_command("g3t meta validate", no_capture=True)
 
         except Exception as e:
-            click.secho("Please correct issues before pushing.", fg=ERROR_COLOR, file=sys.stderr)
+            click.secho(
+                "Please correct issues before pushing.", fg=ERROR_COLOR, file=sys.stderr
+            )
             click.secho(str(e), fg=ERROR_COLOR, file=sys.stderr)
             if config.debug:
                 raise
             exit(1)
 
-        with Halo(text='Scanning', spinner='line', placement='right', color='white'):
+        with Halo(text="Scanning", spinner="line", placement="right", color="white"):
 
             # check git status
             branch, uncommitted = git_status()
-            assert not uncommitted, "Uncommitted changes found.  Please commit or stash them first."
+            assert (
+                not uncommitted
+            ), "Uncommitted changes found.  Please commit or stash them first."
 
             # check dvc vs external files
-            changes = data_file_changes(pathlib.Path('MANIFEST'))
-            assert not changes, f"# There are {len(changes)} data files that you need to update.  See `g3t status`"
+            changes = data_file_changes(pathlib.Path("MANIFEST"))
+            assert (
+                not changes
+            ), f"# There are {len(changes)} data files that you need to update.  See `g3t status`"
 
             # initialize dvc objects with this project_id
             committed_files, dvc_objects = manifest(config.gen3.project_id)
@@ -392,133 +535,232 @@ def push(ctx, step: str, transfer_method: str, overwrite: bool, re_run: bool, wa
             bucket_name = get_program_bucket(config=config, auth=auth)
 
             # check for new files
-            records = ls(config, metadata={'project_id': config.gen3.project_id}, auth=auth)['records']
-            dids = {_['did']: _['updated_date'] for _ in records}
+            records = ls(
+                config, metadata={"project_id": config.gen3.project_id}, auth=auth
+            )["records"]
+            dids = {_["did"]: _["updated_date"] for _ in records}
             new_dvc_objects = [_ for _ in dvc_objects if _.object_id not in dids]
-            updated_dvc_objects = [_ for _ in dvc_objects if _.object_id in dids and _.out.modified > dids[_.object_id]]
+            updated_dvc_objects = [
+                _
+                for _ in dvc_objects
+                if _.object_id in dids and _.out.modified > dids[_.object_id]
+            ]
             if step not in ["publish", "fhir"]:
                 if not overwrite:
                     dvc_objects = new_dvc_objects + updated_dvc_objects
-                    assert dvc_objects, "No new files to index.  Use --overwrite to force"
+                    assert (
+                        dvc_objects
+                    ), "No new files to index.  Use --overwrite to force"
 
-        click.secho(f'Scanned new: {len(new_dvc_objects)}, updated: {len(updated_dvc_objects)} files', fg=INFO_COLOR, file=sys.stderr)
+        click.secho(
+            f"Scanned new: {len(new_dvc_objects)}, updated: {len(updated_dvc_objects)} files",
+            fg=INFO_COLOR,
+            file=sys.stderr,
+        )
         if updated_dvc_objects:
-            click.secho(f'Found {len(updated_dvc_objects)} updated files. overwriting', fg=INFO_COLOR, file=sys.stderr)
+            click.secho(
+                f"Found {len(updated_dvc_objects)} updated files. overwriting",
+                fg=INFO_COLOR,
+                file=sys.stderr,
+            )
             overwrite = True
 
-        if step in ['index', 'all']:
+        if step in ["index", "all"]:
             # send to index
 
             if dry_run:
-                click.secho("Dry run: not indexing files", fg=INFO_COLOR, file=sys.stderr)
+                click.secho(
+                    "Dry run: not indexing files", fg=INFO_COLOR, file=sys.stderr
+                )
                 yaml.dump(
                     {
-                        'new': [_.model_dump() for _ in new_dvc_objects],
-                        'updated': [_.model_dump() for _ in updated_dvc_objects],
+                        "new": [_.model_dump() for _ in new_dvc_objects],
+                        "updated": [_.model_dump() for _ in updated_dvc_objects],
                     },
-                    sys.stdout
+                    sys.stdout,
                 )
                 return
 
             for _ in tqdm(
-                    to_indexd(
-                        dvc_objects=dvc_objects,
-                        auth=auth,
-                        project_id=config.gen3.project_id,
-                        bucket_name=bucket_name,
-                        overwrite=overwrite,
-                        restricted_project_id=None
-
-                    ),
-                    desc='Indexing', unit='file', leave=False, total=len(committed_files)):
+                to_indexd(
+                    dvc_objects=dvc_objects,
+                    auth=auth,
+                    project_id=config.gen3.project_id,
+                    bucket_name=bucket_name,
+                    overwrite=overwrite,
+                    restricted_project_id=None,
+                ),
+                desc="Indexing",
+                unit="file",
+                leave=False,
+                total=len(committed_files),
+            ):
                 pass
-            click.secho(f'Indexed {len(committed_files)} files.', fg=INFO_COLOR, file=sys.stderr)
+            click.secho(
+                f"Indexed {len(committed_files)} files.", fg=INFO_COLOR, file=sys.stderr
+            )
 
-        if step in ['upload', 'all']:
-            click.secho(f'Checking {len(dvc_objects)} files for upload via {transfer_method}', fg=INFO_COLOR, file=sys.stderr)
+        if step in ["upload", "all"]:
+            click.secho(
+                f"Checking {len(dvc_objects)} files for upload via {transfer_method}",
+                fg=INFO_COLOR,
+                file=sys.stderr,
+            )
             to_remote(
                 upload_method=transfer_method,
                 dvc_objects=dvc_objects,
                 bucket_name=bucket_name,
                 profile=config.gen3.profile,
                 dry_run=config.dry_run,
-                work_dir=config.work_dir
+                work_dir=config.work_dir,
             )
 
-        if fhir_server or step in ['fhir']:
+        if fhir_server or step in ["fhir"]:
             """Either there exists a Bundle.ndjson file in META signifying a revision to the data, or there is no bundle.json,
-                    signifying that the data in the META directory should be upserted into gen34"""
-            meta_dir = pathlib.Path('META')
+            signifying that the data in the META directory should be upserted into gen34
+            """
+            meta_dir = pathlib.Path("META")
             bundle_file = meta_dir / "Bundle.ndjson"
             if os.path.isfile(bundle_file):
-                with Halo(text='Sending to FHIR Server', spinner='line', placement='right', color='white'):
+                with Halo(
+                    text="Sending to FHIR Server",
+                    spinner="line",
+                    placement="right",
+                    color="white",
+                ):
                     with open(bundle_file, "r") as file:
                         json_string = file.read()
                     bundle_data = orjson.loads(json_string)
                     headers = {"Authorization": f"{auth._access_token}"}
-                    result = requests.delete(url=f'{auth.endpoint}/Bundle', data=orjson.dumps(bundle_data, default=_default_json_serializer,
-                                                                                              option=orjson.OPT_APPEND_NEWLINE).decode(), headers=headers)
-                
-                with open("logs/publish.log", 'a') as f:
-                    log_msg = {'timestamp': datetime.now(pytz.UTC).isoformat(), "result": f"{result}"}
-                    click.secho('Published project. See logs/publish.log', fg=SUCCESS_COLOR, file=sys.stderr)
-                    f.write(json.dumps(log_msg, separators=(',', ':')))
-                    f.write('\n')
+                    result = requests.delete(
+                        url=f"{auth.endpoint}/Bundle",
+                        data=orjson.dumps(
+                            bundle_data,
+                            default=_default_json_serializer,
+                            option=orjson.OPT_APPEND_NEWLINE,
+                        ).decode(),
+                        headers=headers,
+                    )
+
+                with open("logs/publish.log", "a") as f:
+                    log_msg = {
+                        "timestamp": datetime.now(pytz.UTC).isoformat(),
+                        "result": f"{result}",
+                    }
+                    click.secho(
+                        "Published project. See logs/publish.log",
+                        fg=SUCCESS_COLOR,
+                        file=sys.stderr,
+                    )
+                    f.write(json.dumps(log_msg, separators=(",", ":")))
+                    f.write("\n")
                 return
 
             project_id = config.gen3.project_id
             now = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%S.%fZ")
-            bundle = Bundle(type='transaction', timestamp=now)
-            bundle.identifier = Identifier(value=project_id, system="https://aced-idp.org/project_id")
+            bundle = Bundle(type="transaction", timestamp=now)
+            bundle.identifier = Identifier(
+                value=project_id, system="https://aced-idp.org/project_id"
+            )
             from gen3_tracker import ACED_NAMESPACE
+
             bundle.id = str(uuid.uuid5(ACED_NAMESPACE, f"Bundle/{project_id}/{now}"))
             bundle.entry = []
 
             for _ in get_data_from_meta():
                 bundle_entry = BundleEntry()
                 # See https://build.fhir.org/bundle-definitions.html#Bundle.entry.request.url
-                bundle_entry.request = BundleEntryRequest(url=f"{_['resourceType']}/{_['id']}", method='PUT')
+                bundle_entry.request = BundleEntryRequest(
+                    url=f"{_['resourceType']}/{_['id']}", method="PUT"
+                )
                 bundle_entry.resource = _
                 bundle.entry.append(bundle_entry)
 
             headers = {"Authorization": f"{auth._access_token}"}
-            bundle_dict = bundle.dict()
-            with Halo(text='Sending to FHIR Server', spinner='line', placement='right', color='white'):
-                result = requests.put(url=f'{auth.endpoint}/Bundle', data=orjson.dumps(bundle_dict, default=_default_json_serializer,
-                                                                                       option=orjson.OPT_APPEND_NEWLINE).decode(), headers=headers)
+            bundle_dict = bundle.model_dump()
+            with Halo(
+                text="Sending to FHIR Server",
+                spinner="line",
+                placement="right",
+                color="white",
+            ):
+                result = requests.put(
+                    url=f"{auth.endpoint}/Bundle",
+                    data=orjson.dumps(
+                        bundle_dict,
+                        default=_default_json_serializer,
+                        option=orjson.OPT_APPEND_NEWLINE,
+                    ).decode(),
+                    headers=headers,
+                )
 
-            with open("logs/publish.log", 'a') as f:
-                log_msg = {'timestamp': datetime.now(pytz.UTC).isoformat(), "result": f"{result}"}
-                click.secho('Published project. See logs/publish.log', fg=SUCCESS_COLOR, file=sys.stderr)
-                f.write(json.dumps(log_msg, separators=(',', ':')))
-                f.write('\n')
+            with open("logs/publish.log", "a") as f:
+                log_msg = {
+                    "timestamp": datetime.now(pytz.UTC).isoformat(),
+                    "result": f"{result}",
+                }
+                click.secho(
+                    "Published project. See logs/publish.log",
+                    fg=SUCCESS_COLOR,
+                    file=sys.stderr,
+                )
+                f.write(json.dumps(log_msg, separators=(",", ":")))
+                f.write("\n")
             return
 
-        if step in ['publish', 'all'] and not fhir_server:
+        if step in ["publish", "all"] and not fhir_server:
             log_path = "logs/publish.log"
 
-            with Halo(text='Uploading snapshot', spinner='line', placement='right', color='white'):
+            with Halo(
+                text="Uploading snapshot",
+                spinner="line",
+                placement="right",
+                color="white",
+            ):
                 # push the snapshot of the `.git` sub-directory in the current directory
                 push_snapshot(config, auth=auth)
 
-            if transfer_method == 'gen3':
+            if transfer_method == "gen3":
                 try:
                     # legacy, "old" fhir_import_export use publish_commits to publish the META
-                    with Halo(text='Publishing', spinner='line', placement='right', color='white') as spinner:
-                        _ = publish_commits(config, wait=wait, auth=auth, bucket_name=bucket_name, spinner=spinner)
+                    with Halo(
+                        text="Publishing",
+                        spinner="line",
+                        placement="right",
+                        color="white",
+                    ) as spinner:
+                        _ = publish_commits(
+                            config,
+                            wait=wait,
+                            auth=auth,
+                            bucket_name=bucket_name,
+                            spinner=spinner,
+                        )
                 except Exception as e:
-                    click.secho(f'Unable to publish project. See {log_path} for more info', fg=ERROR_COLOR, file=sys.stderr)
+                    click.secho(
+                        f"Unable to publish project. See {log_path} for more info",
+                        fg=ERROR_COLOR,
+                        file=sys.stderr,
+                    )
                     raise e
 
                 # print success message and save logs
-                with open(log_path, 'a') as f:
-                    log_msg = {'timestamp': datetime.now(pytz.UTC).isoformat()}
+                with open(log_path, "a") as f:
+                    log_msg = {"timestamp": datetime.now(pytz.UTC).isoformat()}
                     log_msg.update(_)
-                    f.write(json.dumps(log_msg, separators=(',', ':')))
-                    f.write('\n')
-                click.secho(f'Published project. Logs found at {log_path}', fg=SUCCESS_COLOR, file=sys.stderr)
+                    f.write(json.dumps(log_msg, separators=(",", ":")))
+                    f.write("\n")
+                click.secho(
+                    f"Published project. Logs found at {log_path}",
+                    fg=SUCCESS_COLOR,
+                    file=sys.stderr,
+                )
             else:
-                click.secho(f'Auto-publishing not supported for {transfer_method}. Please use --step publish after uploading', fg=ERROR_COLOR, file=sys.stderr)
+                click.secho(
+                    f"Auto-publishing not supported for {transfer_method}. Please use --step publish after uploading",
+                    fg=ERROR_COLOR,
+                    file=sys.stderr,
+                )
 
     except Exception as e:
         click.secho(str(e), fg=ERROR_COLOR, file=sys.stderr)
@@ -529,7 +771,7 @@ def push(ctx, step: str, transfer_method: str, overwrite: bool, re_run: bool, wa
 
 def manifest(project_id) -> tuple[list[str], list[DVC]]:
     """Get the committed files and their dvc objects. Initialize dvc objects with this project_id"""
-    committed_files = [_ for _ in git_files() if _.endswith('.dvc')]
+    committed_files = [_ for _ in git_files() if _.endswith(".dvc")]
     dvc_objects = [_ for _ in dvc_data(committed_files)]
     for _ in dvc_objects:
         _.project_id = project_id
@@ -537,26 +779,43 @@ def manifest(project_id) -> tuple[list[str], list[DVC]]:
 
 
 @cli.command()
-@click.option('--remote',
-              type=click.Choice(['gen3', 's3', 'ln', 'scp']),
-              default='gen3',
-              show_default=True,
-              help='Specify the remote storage type. gen3:download, s3:s3 cp, ln: symbolic link, scp: scp copy'
-              )
-@click.option('--worker_count', '-w', default=(multiprocessing.cpu_count() - 1), show_default=True,
-              type=int,
-              help='Number of workers to use.')
-@click.option('--data-only', help='Ignore git snapshot', is_flag=True, default=False, show_default=True)
+@click.option(
+    "--remote",
+    type=click.Choice(["gen3", "s3", "ln", "scp"]),
+    default="gen3",
+    show_default=True,
+    help="Specify the remote storage type. gen3:download, s3:s3 cp, ln: symbolic link, scp: scp copy",
+)
+@click.option(
+    "--worker_count",
+    "-w",
+    default=(multiprocessing.cpu_count() - 1),
+    show_default=True,
+    type=int,
+    help="Number of workers to use.",
+)
+@click.option(
+    "--data-only",
+    help="Ignore git snapshot",
+    is_flag=True,
+    default=False,
+    show_default=True,
+)
 @click.pass_obj
 def pull(config: Config, remote: str, worker_count: int, data_only: bool):
-    """ Fetch from and integrate with a remote repository."""
+    """Fetch from and integrate with a remote repository."""
     try:
 
-        with Halo(text='Authorizing', spinner='line', placement='right', color='white'):
+        with Halo(text="Authorizing", spinner="line", placement="right", color="white"):
             auth = gen3_tracker.config.ensure_auth(config=config)
 
         if not data_only:
-            with Halo(text='Pulling git snapshot', spinner='line', placement='right', color='white'):
+            with Halo(
+                text="Pulling git snapshot",
+                spinner="line",
+                placement="right",
+                color="white",
+            ):
                 if not auth:
                     auth = gen3_tracker.config.ensure_auth(config=config)
                 snapshot, zip_filepath = download_snapshot(auth, config)
@@ -567,35 +826,52 @@ def pull(config: Config, remote: str, worker_count: int, data_only: bool):
                 # Rename the directory
                 shutil.move(".git", new_dir_name)
                 # unzip the snapshot
-                with zipfile.ZipFile(zip_filepath, 'r') as zip_ref:
-                    zip_ref.extractall('.')
-            click.secho(f"Pulled {snapshot['file_name']}", fg=INFO_COLOR, file=sys.stderr)
+                with zipfile.ZipFile(zip_filepath, "r") as zip_ref:
+                    zip_ref.extractall(".")
+            click.secho(
+                f"Pulled {snapshot['file_name']}", fg=INFO_COLOR, file=sys.stderr
+            )
 
         manifest_files, dvc_objects = manifest(config.gen3.project_id)
-        if remote == 'gen3':
+        if remote == "gen3":
             # download the files
-            with Halo(text='Pulling from gen3', spinner='line', placement='right', color='white'):
-                object_ids = [{'object_id': _.object_id} for _ in dvc_objects]  # if not _.out.source_url
-                current_time = datetime.now().strftime("%Y%m%d%H%M%S")  # Format datetime as you need
-                manifest_file = pathlib.Path(config.work_dir) / f'manifest-{current_time}.json'
-                with open(manifest_file, 'w') as fp:
+            with Halo(
+                text="Pulling from gen3",
+                spinner="line",
+                placement="right",
+                color="white",
+            ):
+                object_ids = [
+                    {"object_id": _.object_id} for _ in dvc_objects
+                ]  # if not _.out.source_url
+                current_time = datetime.now().strftime(
+                    "%Y%m%d%H%M%S"
+                )  # Format datetime as you need
+                manifest_file = (
+                    pathlib.Path(config.work_dir) / f"manifest-{current_time}.json"
+                )
+                with open(manifest_file, "w") as fp:
                     json.dump(object_ids, fp)
-            cmd = f'gen3-client download-multiple --no-prompt --profile {config.gen3.profile}  --manifest {manifest_file} --numparallel {worker_count}'
+            cmd = f"gen3-client download-multiple --no-prompt --profile {config.gen3.profile}  --manifest {manifest_file} --numparallel {worker_count}"
             print(cmd)
             run_command(cmd, no_capture=True)
-        elif remote == 's3':
-            with Halo(text='Pulling from s3', spinner='line', placement='right', color='white'):
+        elif remote == "s3":
+            with Halo(
+                text="Pulling from s3", spinner="line", placement="right", color="white"
+            ):
                 if not auth:
                     auth = gen3_tracker.config.ensure_auth(config=config)
-                results = ls(config, metadata={'project_id': config.gen3.project_id}, auth=auth)
+                results = ls(
+                    config, metadata={"project_id": config.gen3.project_id}, auth=auth
+                )
                 object_ids = [_.object_id for _ in dvc_objects]
-            for _ in results['records']:
-                if _['did'] in object_ids:
-                    print('aws s3 cp ', _['urls'][0], _['file_name'])
-        elif remote == 'ln':
+            for _ in results["records"]:
+                if _["did"] in object_ids:
+                    print("aws s3 cp ", _["urls"][0], _["file_name"])
+        elif remote == "ln":
             for _ in dvc_objects:
                 print(f"ln -s {_.out.realpath} {_.out.path}")
-        elif remote == 'scp':
+        elif remote == "scp":
             for _ in dvc_objects:
                 print(f"scp USER@HOST:{_.out.realpath} {_.out.path}")
 
@@ -609,56 +885,79 @@ def pull(config: Config, remote: str, worker_count: int, data_only: bool):
 
 
 @cli.command()
-@click.argument('project_id', default=None, required=False, envvar=f"{gen3_tracker.ENV_VARIABLE_PREFIX}PROJECT_ID", metavar='PROJECT_ID')
+@click.argument(
+    "project_id",
+    default=None,
+    required=False,
+    envvar=f"{gen3_tracker.ENV_VARIABLE_PREFIX}PROJECT_ID",
+    metavar="PROJECT_ID",
+)
 @click.pass_obj
 def clone(config, project_id):
     """Clone a repository into a new directory"""
     try:
         config.gen3.project_id = project_id
-        assert not pathlib.Path(project_id).exists(), f"{project_id} already exists.  Please remove it first."
+        assert not pathlib.Path(
+            project_id
+        ).exists(), f"{project_id} already exists.  Please remove it first."
         os.mkdir(project_id)
         os.chdir(project_id)
-        with Halo(text='Cloning', spinner='line', placement='right', color='white'):
+        with Halo(text="Cloning", spinner="line", placement="right", color="white"):
             auth = gen3_tracker.config.ensure_auth(config=config)
             snapshot, zip_filepath = download_snapshot(auth, config)
-            assert not pathlib.Path('.git').exists(), "A git repository already exists.  Please remove it, or move to another directory first."
+            assert not pathlib.Path(
+                ".git"
+            ).exists(), "A git repository already exists.  Please remove it, or move to another directory first."
             # unzip
-            with zipfile.ZipFile(zip_filepath, 'r') as zip_ref:
-                zip_ref.extractall('.')
+            with zipfile.ZipFile(zip_filepath, "r") as zip_ref:
+                zip_ref.extractall(".")
 
             # if we just unzipped a .git these directories will exist
-            expected_dirs = ['.git', 'META', 'MANIFEST']
+            expected_dirs = [".git", "META", "MANIFEST"]
             if not all([pathlib.Path(_).exists() for _ in expected_dirs]):
                 # if not, we have downloaded a legacy SNAPSHOT.zip, so lets migrate the data to the expected drirectories
-                click.secho(f"{expected_dirs} not found after downloading {snapshot['file_name']} processing legacy snapshot", fg=INFO_COLOR, file=sys.stderr)
+                click.secho(
+                    f"{expected_dirs} not found after downloading {snapshot['file_name']} processing legacy snapshot",
+                    fg=INFO_COLOR,
+                    file=sys.stderr,
+                )
                 # legacy - was this a *SNAPSHOT.zip?
-                meta_files = (pathlib.Path('studies') / config.gen3.project)
+                meta_files = pathlib.Path("studies") / config.gen3.project
                 # legacy - was this a *meta.zip?
                 if not meta_files.exists():
-                    meta_files = pathlib.Path('.')
+                    meta_files = pathlib.Path(".")
                 # create local directories and git
                 [_ for _ in config_init(config, project_id)]
                 ensure_git_repo(config=config)
                 # move ndjson from studies to META
-                for _ in meta_files.glob('*.ndjson'):
-                    shutil.move(_, 'META/')
+                for _ in meta_files.glob("*.ndjson"):
+                    shutil.move(_, "META/")
                 # add to git
-                run_command('git add META/*.*')
+                run_command("git add META/*.*")
                 # migrate DocumentReferences to MANIFEST
                 references = meta_index()
                 manifest_files = []
-                for _ in read_ndjson_file('META/DocumentReference.ndjson'):
+                for _ in read_ndjson_file("META/DocumentReference.ndjson"):
                     document_reference = DocumentReference.parse_obj(_)
-                    dvc_object = DVC.from_document_reference(config, document_reference, references)
-                    manifest_files.append(write_dvc_file(yaml_data=dvc_object.model_dump(), target=dvc_object.out.path))
+                    dvc_object = DVC.from_document_reference(
+                        config, document_reference, references
+                    )
+                    manifest_files.append(
+                        write_dvc_file(
+                            yaml_data=dvc_object.model_dump(),
+                            target=dvc_object.out.path,
+                        )
+                    )
 
                 # Get the current time in seconds since the epoch
                 current_time = time.time()
                 # Update the access and modification times of the file
-                os.utime('META/DocumentReference.ndjson', (current_time, current_time))
+                os.utime("META/DocumentReference.ndjson", (current_time, current_time))
 
-                run_command('git add MANIFEST/')
-                run_command('git commit -m "migrated from legacy" MANIFEST/ META/ .gitignore')
+                run_command("git add MANIFEST/")
+                run_command(
+                    'git commit -m "migrated from legacy" MANIFEST/ META/ .gitignore'
+                )
                 shutil.move(zip_filepath, config.work_dir / zip_filepath.name)
 
         click.secho(f"Cloned {snapshot['file_name']}", fg=INFO_COLOR, file=sys.stderr)
@@ -673,27 +972,30 @@ def clone(config, project_id):
 def download_snapshot(auth, config):
     """Download the latest snapshot."""
     from gen3_tracker.git.cloner import find_latest_snapshot
+
     snapshot = find_latest_snapshot(auth, config)
 
     gen3_file = Gen3File(auth)
-    pathlib.Path(snapshot['file_name']).parent.mkdir(exist_ok=True, parents=True)
-    ok = gen3_file.download_single(snapshot['did'], '.')
+    pathlib.Path(snapshot["file_name"]).parent.mkdir(exist_ok=True, parents=True)
+    ok = gen3_file.download_single(snapshot["did"], ".")
     assert ok, f"Failed to download {snapshot['did']}"
 
-    zip_filepath = pathlib.Path(snapshot['file_name'])
+    zip_filepath = pathlib.Path(snapshot["file_name"])
     assert zip_filepath.exists(), f"Failed to download {snapshot['did']}"
     return snapshot, zip_filepath
 
 
 def file_name_or_guid(config, object_id) -> (str, pathlib.Path):
     """Check if the object_id is a file name or a GUID."""
-    guid_pattern = re.compile(r'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$')
+    guid_pattern = re.compile(
+        r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+    )
     path = None
     if not guid_pattern.match(object_id):
         if not is_url(object_id):
-            path = pathlib.Path('MANIFEST') / (object_id + ".dvc")
+            path = pathlib.Path("MANIFEST") / (object_id + ".dvc")
         else:
-            path = pathlib.Path('MANIFEST') / (url_path(object_id) + ".dvc")
+            path = pathlib.Path("MANIFEST") / (url_path(object_id) + ".dvc")
 
         if path.exists():
             dvc_object = next(iter(dvc_data([str(path)])), None)
@@ -702,20 +1004,33 @@ def file_name_or_guid(config, object_id) -> (str, pathlib.Path):
             object_id = dvc_object.object_id
         else:
             raise ValueError(
-                f"{object_id} was not found in the MANIFEST and does not appear to be an object identifier (GUID).")
+                f"{object_id} was not found in the MANIFEST and does not appear to be an object identifier (GUID)."
+            )
     else:
         committed_files, dvc_objects = manifest(config.gen3.project_id)
-        dvc_objects = [dvc_object for dvc_object in dvc_objects if dvc_object.object_id == object_id]
+        dvc_objects = [
+            dvc_object
+            for dvc_object in dvc_objects
+            if dvc_object.object_id == object_id
+        ]
         assert dvc_objects, f"{object_id} not found in MANIFEST."
-        path = pathlib.Path('MANIFEST') / (dvc_objects[0].out.path + ".dvc")
+        path = pathlib.Path("MANIFEST") / (dvc_objects[0].out.path + ".dvc")
 
     assert guid_pattern.match(object_id), f"{object_id} was not found in MANIFEST."
     return object_id, path
 
 
 @cli.command("ls")
-@click.option('--long', '-l', 'long_flag', default=False, is_flag=True, help='Long listing format.', show_default=True)
-@click.argument('target', default=None, required=False)
+@click.option(
+    "--long",
+    "-l",
+    "long_flag",
+    default=False,
+    is_flag=True,
+    help="Long listing format.",
+    show_default=True,
+)
+@click.argument("target", default=None, required=False)
 @click.pass_obj
 def ls_cli(config: Config, long_flag: bool, target: str):
     """List files in the repository.
@@ -724,10 +1039,14 @@ def ls_cli(config: Config, long_flag: bool, target: str):
     """
     try:
 
-        with Halo(text='Pulling file list', spinner='line', placement='right', color='white'):
+        with Halo(
+            text="Pulling file list", spinner="line", placement="right", color="white"
+        ):
             auth = gen3_tracker.config.ensure_auth(config=config)
-            results = ls(config, metadata={'project_id': config.gen3.project_id}, auth=auth)
-            indexd_records = results['records']
+            results = ls(
+                config, metadata={"project_id": config.gen3.project_id}, auth=auth
+            )
+            indexd_records = results["records"]
             committed_files, dvc_objects = manifest(config.gen3.project_id)
             # list all data files
             dvc_objects = {_.object_id: _ for _ in dvc_objects}
@@ -742,44 +1061,49 @@ def ls_cli(config: Config, long_flag: bool, target: str):
                             _[k] = v
                 else:
                     _ = dvc_object.model_dump(exclude_none=True)
-                _['object_id'] = dvc_object.object_id
+                _["object_id"] = dvc_object.object_id
                 return _
 
             if not long_flag:
                 indexd_records = [
                     {
-                        'did': _['did'],
-                        'file_name': _['file_name'],
-                        'indexd_created_date': _['created_date'],
-                        'meta': _dvc_meta(dvc_objects.get(_['did'], None)),
-                        'urls': _['urls']
-                    } for _ in indexd_records
+                        "did": _["did"],
+                        "file_name": _["file_name"],
+                        "indexd_created_date": _["created_date"],
+                        "meta": _dvc_meta(dvc_objects.get(_["did"], None)),
+                        "urls": _["urls"],
+                    }
+                    for _ in indexd_records
                 ]
 
-        bucket_ids = {_['did'] for _ in indexd_records}
+        bucket_ids = {_["did"] for _ in indexd_records}
 
-        uncommitted = pathlib.Path('MANIFEST').glob('**/*.dvc')
+        uncommitted = pathlib.Path("MANIFEST").glob("**/*.dvc")
         uncommitted = [str(_) for _ in uncommitted]
         uncommitted = [str(_) for _ in uncommitted if _ not in committed_files]
         uncommitted = [_.model_dump(exclude_none=True) for _ in dvc_data(uncommitted)]
 
         _ = {
-            'bucket': indexd_records,
-            'committed': [_dvc_meta(v, full=True) for k, v in dvc_objects.items() if k not in bucket_ids],
-            'uncommitted': uncommitted
+            "bucket": indexd_records,
+            "committed": [
+                _dvc_meta(v, full=True)
+                for k, v in dvc_objects.items()
+                if k not in bucket_ids
+            ],
+            "uncommitted": uncommitted,
         }
 
         if target:
             # Escape special characters and replace wildcard '*' with '.*' for regex pattern
             pattern = re.escape(target).replace("\\*", ".*")
             filtered = {
-                'bucket': filter_dicts(_.get('bucket', []), pattern),
-                'committed': filter_dicts(_.get('committed', []), pattern),
-                'uncommitted': filter_dicts(_.get('uncommitted', []), pattern)
+                "bucket": filter_dicts(_.get("bucket", []), pattern),
+                "committed": filter_dicts(_.get("committed", []), pattern),
+                "uncommitted": filter_dicts(_.get("uncommitted", []), pattern),
             }
             _ = filtered
 
-        if config.output.format == 'json':
+        if config.output.format == "json":
             print(json.dumps(_, indent=2))
         else:
             yaml.dump(_, sys.stdout, default_flow_style=False)
@@ -791,7 +1115,7 @@ def ls_cli(config: Config, long_flag: bool, target: str):
 
 
 @cli.command()
-@click.argument('object_id', metavar='<name>')
+@click.argument("object_id", metavar="<name>")
 @click.pass_obj
 def rm(config: Config, object_id: str):
     """Remove a single file from the server index, and MANIFEST. Does not alter META.
@@ -800,29 +1124,50 @@ def rm(config: Config, object_id: str):
     """
     try:
 
-        with Halo(text='Searching', spinner='line', placement='right', color='white'):
+        with Halo(text="Searching", spinner="line", placement="right", color="white"):
             object_id, path = file_name_or_guid(config, object_id)
 
-        with Halo(text='Deleting from server', spinner='line', placement='right', color='white'):
+        with Halo(
+            text="Deleting from server",
+            spinner="line",
+            placement="right",
+            color="white",
+        ):
             auth = gen3_tracker.config.ensure_auth(config=config)
             index = Gen3Index(auth)
             result = index.delete_record(object_id)
         if not result:
             if not path:
-                path = ''
-            click.secho(f"Failed to delete {object_id} from server. {path}", fg=ERROR_COLOR, file=sys.stderr)
+                path = ""
+            click.secho(
+                f"Failed to delete {object_id} from server. {path}",
+                fg=ERROR_COLOR,
+                file=sys.stderr,
+            )
         else:
-            click.secho(f"Deleted {object_id} from server. {path}", fg=INFO_COLOR, file=sys.stderr)
+            click.secho(
+                f"Deleted {object_id} from server. {path}",
+                fg=INFO_COLOR,
+                file=sys.stderr,
+            )
 
-        with Halo(text='Scanning', spinner='line', placement='right', color='white'):
+        with Halo(text="Scanning", spinner="line", placement="right", color="white"):
             committed_files, dvc_objects = manifest(config.gen3.project_id)
-            dvc_objects = [dvc_object for dvc_object in dvc_objects if dvc_object.object_id == object_id]
+            dvc_objects = [
+                dvc_object
+                for dvc_object in dvc_objects
+                if dvc_object.object_id == object_id
+            ]
             assert dvc_objects, f"{object_id} not found in MANIFEST."
             dvc_object = dvc_objects[0]
-            path = pathlib.Path('MANIFEST') / (dvc_object.out.path + ".dvc")
+            path = pathlib.Path("MANIFEST") / (dvc_object.out.path + ".dvc")
             assert path.exists(), f"{path} not found"
             path.unlink()
-        click.secho(f"Deleted {path} from MANIFEST. Please adjust META resources", fg=INFO_COLOR, file=sys.stderr)
+        click.secho(
+            f"Deleted {path} from MANIFEST. Please adjust META resources",
+            fg=INFO_COLOR,
+            file=sys.stderr,
+        )
 
     except Exception as e:
         click.secho(str(e), fg=ERROR_COLOR, file=sys.stderr)
@@ -858,10 +1203,10 @@ def ping(config: Config):
                 msgs.append(str(e))
                 ok = False
             except Gen3AuthError as e:
-                msg = str(e).split(':')[0]
+                msg = str(e).split(":")[0]
                 msgs.append(msg)
                 msg2 = str(e).split('<p class="introduction">')[-1]
-                msg2 = msg2.split('</p>')[0]
+                msg2 = msg2.split("</p>")[0]
                 msgs.append(msg2)
                 ok = False
 
@@ -871,34 +1216,42 @@ def ping(config: Config):
             _ = "Configuration ERROR: "
             output.exit_code = 1
 
-        _ = {'msg': _ + ', '.join(msgs)}
+        _ = {"msg": _ + ", ".join(msgs)}
         if auth:
-            _['endpoint'] = auth.endpoint
-            user_info = auth.curl('/user/user').json()
-            _['username'] = user_info['username']
+            _["endpoint"] = auth.endpoint
+            user_info = auth.curl("/user/user").json()
+            _["username"] = user_info["username"]
             buckets = get_buckets(config=config)
             bucket_info = {}
             program_info = defaultdict(list)
-            for k, v in buckets['S3_BUCKETS'].items():
+            for k, v in buckets["S3_BUCKETS"].items():
                 bucket_info[k] = {}
-                if 'programs' not in v:
+                if "programs" not in v:
                     bucket_info[k] = "No `programs` found"
-                    click.secho(f"WARNING: No `programs` found for bucket {k}", fg=INFO_COLOR, file=sys.stderr)
+                    click.secho(
+                        f"WARNING: No `programs` found for bucket {k}",
+                        fg=INFO_COLOR,
+                        file=sys.stderr,
+                    )
                     continue
-                bucket_info[k] = ",".join(v['programs'])
-                for program in v['programs']:
+                bucket_info[k] = ",".join(v["programs"])
+                for program in v["programs"]:
                     program_info[program].append(k)
-            _['bucket_programs'] = bucket_info
+            _["bucket_programs"] = bucket_info
 
             for k, v in program_info.items():
                 if len(v) > 1:
-                    click.secho(f"WARNING: {k} is in multiple buckets: {', '.join(v)}", fg=INFO_COLOR, file=sys.stderr)
+                    click.secho(
+                        f"WARNING: {k} is in multiple buckets: {', '.join(v)}",
+                        fg=INFO_COLOR,
+                        file=sys.stderr,
+                    )
 
-            assert 'authz' in user_info, "No authz found"
+            assert "authz" in user_info, "No authz found"
             authz_info = defaultdict(dict)
-            for k, v in user_info['authz'].items():
-                authz_info[k] = ",".join(set([_['method'] for _ in v]))
-            _['your_access'] = dict(authz_info)
+            for k, v in user_info["authz"].items():
+                authz_info[k] = ",".join(set([_["method"] for _ in v]))
+            _["your_access"] = dict(authz_info)
 
         output.update(_)
 

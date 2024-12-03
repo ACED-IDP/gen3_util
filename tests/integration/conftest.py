@@ -16,7 +16,7 @@ def program() -> str:
 
 @pytest.fixture
 def project() -> str:
-    project = uuid.uuid4().hex.replace('-', '_')
+    project = uuid.uuid4().hex.replace("-", "_")
     return project
 
 
