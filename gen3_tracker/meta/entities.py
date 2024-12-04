@@ -246,7 +246,6 @@ class SimplifiedFHIR(BaseModel):
             if (not isinstance(v, list) and not isinstance(v, dict))
         }
 
-
     @computed_field
     @property
     def codings(self) -> dict:
@@ -261,8 +260,12 @@ class SimplifiedFHIR(BaseModel):
                     if isinstance(elem, dict):
                         # TODO: implement hierarchy of codes rather than just taking last code?
                         for value, source in normalize_coding(elem):
-                            if len(v) > 1 and get_nested_value(elem, [source, 0, 'system']):
-                                _codings[elem[source][0]["system"].split("/")[-1]] = value
+                            if len(v) > 1 and get_nested_value(
+                                elem, [source, 0, "system"]
+                            ):
+                                _codings[elem[source][0]["system"].split("/")[-1]] = (
+                                    value
+                                )
                             else:
                                 _codings[k] = value
             elif isinstance(v, dict):
@@ -281,10 +284,15 @@ class SimplifiedFHIR(BaseModel):
         if not identifiers_len:
             return {"identifier": None}
         elif identifiers_len == 1:
-            return {"identifier": identifiers[0].get('value')}
+            return {"identifier": identifiers[0].get("value")}
         else:
-            base_identifier = {"identifier": identifiers[0].get('value')}
-            base_identifier.update({identifier.get("system").split("/")[-1]: identifier.get("value") for identifier in identifiers[1:]})
+            base_identifier = {"identifier": identifiers[0].get("value")}
+            base_identifier.update(
+                {
+                    identifier.get("system").split("/")[-1]: identifier.get("value")
+                    for identifier in identifiers[1:]
+                }
+            )
             return base_identifier
 
     @computed_field
@@ -374,7 +382,6 @@ class SimplifiedObservation(SimplifiedFHIR):
                     _values[source] = value
         if "code" in self.resource and "text" in self.resource["code"]:
             _values["observation_code"] = self.resource["code"]["text"]
-
 
         assert len(_values) > 0, f"no values found in Observation: {self.resource}"
 

@@ -11,21 +11,21 @@ from click.testing import CliRunner
 CHANGE_PATIENT = [
     "--debug add s3://s3-bucket/p1-object.txt --size 1 --modified 2024-05-05T07:26:29-0700 --md5 acbd18db4cc2f85cedef654fccc4a4d8 --patient P1",
     "--debug meta init",
-    "--debug commit -am \"initial commit\"",
+    '--debug commit -am "initial commit"',
     "--debug add s3://s3-bucket/p1-object.txt --size 1 --modified 2024-05-05T07:26:29-0700 --md5 acbd18db4cc2f85cedef654fccc4a4d8 --patient P1-prime",
     "--debug meta init",
-    "--debug commit -am \"prime commit\"",
+    '--debug commit -am "prime commit"',
 ]
 
 # user made a mistake and added the wrong file
 CHANGE_FILE = [
     "--debug add s3://s3-bucket/p1-object-mistake.txt --size 1 --modified 2024-05-05T07:26:29-0700 --md5 acbd18db4cc2f85cedef654fccc4a4d8 --patient P1",
     "--debug meta init",
-    "--debug commit -am \"initial commit\"",
+    '--debug commit -am "initial commit"',
     "--debug rm s3://s3-bucket/p1-object-mistake.txt",
     "--debug add s3://s3-bucket/p1-object-correct.txt --size 1 --modified 2024-05-05T07:26:29-0700 --md5 acbd18db4cc2f85cedef654fccc4a4d8 --patient P1",
     "--debug meta init",
-    "--debug commit -am \"prime commit\"",
+    '--debug commit -am "prime commit"',
 ]
 
 
@@ -37,8 +37,11 @@ def test_change_patient(runner: CliRunner, project_id, tmpdir) -> None:
 
     print(project_id)
 
-    run(runner, ["--debug", "init", project_id, "--approve", "--no-server"],
-        expected_files=[".g3t", ".git"])
+    run(
+        runner,
+        ["--debug", "init", project_id, "--approve", "--no-server"],
+        expected_files=[".g3t", ".git"],
+    )
 
     for _ in CHANGE_PATIENT:
         run(runner, _.split())
@@ -54,8 +57,10 @@ def test_change_patient(runner: CliRunner, project_id, tmpdir) -> None:
     assert all([_ == "DELETE" for _ in methods]), "Only DELETE method is expected."
 
     urls = [_.request.url for _ in bundle.entry]
-    assert any([_.startswith('Patient') for _ in urls]), "Expected to delete a Patient."
-    assert any([_.startswith('ResearchSubject') for _ in urls]), "Expected to delete a ResearchSubject."
+    assert any([_.startswith("Patient") for _ in urls]), "Expected to delete a Patient."
+    assert any(
+        [_.startswith("ResearchSubject") for _ in urls]
+    ), "Expected to delete a ResearchSubject."
 
 
 def test_change_file(runner: CliRunner, project_id, tmpdir) -> None:
@@ -66,8 +71,11 @@ def test_change_file(runner: CliRunner, project_id, tmpdir) -> None:
 
     print(project_id)
 
-    run(runner, ["--debug", "init", project_id, "--approve", "--no-server"],
-        expected_files=[".g3t", ".git"])
+    run(
+        runner,
+        ["--debug", "init", project_id, "--approve", "--no-server"],
+        expected_files=[".g3t", ".git"],
+    )
 
     for _ in CHANGE_FILE:
         run(runner, _.split())
@@ -83,4 +91,6 @@ def test_change_file(runner: CliRunner, project_id, tmpdir) -> None:
     assert all([_ == "DELETE" for _ in methods]), "Only DELETE method is expected."
 
     urls = [_.request.url for _ in bundle.entry]
-    assert any([_.startswith('DocumentReference') for _ in urls]), "Expected to delete a DocumentReference."
+    assert any(
+        [_.startswith("DocumentReference") for _ in urls]
+    ), "Expected to delete a DocumentReference."

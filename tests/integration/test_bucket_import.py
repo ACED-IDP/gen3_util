@@ -42,8 +42,11 @@ def test_bucket_import(runner: CliRunner, project_id, tmpdir) -> None:
 
     print(project_id)
 
-    run(runner, ["--debug", "init", project_id, "--approve", "--no-server"],
-        expected_files=[".g3t", ".git"])
+    run(
+        runner,
+        ["--debug", "init", project_id, "--approve", "--no-server"],
+        expected_files=[".g3t", ".git"],
+    )
 
     for _ in SHOULD_SUCCEED:
         run(runner, _.split())
@@ -60,11 +63,11 @@ def test_bucket_import(runner: CliRunner, project_id, tmpdir) -> None:
     result = run(runner, ["--debug", "--format", "json", "ls"])
     listing = json.loads(result.stdout)
 
-    for _ in ['bucket', 'committed', 'uncommitted']:
+    for _ in ["bucket", "committed", "uncommitted"]:
         assert _ in listing
 
     # files should appear in uncommitted
-    assert len(listing['uncommitted']) == len(SHOULD_SUCCEED)
+    assert len(listing["uncommitted"]) == len(SHOULD_SUCCEED)
 
     # commit the changes
     run(runner, ["--debug", "commit", "-am", "initial commit"])
@@ -72,11 +75,11 @@ def test_bucket_import(runner: CliRunner, project_id, tmpdir) -> None:
     # test the ls command, should now be in committed
     result = run(runner, ["--debug", "--format", "json", "ls"])
     listing = json.loads(result.stdout)
-    assert len(listing['committed']) == len(SHOULD_SUCCEED)
+    assert len(listing["committed"]) == len(SHOULD_SUCCEED)
 
     # test the ls filter
     for _ in EXPECTED_MANIFEST_PATHS:
-        bucket_name = _.split('/')[1]
+        bucket_name = _.split("/")[1]
         result = run(runner, ["--debug", "--format", "json", "ls", bucket_name])
         listing = json.loads(result.stdout)
-        assert len(listing['committed']) == 1
+        assert len(listing["committed"]) == 1
