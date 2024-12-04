@@ -405,6 +405,35 @@ class SimplifiedDocumentReference(SimplifiedFHIR):
         return _values
 
 
+class SimplifiedMedicationAdministration(SimplifiedFHIR):
+    @computed_field
+    @property
+    def values(self) -> dict:
+        """Return a dictionary of 'value':value."""
+        _values = super().values
+        # Plucking out fields that didn't get picked up by default class simplifier.'
+        dose_value = self.resource.get("dosage", {}).get("dose", {}).get("value", None)
+        if dose_value:
+            _values["total_dosage"] = dose_value
+        occurenceTiming = self.resource.get("occurenceTiming", {}).get("repeat", {}).get("boundsRange")
+        if occurenceTiming:
+            low = occurenceTiming.get("low", {}).get("value")
+            _values["index_date_start_days"] = low if low else None
+            high = occurenceTiming.get("high", {}).get("value")
+            _values["index_date_end_days"] = high if high else None
+        for notes in self.resource.get("note", []):
+            note = notes.get("value", None)
+            if note:
+                # Probably best to concat notes together
+                _values["notes"] = _values["notes"] + "; " + note
+        for identifier in self.resource.get("identifier", []):
+            system = identifier.get("system", None)
+            if system:
+                if system.split("/")[-1] == "regimen":
+                    _values["regimen_id"] = identifier["value"]
+        return _values
+
+
 class SimplifiedCondition(SimplifiedFHIR):
     @computed_field
     @property
@@ -440,4 +469,6 @@ class SimplifiedResource(object):
             return SimplifiedDocumentReference(resource=resource)
         if resource_type == "Condition":
             return SimplifiedCondition(resource=resource)
+        if resource_type == "MedicationAdministration":
+            return SimplifiedMedicationAdministration(resource=resource)
         return SimplifiedFHIR(resource=resource)
