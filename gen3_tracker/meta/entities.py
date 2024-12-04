@@ -292,6 +292,7 @@ class SimplifiedFHIR(BaseModel):
                 else identifier.get("system").split("/")[-1]: identifier.get("value")
                 for identifier in identifiers
             }
+
             return base_identifier
 
     @computed_field
