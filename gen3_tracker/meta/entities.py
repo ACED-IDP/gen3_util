@@ -286,13 +286,12 @@ class SimplifiedFHIR(BaseModel):
         elif identifiers_len == 1:
             return {"identifier": identifiers[0].get("value")}
         else:
-            base_identifier = {"identifier": identifiers[0].get("value")}
-            base_identifier.update(
-                {
-                    identifier.get("system").split("/")[-1]: identifier.get("value")
-                    for identifier in identifiers[1:]
-                }
-            )
+            # Todo: Raise an execption if there are multiple identifiers with a "-" in them
+            base_identifier = {
+                "identifier" if "-" in identifier.get("system", "").split("/")[-1]
+                else identifier.get("system").split("/")[-1]: identifier.get("value")
+                for identifier in identifiers
+            }
             return base_identifier
 
     @computed_field
