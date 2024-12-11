@@ -303,7 +303,7 @@ def test_push_fails_with_invalid_doc_ref_creation_date(
     result = run(
         runner,
         ["push", "--skip_validate", "--overwrite"],
-        expected_exit_code=0    ,
+        expected_exit_code=0,
         expected_files=[log_file_path],
     )
 
