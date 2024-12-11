@@ -11,6 +11,8 @@ import click
 from click import Context, Command
 from pydantic import BaseModel, field_validator
 
+from gen3_tracker.patcher import apply_patches
+
 ACED_NAMESPACE = uuid.uuid3(uuid.NAMESPACE_DNS, b'aced-idp.org')
 ENV_VARIABLE_PREFIX = 'G3T_'
 
@@ -153,3 +155,9 @@ class NaturalOrderGroup(click.Group):
                 # os._exit(1)  # noqa
 
             raise e
+
+
+#
+# apply monkey patches
+#
+apply_patches()
