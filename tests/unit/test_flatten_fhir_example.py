@@ -349,7 +349,6 @@ def test_patient_with_simple(patched_domain_resource_simple: bool, patient_dict:
 
 def test_patient_with_scalars(patched_scalars: bool, patient_dict: dict):
     """This patient object should have a 'flatten' method that returns a dict of scalar values."""
-
     patient = Patient.parse_obj(patient_dict)
     assert hasattr(
         patient, "flatten"
@@ -366,7 +365,6 @@ def test_patient_with_scalars_and_references(
     patched_scalars_and_references: bool, patient_dict: dict
 ):
     """This patient object should have a 'flatten' method that returns a dict of scalar values and references."""
-
     patient = Patient.parse_obj(patient_dict)
     assert hasattr(
         patient, "flatten"
@@ -384,7 +382,6 @@ def test_patient_with_scalars_references_identifiers(
     patched_scalars_references_identifiers: bool, patient_dict: dict
 ):
     """This patient object should have a 'flatten' method that returns a dict of scalar values and references."""
-
     patient = Patient.parse_obj(patient_dict)
     assert hasattr(
         patient, "flatten"
@@ -432,12 +429,10 @@ def test_eye_color_observation(
         "resourceType": "Observation",
         "id": "eye-color",
         "status": "final",
-
         "effectiveDateTime": "2016-05-18",
         "value": "blue",
         "subject": "Patient/example",
     }
-
 
 def test_bmi_observation(
     patched_scalars_references_identifiers_observation: bool, observation_bmi_dict: dict
@@ -449,7 +444,6 @@ def test_bmi_observation(
         observation, "flatten"
     ), "Observation object does not have a 'flatten' method"
     assert observation.flatten() == {
-
         "effectiveDateTime": "1999-07-02",
         "id": "bmi-using-related",
         "resourceType": "Observation",
