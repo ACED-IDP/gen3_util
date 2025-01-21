@@ -219,7 +219,10 @@ class SimplifiedFHIR(BaseModel):
             resource = self.resource
 
         for _ in resource.get("extension", [resource]):
-            if "extension" not in _.keys():
+            # special case data looks like this skip it, no extension to extract
+            if set(_.keys()) == {"url", "size", "hash", "title"}:
+               continue
+            elif "extension" not in _.keys():
                 if "resourceType" not in _.keys():
                     _populate_simplified_extension(_)
                 continue
