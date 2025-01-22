@@ -504,6 +504,28 @@ class LocalFHIRDatabase:
 
             yield flat_research_subject
 
+
+    def flattened_medication_administrations(self) -> Generator[dict, None, None]:
+
+         # get all MedicationAdministrations
+         cursor = self.connect()
+         cursor.execute(
+             "SELECT * FROM resources where resource_type = ?", ("MedicationAdministration",)
+         )
+
+         # get research subject and associated .subject patient
+         for _, _, raw_medication_administration in cursor.fetchall():
+             medication_administration = json.loads(raw_medication_administration)
+             flat_medication_administration = SimplifiedResource.build(
+                 resource=medication_administration
+             ).simplified
+
+             patient = get_subject(self, medication_administration)
+             flat_medication_administration.update(patient)
+
+             yield flat_medication_administration
+
+
     def flattened_document_references(self) -> Generator[dict, None, None]:
         """generator that yields document references populated
         with DocumentReference.subject fields and Observation codes through Observation.focus
@@ -607,6 +629,8 @@ def create_dataframe(
         df = pd.DataFrame(db.flattened_document_references())
     elif data_type == "ResearchSubject":
         df = pd.DataFrame(db.flattened_research_subjects())
+    elif data_type == "MedicationAdministration":
+        df = pd.DataFrame(db.flattened_medication_administrations())
     elif data_type == "Specimen":
         df = pd.DataFrame(db.flattened_specimens())
     else:

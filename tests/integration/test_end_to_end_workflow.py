@@ -316,6 +316,7 @@ def test_push_fails_with_invalid_doc_ref_creation_date(
     with open(log_file_path, "r") as log_file:
         lines = log_file.readlines()
         str_lines = str(lines)
+
         for keyword in ["/content/0/attachment/creation", "jsonschema", invalid_date]:
             assert (
                 keyword in str_lines

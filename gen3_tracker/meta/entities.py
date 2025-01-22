@@ -219,7 +219,10 @@ class SimplifiedFHIR(BaseModel):
             resource = self.resource
 
         for _ in resource.get("extension", [resource]):
-            if "extension" not in _.keys():
+            # special case data looks like this skip it, no extension to extract
+            if set(_.keys()) == {"url", "size", "hash", "title"}:
+               continue
+            elif "extension" not in _.keys():
                 if "resourceType" not in _.keys():
                     _populate_simplified_extension(_)
                 continue
@@ -286,13 +289,13 @@ class SimplifiedFHIR(BaseModel):
         elif identifiers_len == 1:
             return {"identifier": identifiers[0].get("value")}
         else:
-            base_identifier = {"identifier": identifiers[0].get("value")}
-            base_identifier.update(
-                {
-                    identifier.get("system").split("/")[-1]: identifier.get("value")
-                    for identifier in identifiers[1:]
-                }
-            )
+            # Todo: Raise an execption if there are multiple identifiers with a "-" in them
+            base_identifier = {
+                "identifier" if "-" in identifier.get("system", "").split("/")[-1]
+                else identifier.get("system").split("/")[-1]: identifier.get("value")
+                for identifier in identifiers
+            }
+
             return base_identifier
 
     @computed_field
@@ -405,6 +408,35 @@ class SimplifiedDocumentReference(SimplifiedFHIR):
         return _values
 
 
+class SimplifiedMedicationAdministration(SimplifiedFHIR):
+    @computed_field
+    @property
+    def values(self) -> dict:
+        """Return a dictionary of 'value':value."""
+        _values = super().values
+        # Plucking out fields that didn't get picked up by default class simplifier.'
+        dose_value = self.resource.get("dosage", {}).get("dose", {}).get("value", None)
+        if dose_value:
+            _values["total_dosage"] = dose_value
+        occurenceTiming = self.resource.get("occurenceTiming", {}).get("repeat", {}).get("boundsRange")
+        if occurenceTiming:
+            low = occurenceTiming.get("low", {}).get("value")
+            _values["index_date_start_days"] = low if low else None
+            high = occurenceTiming.get("high", {}).get("value")
+            _values["index_date_end_days"] = high if high else None
+        for notes in self.resource.get("note", []):
+            note = notes.get("value", None)
+            if note:
+                # Probably best to concat notes together
+                _values["notes"] = _values["notes"] + "; " + note
+        for identifier in self.resource.get("identifier", []):
+            system = identifier.get("system", None)
+            if system:
+                if system.split("/")[-1] == "regimen":
+                    _values["regimen_id"] = identifier["value"]
+        return _values
+
+
 class SimplifiedCondition(SimplifiedFHIR):
     @computed_field
     @property
@@ -440,4 +472,6 @@ class SimplifiedResource(object):
             return SimplifiedDocumentReference(resource=resource)
         if resource_type == "Condition":
             return SimplifiedCondition(resource=resource)
+        if resource_type == "MedicationAdministration":
+            return SimplifiedMedicationAdministration(resource=resource)
         return SimplifiedFHIR(resource=resource)

@@ -203,6 +203,7 @@ def flatten_scalars(self: DomainResource) -> dict:
 
 def flatten_references(self: DomainResource) -> dict:
     """Convert the DomainResource instance to a dictionary."""
+
     fields = [_ for _ in self.__fields__.keys() if not _.endswith("__ext")]
     _ = {}
     # if any top level field in this resource is a Reference, use the Reference.reference https://build.fhir.org/references-definitions.html#Reference.reference
@@ -327,6 +328,7 @@ def patched_scalars_references_identifiers_observation() -> bool:
 def test_patient_without_flatten(patient_dict: dict):
     """This patient object should NOT have a 'flatten' method."""
     # without path dependency, just have a plain patient object with no flatten method
+
     patient = Patient.parse_obj(patient_dict)
     assert not hasattr(
         patient, "flatten"
@@ -335,6 +337,7 @@ def test_patient_without_flatten(patient_dict: dict):
 
 def test_patient_with_simple(patched_domain_resource_simple: bool, patient_dict: dict):
     """This patient object should have a 'flatten' method."""
+
     patient = Patient.parse_obj(patient_dict)
     assert hasattr(
         patient, "flatten"
@@ -397,6 +400,7 @@ def test_specimen_with_scalars_references_identifiers(
     patched_scalars_references_identifiers: bool, specimen_dict: dict
 ):
     """This patient object should have a 'flatten' method that returns a dict of scalar values and references."""
+
     specimen = Specimen.parse_obj(specimen_dict)
     assert hasattr(
         specimen, "flatten"
@@ -416,6 +420,7 @@ def test_eye_color_observation(
     observation_eye_color_dict: dict,
 ):
     """This patient object should have a 'flatten' method that returns a dict of scalar values and references."""
+
     observation = Observation.parse_obj(observation_eye_color_dict)
     assert hasattr(
         observation, "flatten"
@@ -429,11 +434,11 @@ def test_eye_color_observation(
         "subject": "Patient/example",
     }
 
-
 def test_bmi_observation(
     patched_scalars_references_identifiers_observation: bool, observation_bmi_dict: dict
 ):
     """This patient object should have a 'flatten' method that returns a dict of scalar values and references."""
+
     observation = Observation.parse_obj(observation_bmi_dict)
     assert hasattr(
         observation, "flatten"

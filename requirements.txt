@@ -6,7 +6,7 @@ halo
 tqdm
 deepdiff
 
-fhir.resources==7.1.0  # FHIR Model
+fhir.resources==7.1.0  # FHIR Model Pre-release
 orjson
 nested_lookup
 

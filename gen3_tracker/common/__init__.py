@@ -321,7 +321,7 @@ def create_resource_id(resource, project_id) -> str:
     assert resource, "resource required"
     assert project_id, "project_id required"
     identifier_string = identifier_to_string(resource.identifier)
-    return str(uuid.uuid5(ACED_NAMESPACE, f"{project_id}/{resource.resource_type}/{identifier_string}"))
+    return str(uuid.uuid5(ACED_NAMESPACE, f"{project_id}/{resource.get_resource_type()}/{identifier_string}"))
 
 
 def create_object_id(path: str, project_id: str) -> str:
@@ -344,7 +344,7 @@ def assert_valid_id(resource, project_id):
     """Ensure that the id is correct."""
     assert resource, "resource required"
     assert project_id, "project_id required"
-    if resource.resource_type == "DocumentReference":
+    if resource.get_resource_type() == "DocumentReference":
         document_reference: DocumentReference = resource
         official_identifier = document_reference.content[0].attachment.url
         recreate_id = create_object_id(official_identifier, project_id)
@@ -354,7 +354,7 @@ def assert_valid_id(resource, project_id):
         recreate_id = create_resource_id(resource, project_id)
     if resource.id == recreate_id:
         return
-    msg = f"The current {resource.resource_type}.id {resource.id} does not equal the calculated one {recreate_id}, has the project id changed? current:{project_id} {resource.resource_type}:{official_identifier}"
+    msg = f"The current {resource.get_resource_type()}.id {resource.id} does not equal the calculated one {recreate_id}, has the project id changed? current:{project_id} {resource.get_resource_type()}:{official_identifier}"
     raise Exception(msg)
 
 
@@ -523,7 +523,7 @@ class CLIOutput:
             elif hasattr(self.output.obj, 'model_dump'):
                 _.update(self.output.obj.model_dump())
             else:
-                _.update(self.output.obj.dict())
+                _.update(self.output.obj.model_dump())
         rc = self.output.exit_code
         if exc_type is not None:
             if isinstance(self.output.obj, dict):
