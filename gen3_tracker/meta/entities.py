@@ -457,6 +457,24 @@ class SimplifiedCondition(SimplifiedFHIR):
         value, _ = normalize_coding(self.resource["code"])[-1]
         return {key: value}
 
+    
+class SimplifiedGroup(SimplifiedFHIR):
+    @computed_field
+    @property
+    def members(self) -> list:
+        """"Get the list of the members of the group"""
+
+        members = []
+
+        # for each member, add its uuid to the list
+        for member_dict in self.resource["member"]:
+            member_reference = member_dict["entity"].get("reference", None)
+            if member_reference:
+                members.append(member_reference.split("/")[-1])
+        
+        # return all uuids
+        return members
+
 
 class SimplifiedResource(object):
     """A simplified FHIR resource, a factory method."""
@@ -474,4 +492,6 @@ class SimplifiedResource(object):
             return SimplifiedCondition(resource=resource)
         if resource_type == "MedicationAdministration":
             return SimplifiedMedicationAdministration(resource=resource)
+        if resource_type == "Group":
+            return SimplifiedGroup(resource=resource)
         return SimplifiedFHIR(resource=resource)

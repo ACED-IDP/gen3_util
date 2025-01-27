@@ -16,6 +16,7 @@ from functools import lru_cache
 from typing import Dict, Generator, List
 
 from gen3_tracker.meta.entities import (
+    SimplifiedGroup,
     SimplifiedResource,
     get_nested_value,
     normalize_coding,
@@ -612,6 +613,27 @@ class LocalFHIRDatabase:
 
         return flat_specimen
 
+    def flattened_group_members(self) -> Generator[dict, None, None]:
+        """generator that yields fhir group entities, flattening out members.entities.reference"""
+        
+        resource_type = "Group"
+        cursor = self.connect()
+
+        # flatten each document reference
+        cursor.execute(
+            "SELECT * FROM resources where resource_type = ?", (resource_type,)
+        )
+        for _, _, resource in cursor.fetchall():
+            group = json.loads(resource)
+
+            # flatten group, typed for code readability
+            group_resource: SimplifiedGroup = SimplifiedResource.build(resource=group)
+            simplified_group = group_resource.simplified
+
+            # for each member in a group, yield a group member dict
+            for member in group_resource.members:
+                yield {**simplified_group, "member_id": member}
+
 
 def create_dataframe(
     directory_path: str, work_path: str, data_type: str
@@ -625,21 +647,25 @@ def create_dataframe(
     db = LocalFHIRDatabase(db_name=db_path)
     db.load_ndjson_from_dir(path=directory_path)
 
-    if data_type == "DocumentReference":
-        df = pd.DataFrame(db.flattened_document_references())
-    elif data_type == "ResearchSubject":
-        df = pd.DataFrame(db.flattened_research_subjects())
-    elif data_type == "MedicationAdministration":
-        df = pd.DataFrame(db.flattened_medication_administrations())
-    elif data_type == "Specimen":
-        df = pd.DataFrame(db.flattened_specimens())
+    data_type_to_flatten_fn = {
+        "DocumentReference": db.flattened_document_references,
+        "ResearchSubject": db.flattened_research_subjects,
+        "MedicationAdministration": db.flattened_medication_administrations,
+        "Specimen": db.flattened_specimen,
+        "GroupMember": db.flattened_group_members
+    }
+
+    if data_type in data_type_to_flatten_fn:
+        flattener = data_type_to_flatten_fn[data_type]
+        df = pd.DataFrame(flattener())
     else:
+        data_types_str = ", ".join(data_type_to_flatten_fn)
         raise ValueError(
-            f"{data_type} not supported yet. Supported data types are DocumentReference, ResearchSubject, and Specimen"
+            f"{data_type} not supported yet. Supported data types are {data_types_str}"
         )
-    assert (
-        not df.empty
-    ), "Dataframe is empty, are there any DocumentReference resources?"
+    
+    if df.empty:
+        raise ValueError("Dataframe is empty, are there any DocumentReference resources?")
 
     front_column_names = ["resourceType", "identifier"]
     if "patient" in df.columns:
