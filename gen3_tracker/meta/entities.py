@@ -221,7 +221,7 @@ class SimplifiedFHIR(BaseModel):
         for _ in resource.get("extension", [resource]):
             # special case data looks like this skip it, no extension to extract
             if set(_.keys()) == {"url", "size", "hash", "title"}:
-               continue
+                continue
             elif "extension" not in _.keys():
                 if "resourceType" not in _.keys():
                     _populate_simplified_extension(_)
@@ -291,8 +291,11 @@ class SimplifiedFHIR(BaseModel):
         else:
             # Todo: Raise an execption if there are multiple identifiers with a "-" in them
             base_identifier = {
-                "identifier" if "-" in identifier.get("system", "").split("/")[-1]
-                else identifier.get("system").split("/")[-1]: identifier.get("value")
+                (
+                    "identifier"
+                    if "-" in identifier.get("system", "").split("/")[-1]
+                    else identifier.get("system").split("/")[-1]
+                ): identifier.get("value")
                 for identifier in identifiers
             }
 
@@ -418,7 +421,11 @@ class SimplifiedMedicationAdministration(SimplifiedFHIR):
         dose_value = self.resource.get("dosage", {}).get("dose", {}).get("value", None)
         if dose_value:
             _values["total_dosage"] = dose_value
-        occurenceTiming = self.resource.get("occurenceTiming", {}).get("repeat", {}).get("boundsRange")
+        occurenceTiming = (
+            self.resource.get("occurenceTiming", {})
+            .get("repeat", {})
+            .get("boundsRange")
+        )
         if occurenceTiming:
             low = occurenceTiming.get("low", {}).get("value")
             _values["index_date_start_days"] = low if low else None
@@ -457,12 +464,12 @@ class SimplifiedCondition(SimplifiedFHIR):
         value, _ = normalize_coding(self.resource["code"])[-1]
         return {key: value}
 
-    
+
 class SimplifiedGroup(SimplifiedFHIR):
     @computed_field
     @property
     def members(self) -> list:
-        """"Get the list of the members of the group"""
+        """ "Get the list of the members of the group"""
 
         members = []
 
@@ -471,7 +478,7 @@ class SimplifiedGroup(SimplifiedFHIR):
             member_reference = member_dict["entity"].get("reference", None)
             if member_reference:
                 members.append(member_reference.split("/")[-1])
-        
+
         # return all uuids
         return members
 

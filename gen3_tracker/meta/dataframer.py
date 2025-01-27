@@ -505,27 +505,26 @@ class LocalFHIRDatabase:
 
             yield flat_research_subject
 
-
     def flattened_medication_administrations(self) -> Generator[dict, None, None]:
 
-         # get all MedicationAdministrations
-         cursor = self.connect()
-         cursor.execute(
-             "SELECT * FROM resources where resource_type = ?", ("MedicationAdministration",)
-         )
+        # get all MedicationAdministrations
+        cursor = self.connect()
+        cursor.execute(
+            "SELECT * FROM resources where resource_type = ?",
+            ("MedicationAdministration",),
+        )
 
-         # get research subject and associated .subject patient
-         for _, _, raw_medication_administration in cursor.fetchall():
-             medication_administration = json.loads(raw_medication_administration)
-             flat_medication_administration = SimplifiedResource.build(
-                 resource=medication_administration
-             ).simplified
+        # get research subject and associated .subject patient
+        for _, _, raw_medication_administration in cursor.fetchall():
+            medication_administration = json.loads(raw_medication_administration)
+            flat_medication_administration = SimplifiedResource.build(
+                resource=medication_administration
+            ).simplified
 
-             patient = get_subject(self, medication_administration)
-             flat_medication_administration.update(patient)
+            patient = get_subject(self, medication_administration)
+            flat_medication_administration.update(patient)
 
-             yield flat_medication_administration
-
+            yield flat_medication_administration
 
     def flattened_document_references(self) -> Generator[dict, None, None]:
         """generator that yields document references populated
@@ -615,7 +614,7 @@ class LocalFHIRDatabase:
 
     def flattened_group_members(self) -> Generator[dict, None, None]:
         """generator that yields fhir group entities, flattening out members.entities.reference"""
-        
+
         resource_type = "Group"
         cursor = self.connect()
 
@@ -652,7 +651,7 @@ def create_dataframe(
         "ResearchSubject": db.flattened_research_subjects,
         "MedicationAdministration": db.flattened_medication_administrations,
         "Specimen": db.flattened_specimen,
-        "GroupMember": db.flattened_group_members
+        "GroupMember": db.flattened_group_members,
     }
 
     if data_type in data_type_to_flatten_fn:
@@ -663,9 +662,11 @@ def create_dataframe(
         raise ValueError(
             f"{data_type} not supported yet. Supported data types are {data_types_str}"
         )
-    
+
     if df.empty:
-        raise ValueError("Dataframe is empty, are there any DocumentReference resources?")
+        raise ValueError(
+            "Dataframe is empty, are there any DocumentReference resources?"
+        )
 
     front_column_names = ["resourceType", "identifier"]
     if "patient" in df.columns:
@@ -749,7 +750,9 @@ def get_resources_by_reference(
         if reference_field == "focus":
             # add the resource (eg observation) for each focus reference to the dict
             for i in range(len(resource["focus"])):
-                reference_key = get_nested_value(resource, [reference_field, i, "reference"])
+                reference_key = get_nested_value(
+                    resource, [reference_field, i, "reference"]
+                )
                 if reference_key is not None and reference_type in reference_key:
                     reference_id = reference_key.split("/")[-1]
                     resource_by_reference_id[reference_id].append(resource)

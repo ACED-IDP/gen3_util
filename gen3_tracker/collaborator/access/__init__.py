@@ -71,7 +71,7 @@ def create_request(config: Config = None, auth: Gen3Auth = None, request: dict =
     url = auth.endpoint + "/" + 'requestor/request'
     if revoke:
         url = url + "?revoke"
-    
+
     response = requests.post(
         url, json=request, auth=auth
     )
