@@ -581,10 +581,10 @@ class LocalFHIRDatabase:
         resource_type = "Specimen"
         cursor = self.connect()
 
-        # get a dict mapping focus ID to its associated observations
+        # get a dict mapping focus (specimen) ID to its associated observations
         observations_by_focus_id = get_observations_by_focus(self, resource_type)
 
-        # flatten each document reference
+        # flatten each specimen
         cursor.execute(
             "SELECT * FROM resources where resource_type = ?", (resource_type,)
         )
@@ -618,10 +618,12 @@ class LocalFHIRDatabase:
         resource_type = "Group"
         cursor = self.connect()
 
-        # flatten each document reference
+        # get all groups
         cursor.execute(
             "SELECT * FROM resources where resource_type = ?", (resource_type,)
         )
+
+        # flatten groups into group members
         for _, _, resource in cursor.fetchall():
             group = json.loads(resource)
 
@@ -630,8 +632,18 @@ class LocalFHIRDatabase:
             simplified_group = group_resource.simplified
 
             # for each member in a group, yield a group member dict
-            for member in group_resource.members:
-                yield {**simplified_group, "member_id": member}
+            for member_id in group_resource.members:
+                # unique primary key from group and member ids
+                group_member_id = (
+                    simplified_group["id"] + "-" + member_id
+                )
+
+                # group member dict composed of a simple group dict, unique primary key, and unique member_id
+                yield {
+                    **simplified_group,
+                    "id": group_member_id,
+                    "member_id": member_id,
+                }
 
 
 def create_dataframe(
