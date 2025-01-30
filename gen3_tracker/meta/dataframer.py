@@ -635,13 +635,14 @@ class LocalFHIRDatabase:
             for member_id in group_resource.members:
                 # unique primary key from group and member ids
                 group_member_id = (
-                    simplified_group["id"] + "-" + member_id
+                    simplified_group["id"] + "," + member_id
                 )
 
                 # group member dict composed of a simple group dict, unique primary key, and unique member_id
                 yield {
                     **simplified_group,
                     "id": group_member_id,
+                    "group_id": simplified_group["id"],
                     "member_id": member_id,
                 }
 
