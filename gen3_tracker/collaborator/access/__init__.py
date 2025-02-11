@@ -79,9 +79,9 @@ def create_request(config: Config = None, auth: Gen3Auth = None, request: dict =
     try:
         response.raise_for_status()
     except HTTPError as e:
-        print(e)
-        print(request)
-        print(response.text)
+        print("error:", e)
+        print("request:", request)
+        print("response.text", response.text)
         raise e
 
     return response.json()

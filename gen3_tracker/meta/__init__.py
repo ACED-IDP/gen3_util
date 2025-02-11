@@ -47,10 +47,10 @@ def parse_obj(resource: dict, validate=True) -> ParseResult:
     try:
         assert 'resourceType' in resource, "Dict missing `resourceType`, is it a FHIR dict?"
         klass = FHIR_CLASSES.get_fhir_model_class(resource['resourceType'])
-        _ = klass.model_validate(resource)
+        _ = klass.parse_obj(resource)
         if validate:
             # trigger object traversal, see monkey patch below, at bottom of file
-            _.model_dump()
+            _.dict()
         return ParseResult(resource=_, exception=None, path=None, resource_id=_.id)
     except (ValidationError, AssertionError) as e:
         return ParseResult(resource=None, exception=e, path=None, resource_id=resource.get('id', None))
@@ -68,11 +68,11 @@ def _entry_iterator(parse_result: ParseResult) -> Iterator[ParseResult]:
                 if _ is None:
                     break
                 if hasattr(_, 'resource') and _.resource:  # BundleEntry
-                    yield ParseResult(path=_path, resource=_.resource, offset=offset, exception=None, json_obj=_.resource.model_dump())
+                    yield ParseResult(path=_path, resource=_.resource, offset=offset, exception=None, json_obj=_.resource.dict())
                 elif hasattr(_, 'item'):  # ListEntry
-                    yield ParseResult(path=_path, resource=_.item, offset=offset, exception=None, json_obj=_.item.model_dump())
+                    yield ParseResult(path=_path, resource=_.item, offset=offset, exception=None, json_obj=_.item.dict())
                 else:
-                    yield ParseResult(path=_path, resource=_.item, offset=offset, exception=None, json_obj=_.item.model_dump())
+                    yield ParseResult(path=_path, resource=_.item, offset=offset, exception=None, json_obj=_.item.dict())
                 offset += 1
     pass
 
@@ -81,7 +81,7 @@ def _has_entries(_: ParseResult):
     """FHIR types Bundles List have entries"""
     if _.resource is None:
         return False
-    return _.resource.get_resource_type() in ["List"] and _.resource.entry is not None
+    return _.resource.resource_type in ["List"] and _.resource.entry is not None
 
 
 def directory_reader(directory_path: str,

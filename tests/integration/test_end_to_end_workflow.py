@@ -152,6 +152,27 @@ def test_simple_workflow(runner: CliRunner, project_id, tmpdir) -> None:
         ],
     )
 
+
+def test_can_approve_collaborator_with_write_permissions(
+    runner: CliRunner, project_id, tmpdir
+) -> None:
+    """Test the collaborator add command."""
+    # change to the temporary directory
+    assert tmpdir.chdir()
+    print(Path.cwd())
+
+    assert os.environ.get(
+        "G3T_PROFILE"
+    ), "G3T_PROFILE environment variable must be set."
+
+    print(project_id)
+
+    run(
+        runner,
+        ["--debug", "init", project_id, "--approve"],
+        expected_files=[".g3t", ".git"],
+    )
+
     # TODO fix `collaborator rm`
     # arborist logs:  "Policy `data_upload` does not exist for user `xxx@xxx.xxx`: not revoking. Check if it is assigned through a group."
     # username = auth.curl('/user/user').json()['username']

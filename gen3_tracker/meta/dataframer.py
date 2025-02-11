@@ -2,6 +2,7 @@
 # LOCAL FHIR DATABASE ###
 ###########################
 
+import uuid
 import inflection
 import json
 import ndjson
@@ -15,7 +16,9 @@ from deepmerge import always_merger
 from functools import lru_cache
 from typing import Dict, Generator, List
 
+from gen3_tracker import ACED_NAMESPACE
 from gen3_tracker.meta.entities import (
+    SimplifiedGroup,
     SimplifiedResource,
     get_nested_value,
     normalize_coding,
@@ -504,27 +507,26 @@ class LocalFHIRDatabase:
 
             yield flat_research_subject
 
-
     def flattened_medication_administrations(self) -> Generator[dict, None, None]:
 
-         # get all MedicationAdministrations
-         cursor = self.connect()
-         cursor.execute(
-             "SELECT * FROM resources where resource_type = ?", ("MedicationAdministration",)
-         )
+        # get all MedicationAdministrations
+        cursor = self.connect()
+        cursor.execute(
+            "SELECT * FROM resources where resource_type = ?",
+            ("MedicationAdministration",),
+        )
 
-         # get research subject and associated .subject patient
-         for _, _, raw_medication_administration in cursor.fetchall():
-             medication_administration = json.loads(raw_medication_administration)
-             flat_medication_administration = SimplifiedResource.build(
-                 resource=medication_administration
-             ).simplified
+        # get research subject and associated .subject patient
+        for _, _, raw_medication_administration in cursor.fetchall():
+            medication_administration = json.loads(raw_medication_administration)
+            flat_medication_administration = SimplifiedResource.build(
+                resource=medication_administration
+            ).simplified
 
-             patient = get_subject(self, medication_administration)
-             flat_medication_administration.update(patient)
+            patient = get_subject(self, medication_administration)
+            flat_medication_administration.update(patient)
 
-             yield flat_medication_administration
-
+            yield flat_medication_administration
 
     def flattened_document_references(self) -> Generator[dict, None, None]:
         """generator that yields document references populated
@@ -581,10 +583,10 @@ class LocalFHIRDatabase:
         resource_type = "Specimen"
         cursor = self.connect()
 
-        # get a dict mapping focus ID to its associated observations
+        # get a dict mapping focus (specimen) ID to its associated observations
         observations_by_focus_id = get_observations_by_focus(self, resource_type)
 
-        # flatten each document reference
+        # flatten each specimen
         cursor.execute(
             "SELECT * FROM resources where resource_type = ?", (resource_type,)
         )
@@ -612,6 +614,38 @@ class LocalFHIRDatabase:
 
         return flat_specimen
 
+    def flattened_group_members(self) -> Generator[dict, None, None]:
+        """generator that yields fhir group entities, flattening out members.entities.reference"""
+
+        resource_type = "Group"
+        cursor = self.connect()
+
+        # get all groups
+        cursor.execute(
+            "SELECT * FROM resources where resource_type = ?", (resource_type,)
+        )
+
+        # flatten groups into group members
+        for _, _, resource in cursor.fetchall():
+            group = json.loads(resource)
+
+            # flatten group, typed for code readability
+            group_resource: SimplifiedGroup = SimplifiedResource.build(resource=group)
+            simplified_group = group_resource.simplified
+
+            # for each member in a group, yield a group member dict
+            for member_id in group_resource.members:
+                # unique primary key from group and member ids
+                group_member_id = str(uuid.uuid5(ACED_NAMESPACE, simplified_group["id"] + "," + member_id))
+
+                # group member dict composed of a simple group dict, unique primary key, and unique member_id
+                yield {
+                    **simplified_group,
+                    "id": group_member_id,
+                    "group_id": simplified_group["id"],
+                    "member_id": member_id,
+                }
+
 
 def create_dataframe(
     directory_path: str, work_path: str, data_type: str
@@ -625,21 +659,27 @@ def create_dataframe(
     db = LocalFHIRDatabase(db_name=db_path)
     db.load_ndjson_from_dir(path=directory_path)
 
-    if data_type == "DocumentReference":
-        df = pd.DataFrame(db.flattened_document_references())
-    elif data_type == "ResearchSubject":
-        df = pd.DataFrame(db.flattened_research_subjects())
-    elif data_type == "MedicationAdministration":
-        df = pd.DataFrame(db.flattened_medication_administrations())
-    elif data_type == "Specimen":
-        df = pd.DataFrame(db.flattened_specimens())
+    data_type_to_flatten_fn = {
+        "DocumentReference": db.flattened_document_references,
+        "ResearchSubject": db.flattened_research_subjects,
+        "MedicationAdministration": db.flattened_medication_administrations,
+        "Specimen": db.flattened_specimens,
+        "GroupMember": db.flattened_group_members,
+    }
+
+    if data_type in data_type_to_flatten_fn:
+        flattener = data_type_to_flatten_fn[data_type]
+        df = pd.DataFrame(flattener())
     else:
+        data_types_str = ", ".join(data_type_to_flatten_fn)
         raise ValueError(
-            f"{data_type} not supported yet. Supported data types are DocumentReference, ResearchSubject, and Specimen"
+            f"{data_type} not supported yet. Supported data types are {data_types_str}"
         )
-    assert (
-        not df.empty
-    ), "Dataframe is empty, are there any DocumentReference resources?"
+
+    if df.empty:
+        raise ValueError(
+            "Dataframe is empty, are there any DocumentReference resources?"
+        )
 
     front_column_names = ["resourceType", "identifier"]
     if "patient" in df.columns:
@@ -723,7 +763,9 @@ def get_resources_by_reference(
         if reference_field == "focus":
             # add the resource (eg observation) for each focus reference to the dict
             for i in range(len(resource["focus"])):
-                reference_key = get_nested_value(resource, [reference_field, i, "reference"])
+                reference_key = get_nested_value(
+                    resource, [reference_field, i, "reference"]
+                )
                 if reference_key is not None and reference_type in reference_key:
                     reference_id = reference_key.split("/")[-1]
                     resource_by_reference_id[reference_id].append(resource)

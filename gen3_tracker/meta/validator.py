@@ -98,14 +98,14 @@ def validate(directory_path: pathlib.Path, project_id=None) -> ValidateDirectory
             continue
 
         _ = parse_result.resource
-        ids.append(f"{_.get_resource_type()}/{_.id}")
+        ids.append(f"{_.resource_type}/{_.id}")
         nested_references = nested_lookup('reference', parse_result.json_obj)
         # https://www.hl7.org/fhir/medicationrequest-definitions.html#MedicationRequest.medication
         # is a reference to a Medication resource https://www.hl7.org/fhir/references.html#CodeableReference
         # so it has a reference.reference form, strip it out
         nested_references = [_ for _ in nested_references if isinstance(_, str)]
         references.extend(nested_references)
-        resources[parse_result.resource.get_resource_type()] += 1
+        resources[parse_result.resource.resource_type] += 1
 
     # assert references exist
     references = set(references)
