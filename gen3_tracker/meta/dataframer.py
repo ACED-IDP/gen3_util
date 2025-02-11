@@ -2,6 +2,7 @@
 # LOCAL FHIR DATABASE ###
 ###########################
 
+import uuid
 import inflection
 import json
 import ndjson
@@ -15,6 +16,7 @@ from deepmerge import always_merger
 from functools import lru_cache
 from typing import Dict, Generator, List
 
+from gen3_tracker import ACED_NAMESPACE
 from gen3_tracker.meta.entities import (
     SimplifiedGroup,
     SimplifiedResource,
@@ -634,9 +636,7 @@ class LocalFHIRDatabase:
             # for each member in a group, yield a group member dict
             for member_id in group_resource.members:
                 # unique primary key from group and member ids
-                group_member_id = (
-                    simplified_group["id"] + "," + member_id
-                )
+                group_member_id = str(uuid.uuid5(ACED_NAMESPACE, simplified_group["id"] + "," + member_id))
 
                 # group member dict composed of a simple group dict, unique primary key, and unique member_id
                 yield {
@@ -663,7 +663,7 @@ def create_dataframe(
         "DocumentReference": db.flattened_document_references,
         "ResearchSubject": db.flattened_research_subjects,
         "MedicationAdministration": db.flattened_medication_administrations,
-        "Specimen": db.flattened_specimen,
+        "Specimen": db.flattened_specimens,
         "GroupMember": db.flattened_group_members,
     }
 
