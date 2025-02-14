@@ -2,7 +2,7 @@ import logging
 
 
 def ls(config, object_id: str = None, metadata: dict = {}, auth=None):
-    """List files."""
+    """List files stored in indexd on gen3."""
     from gen3_tracker import Config
     config: Config = config
     from gen3.index import Gen3Index
