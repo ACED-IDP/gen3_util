@@ -540,10 +540,6 @@ def push(
                 config, metadata={"project_id": config.gen3.project_id}, auth=auth
             )["records"]
             dids = {_["did"]: _["updated_date"] for _ in records}
-            print("dvc_objects:", dvc_objects)
-            print("records:", len(records))
-            print("dids:", len(dids))
-            print("fa26f490-d9b0-537d-b1cd-8a261a26727f" in dids)
             new_dvc_objects = [_ for _ in dvc_objects if _.object_id not in dids]
             updated_dvc_objects = [
                 _
