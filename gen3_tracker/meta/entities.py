@@ -293,7 +293,7 @@ class SimplifiedFHIR(BaseModel):
             base_identifier = {
                 (
                     "identifier"
-                    if  i == 0 or identifier.get("use", "") == "official"
+                    if "-" in identifier.get("system", "").split("/")[-1] or i == 0
                     else identifier.get("system").split("/")[-1]
                 ): identifier.get("value")
                 for i, identifier in enumerate(identifiers)
