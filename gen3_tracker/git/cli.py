@@ -207,7 +207,7 @@ def ensure_git_repo(config):
     pathlib.Path("META").mkdir(exist_ok=True)
     pathlib.Path("LOGS").mkdir(exist_ok=True)
     with open(".gitignore", "w") as f:
-        f.write("LOGS/\n")
+        f.write("/LOGS/\n")
         f.write(".g3t/state/\n")  # legacy
     with open("META/README.md", "w") as f:
         f.write(
@@ -528,6 +528,7 @@ def push(
             ), f"# There are {len(changes)} data files that you need to update.  See `g3t status`"
 
             # initialize dvc objects with this project_id
+            # dvc objects are retrieved only if committed to git
             committed_files, dvc_objects = manifest(config.gen3.project_id)
 
             # initialize gen3 client
