@@ -38,6 +38,7 @@ LOGGED_ALREADY = set()
 
 mimetypes.add_type('text/fastq', '.fastq')
 mimetypes.add_type('text/fastq', '.fq')
+mimetypes.add_type('text/vcf', '.vcf')
 
 # process helpers ---------------------------------------------------------------
 
