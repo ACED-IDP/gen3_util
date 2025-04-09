@@ -7,6 +7,7 @@ policies:
 - policy_id: data_upload
   username:
 
-# gateway writer
-- policy_id: mds_gateway
+# sower
+- policy_id: sower
   username:
+
