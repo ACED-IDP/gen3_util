@@ -678,7 +678,7 @@ def create_dataframe(
 
     if df.empty:
         raise ValueError(
-            "Dataframe is empty, are there any DocumentReference resources?"
+            f"Dataframe is empty, are there any {data_type} resources?"
         )
 
     front_column_names = []

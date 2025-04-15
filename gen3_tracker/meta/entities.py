@@ -483,6 +483,23 @@ class SimplifiedGroup(SimplifiedFHIR):
         return members
 
 
+class SimplifiedSpecimen(SimplifiedFHIR):
+    @computed_field
+    @property
+    def values(self) -> dict:
+        _values = super().values
+
+        # add parent specimen if exists
+        if "parent" in self.resource:
+            _values["parent"] = ",".join(
+                [
+                    parent_dict["reference"].split("/")[-1]
+                    for parent_dict in self.resource["parent"]
+                ]
+            )
+        return _values
+
+
 class SimplifiedResource(object):
     """A simplified FHIR resource, a factory method."""
 
@@ -490,15 +507,21 @@ class SimplifiedResource(object):
     def build(resource: dict) -> SimplifiedFHIR:
         """Return a simplified FHIR resource."""
 
+        # specify customized resource classes
+        resource_type_to_class = {
+            "Condition": SimplifiedCondition,
+            "DocumentReference": SimplifiedDocumentReference,
+            "Group": SimplifiedGroup,
+            "MedicationAdministration": SimplifiedMedicationAdministration,
+            "Observation": SimplifiedObservation,
+            "Specimen": SimplifiedSpecimen,
+        }
+
+        # use customizable resources if exists
         resource_type = resource.get("resourceType", None)
-        if resource_type == "Observation":
-            return SimplifiedObservation(resource=resource)
-        if resource_type == "DocumentReference":
-            return SimplifiedDocumentReference(resource=resource)
-        if resource_type == "Condition":
-            return SimplifiedCondition(resource=resource)
-        if resource_type == "MedicationAdministration":
-            return SimplifiedMedicationAdministration(resource=resource)
-        if resource_type == "Group":
-            return SimplifiedGroup(resource=resource)
+        if resource_type in resource_type_to_class:
+            SimplifiedClass = resource_type_to_class[resource_type]
+            return SimplifiedClass(resource=resource)
+
+        # fall back to general method otherwise
         return SimplifiedFHIR(resource=resource)
