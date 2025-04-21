@@ -349,8 +349,12 @@ def assert_valid_id(resource, project_id):
         official_identifier = document_reference.content[0].attachment.url
         recreate_id = create_object_id(official_identifier, project_id)
     else:
-        official = [_ for _ in resource.identifier if _.use == 'official']
-        official_identifier = official[0].value if official else None
+        # A bundle does only has a single identifier
+        if isinstance(resource.identifier, list):
+            official = [_ for _ in resource.identifier if _.use == 'official']
+            official_identifier = official[0].value if official else None
+        else:
+            official_identifier = resource.identifier.value
         recreate_id = create_resource_id(resource, project_id)
     if resource.id == recreate_id:
         return

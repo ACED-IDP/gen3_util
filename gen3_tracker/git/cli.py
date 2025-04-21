@@ -370,14 +370,17 @@ def status(config):
 
             latest_file_mtime = os.path.getmtime(latest_file)
             if document_reference_mtime < latest_file_mtime:
-                document_reference_mtime = datetime.fromtimestamp(
-                    document_reference_mtime
-                ).isoformat()
+                if document_reference_mtime == 0:
+                    document_reference_mtime = "(does not exist)"
+                else:
+                    document_reference_mtime = datetime.fromtimestamp(
+                        document_reference_mtime
+                    ).isoformat()
                 latest_file_mtime = datetime.fromtimestamp(
                     latest_file_mtime
                 ).isoformat()
                 click.secho(
-                    f"WARNING: DocumentReference.ndjson is out of date {document_reference_mtime}. The most recently changed file is {latest_file} {latest_file_mtime}.  Please check DocumentReferences.ndjson",
+                    f"WARNING: DocumentReference.ndjson is out of date {document_reference_mtime}. The most recently changed file is {latest_file} {latest_file_mtime}.  Please check META/DocumentReferences.ndjson",
                     fg=INFO_COLOR,
                     file=sys.stderr,
                 )
@@ -1127,7 +1130,6 @@ def rm(config: Config, object_id: str):
 
         with Halo(text="Searching", spinner="line", placement="right", color="white"):
             object_id, path = file_name_or_guid(config, object_id)
-
         with Halo(
             text="Deleting from server",
             spinner="line",
@@ -1141,8 +1143,8 @@ def rm(config: Config, object_id: str):
             if not path:
                 path = ""
             click.secho(
-                f"Failed to delete {object_id} from server. {path}",
-                fg=ERROR_COLOR,
+                f"WARNING: Failed to delete {object_id} from server. {path} (Perhaps it hasn't been indexed yet?)",
+                fg=INFO_COLOR,
                 file=sys.stderr,
             )
         else:
@@ -1159,16 +1161,21 @@ def rm(config: Config, object_id: str):
                 for dvc_object in dvc_objects
                 if dvc_object.object_id == object_id
             ]
-            assert dvc_objects, f"{object_id} not found in MANIFEST."
-            dvc_object = dvc_objects[0]
-            path = pathlib.Path("MANIFEST") / (dvc_object.out.path + ".dvc")
-            assert path.exists(), f"{path} not found"
-            path.unlink()
-        click.secho(
-            f"Deleted {path} from MANIFEST. Please adjust META resources",
-            fg=INFO_COLOR,
-            file=sys.stderr,
-        )
+
+            if not dvc_objects:
+                assert path.exists(), f"{object_id} {path} not found in MANIFEST path or in commited files."
+                path.unlink()
+            else:
+                dvc_object = dvc_objects[0]
+                path = pathlib.Path("MANIFEST") / (dvc_object.out.path + ".dvc")
+                assert path.exists(), f"{path} not found"
+                path.unlink()
+
+            click.secho(
+                f"Deleted {path} from MANIFEST. Please adjust META resources",
+                fg=INFO_COLOR,
+                file=sys.stderr,
+            )
 
     except Exception as e:
         click.secho(str(e), fg=ERROR_COLOR, file=sys.stderr)

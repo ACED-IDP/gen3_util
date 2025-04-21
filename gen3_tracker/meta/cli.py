@@ -59,6 +59,8 @@ def validate(ctx, directory, debug):
         for _ in result.exceptions:
             click.secho(f"{_.path}:{_.offset} {_.exception}", fg=ERROR_COLOR, file=sys.stderr)
         if result.exceptions:
+            if debug or ctx.debug:
+                raise result.exceptions[0].exception
             sys.exit(1)
     except Exception as e:
         click.secho(str(e), fg=ERROR_COLOR, file=sys.stderr)
