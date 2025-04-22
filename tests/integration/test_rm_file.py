@@ -94,20 +94,36 @@ def test_rm_committed(runner: CliRunner, project_id, tmpdir) -> None:
     # check the files exist in the graph and flat databases
     # we will need the object_id of the file to do that
     # should create a dvc file
-    dvc_path = Path("MANIFEST/my-project-data/hello.txt.dvc")
+    dvc = read_dvc()
+
+    # capture expected object_id
+    dvc.project_id = project_id
+    object_id = dvc.object_id
+    auth = ensure_auth(config=default())
+
+    ok = ''
+    try:
+        validate_document_in_grip(object_id, auth=auth, project_id=project_id)
+    except Exception as e:
+        ok = ok + f"Grip validation failed: {e}"
+
+    try:
+        validate_document_in_elastic(object_id, auth=auth)
+    except Exception as e:
+        ok = ok + f" Elastic validation failed: {e}"
+
+    assert ok == '', ok
+
+
+def read_dvc(file_path="MANIFEST/my-project-data/hello.txt.dvc"):
+    dvc_path = Path(file_path)
     assert dvc_path.exists(), f"{dvc_path} does not exist."
     with open(dvc_path) as f:
         yaml_data = yaml.safe_load(f)
     assert yaml_data
     dvc = DVC.model_validate(yaml_data)
     assert dvc, "DVC file not parsed."
-
-    # capture expected object_id
-    dvc.project_id = project_id
-    object_id = dvc.object_id
-    auth = ensure_auth(config=default())
-    validate_document_in_grip(object_id, auth=auth, project_id=project_id)
-    validate_document_in_elastic(object_id, auth=auth)
+    return dvc
 
 
 def _create_project(project_id, runner, add_files=True, files=("my-project-data/hello.txt", "my-project-data/hello2.txt")) -> list[str]:
