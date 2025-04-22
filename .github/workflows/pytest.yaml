@@ -17,11 +17,8 @@ on:
 
 jobs:
   pytest:
-    # We're testing 'cbds' by default so we can use the self-hosted runner to access htps://idp.cbds.ohsu.edu
-    # https://github.com/ACED-IDP/gen3_util/settings/actions/runners/21
-    # https://docs.github.com/en/actions/hosting-your-own-runners/managing-self-hosted-runners/adding-self-hosted-runners#adding-a-self-hosted-runner-to-a-repository
-    environment: cbds
-    runs-on: self-hosted
+    environment: external
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
