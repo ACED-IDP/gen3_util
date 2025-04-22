@@ -41,7 +41,7 @@ def test_rm_uncommitted(runner: CliRunner, project_id, tmpdir) -> None:
 
 
 def test_rm_committed(runner: CliRunner, project_id, tmpdir) -> None:
-    """Ensure we can remove uncommitted files."""
+    """Ensure we can remove committed files."""
     # change to the temporary directory
     assert tmpdir.chdir()
     print(Path.cwd())
