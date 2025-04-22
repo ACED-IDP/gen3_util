@@ -54,8 +54,8 @@ jobs:
           echo $CREDENTIALS > ~/.gen3/credentials.json
 
           # Hardcoding the endpoint for now
-          # TODO: Should we make this configurable to run `pytest` against all Gen3 instances?
-          export ENDPOINT="https://idp.cbds.ohsu.edu"
+          # TODO: Can we make this configurable to run `pytest` against all Gen3 instances?
+          export ENDPOINT="https://aced-idp.org"
 
           gen3-client configure --profile=CALIPER --cred=~/.gen3/credentials.json --apiendpoint="$ENDPOINT"
           export G3T_PROFILE=CALIPER
