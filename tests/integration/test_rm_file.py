@@ -204,6 +204,106 @@ def test_rm_pushed(runner: CliRunner, project_id, tmpdir) -> None:
     assert ok == '', ok
 
 
+def test_rm_pushed_links(runner: CliRunner, project_id, tmpdir) -> None:
+    """Ensure we can remove committed files."""
+    # change to the temporary directory
+    assert tmpdir.chdir()
+    print(Path.cwd())
+
+    _create_project(project_id, runner, add_files=False)
+
+    os.symlink("my-project-data/hello.txt", "hello.txt")
+    os.symlink("my-project-data/hello2.txt", "hello2.txt")
+
+    run(
+        runner,
+        ["--debug", "add", "hello.txt"]
+    )
+    run(
+        runner,
+        ["--debug", "add", "hello2.txt"]
+    )
+
+    # create the meta files
+    run(
+        runner,
+        ["--debug", "meta", "init"],
+        expected_files=[Path("META/DocumentReference.ndjson")],
+    )
+
+    dvc = read_dvc(file_path="MANIFEST/hello2.txt.dvc")
+    # capture expected object_id
+    dvc.project_id = project_id
+    expected_missing_object_id = dvc.object_id
+
+    # commit the changes
+    run(runner, ["--debug", "commit", "-am", "initial commit"])
+
+    # push the changes
+    run(runner, ["--debug", "push"])
+
+    # rm the second test file after pushing
+    run(
+        runner,
+        ["--debug", "rm", str("hello2.txt")],
+    )
+
+    # re-create the meta file, with a bundle
+    run(
+        runner,
+        ["--debug", "meta", "init", "--bundle"],
+        expected_files=[Path("META/DocumentReference.ndjson"), Path("META/Bundle.ndjson")],
+    )
+
+    # commit the re-created meta
+    run(runner, ["--debug", "commit", "-am", "updated commit"])
+
+    # push to the server
+    run(runner, ["--debug", "push", "--overwrite"])
+
+    # list the files from indexd
+    run(runner, ["--debug", "ls"], expected_output=["hello.txt"])
+
+    # list the files from indexd, should not include the removed file
+    with pytest.raises(AssertionError):
+        run(runner, ["--debug", "ls"], expected_output=["hello2.txt"])
+
+    # check the files exist in the graph and flat databases
+    # we will need the object_id of the file to do that
+    # should create a dvc file
+    dvc = read_dvc("MANIFEST/hello.txt.dvc")
+    # capture expected object_id
+    dvc.project_id = project_id
+    object_id = dvc.object_id
+    auth = ensure_auth(config=default())
+
+    ok = ''
+
+    try:
+        validate_document_in_grip(object_id, auth=auth, project_id=project_id)
+    except Exception as e:
+        ok = ok + f"Grip validation failed: {e}"
+
+    try:
+        validate_document_in_elastic(object_id, auth=auth)
+    except Exception as e:
+        ok = ok + f" Elastic validation failed: {e}"
+
+    try:
+        validate_document_in_grip(expected_missing_object_id, auth=auth, project_id=project_id)
+        ok = ok + f" Grip validation failed should not have found: {expected_missing_object_id}"
+    except Exception:
+        pass
+
+    try:
+        validate_document_in_elastic(expected_missing_object_id, auth=auth)
+        ok = ok + f" Elastic validation failed should not have found: {expected_missing_object_id}"
+    except Exception:
+        pass
+
+    assert ok == '', ok
+
+
 def read_dvc(file_path="MANIFEST/my-project-data/hello.txt.dvc"):
     dvc_path = Path(file_path)
     assert dvc_path.exists(), f"{dvc_path} does not exist."
