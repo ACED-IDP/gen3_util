@@ -619,12 +619,20 @@ def push(
                 work_dir=config.work_dir,
             )
 
+        meta_dir = pathlib.Path("META")
+        bundle_file = meta_dir / "Bundle.ndjson"
+        if os.path.isfile(bundle_file):
+            fhir_server = True
+            click.secho(
+                "Bundle exists, pushing to FHIR server",
+                fg=INFO_COLOR,
+                file=sys.stderr,
+            )
+
         if fhir_server or step in ["fhir"]:
             """Either there exists a Bundle.ndjson file in META signifying a revision to the data, or there is no bundle.json,
             signifying that the data in the META directory should be upserted into gen34
             """
-            meta_dir = pathlib.Path("META")
-            bundle_file = meta_dir / "Bundle.ndjson"
             if os.path.isfile(bundle_file):
                 with Halo(
                     text="Sending to FHIR Server",
