@@ -77,12 +77,13 @@ def test_rm_committed(runner: CliRunner, project_id, tmpdir) -> None:
         ["--debug", "meta", "init"],
         expected_files=[Path("META/DocumentReference.ndjson")],
     )
+    assert not Path("META/Bundle.ndjson").exists(), "Did not expect a Bundle file."
 
     # commit the re-created meta
     run(runner, ["--debug", "commit", "-am", "updated commit"])
 
     # push to the server
-    run(runner, ["--debug", "push", "--fhir-server"])
+    run(runner, ["--debug", "push"])
 
     # list the files from indexd
     run(runner, ["--debug", "ls"], expected_output=["my-project-data/hello.txt"])
@@ -111,6 +112,94 @@ def test_rm_committed(runner: CliRunner, project_id, tmpdir) -> None:
         validate_document_in_elastic(object_id, auth=auth)
     except Exception as e:
         ok = ok + f" Elastic validation failed: {e}"
+
+    assert ok == '', ok
+
+
+def test_rm_pushed(runner: CliRunner, project_id, tmpdir) -> None:
+    """Ensure we can remove committed files."""
+    # change to the temporary directory
+    assert tmpdir.chdir()
+    print(Path.cwd())
+
+    _create_project(project_id, runner)
+
+    # create the meta file
+    run(
+        runner,
+        ["--debug", "meta", "init"],
+        expected_files=[Path("META/DocumentReference.ndjson")],
+    )
+
+    dvc = read_dvc(file_path="MANIFEST/my-project-data/hello2.txt.dvc")
+    # capture expected object_id
+    dvc.project_id = project_id
+    expected_missing_object_id = dvc.object_id
+
+    # commit the changes
+    run(runner, ["--debug", "commit", "-am", "initial commit"])
+
+    # push the changes
+    run(runner, ["--debug", "push"])
+
+    # rm the second test file after pushing
+    run(
+        runner,
+        ["--debug", "rm", str("my-project-data/hello2.txt")],
+    )
+
+    # re-create the meta file, with a bundle
+    run(
+        runner,
+        ["--debug", "meta", "init", "--bundle"],
+        expected_files=[Path("META/DocumentReference.ndjson"), Path("META/Bundle.ndjson")],
+    )
+
+    # commit the re-created meta
+    run(runner, ["--debug", "commit", "-am", "updated commit"])
+
+    # push to the server
+    run(runner, ["--debug", "push", "--overwrite"])
+
+    # list the files from indexd
+    run(runner, ["--debug", "ls"], expected_output=["my-project-data/hello.txt"])
+
+    # list the files from indexd, should not include the removed file
+    with pytest.raises(AssertionError):
+        run(runner, ["--debug", "ls"], expected_output=["my-project-data/hello2.txt"])
+
+    # check the files exist in the graph and flat databases
+    # we will need the object_id of the file to do that
+    # should create a dvc file
+    dvc = read_dvc()
+    # capture expected object_id
+    dvc.project_id = project_id
+    object_id = dvc.object_id
+    auth = ensure_auth(config=default())
+
+    ok = ''
+
+    try:
+        validate_document_in_grip(object_id, auth=auth, project_id=project_id)
+    except Exception as e:
+        ok = ok + f"Grip validation failed: {e}"
+
+    try:
+        validate_document_in_elastic(object_id, auth=auth)
+    except Exception as e:
+        ok = ok + f" Elastic validation failed: {e}"
+
+    try:
+        validate_document_in_grip(expected_missing_object_id, auth=auth, project_id=project_id)
+        ok = ok + f" Grip validation failed should not have found: {expected_missing_object_id}"
+    except Exception as e:
+        pass
+
+    try:
+        validate_document_in_elastic(expected_missing_object_id, auth=auth)
+        ok = ok + f" Elastic validation failed should not have found: {expected_missing_object_id}"
+    except Exception:
+        pass
 
     assert ok == '', ok
 
