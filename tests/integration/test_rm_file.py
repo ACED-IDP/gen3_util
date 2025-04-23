@@ -192,7 +192,7 @@ def test_rm_pushed(runner: CliRunner, project_id, tmpdir) -> None:
     try:
         validate_document_in_grip(expected_missing_object_id, auth=auth, project_id=project_id)
         ok = ok + f" Grip validation failed should not have found: {expected_missing_object_id}"
-    except Exception as e:
+    except Exception:
         pass
 
     try:

@@ -4,7 +4,6 @@ import pathlib
 import sys
 
 from halo import Halo
-from pygments.lexer import default
 
 from gen3_tracker import Config, ENV_VARIABLE_PREFIX
 from gen3_tracker.common import INFO_COLOR, ERROR_COLOR
