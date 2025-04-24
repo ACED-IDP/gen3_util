@@ -681,7 +681,11 @@ def create_dataframe(
             f"Dataframe is empty, are there any {data_type} resources?"
         )
 
-    front_column_names = ["resourceType", "identifier"]
+    front_column_names = []
+    if "identifier" in df.columns:
+        front_column_names += ["identifier"]
+    if "resourceType" in df.columns:
+        front_column_names +=  ["resourceType"]
     if "patient" in df.columns:
         front_column_names = front_column_names + ["patient"]
 

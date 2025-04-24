@@ -289,14 +289,14 @@ class SimplifiedFHIR(BaseModel):
         elif identifiers_len == 1:
             return {"identifier": identifiers[0].get("value")}
         else:
-            # Todo: Raise an execption if there are multiple identifiers with a "-" in them
+            # assume that 0th identifier is the base identifier
             base_identifier = {
                 (
                     "identifier"
-                    if "-" in identifier.get("system", "").split("/")[-1]
+                    if  i == 0 or identifier.get("use", "") == "official"
                     else identifier.get("system").split("/")[-1]
                 ): identifier.get("value")
-                for identifier in identifiers
+                for i, identifier in enumerate(identifiers)
             }
 
             return base_identifier
