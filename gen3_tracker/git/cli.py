@@ -370,6 +370,7 @@ def status(config):
 
             latest_file_mtime = os.path.getmtime(latest_file)
             if document_reference_mtime < latest_file_mtime:
+                # if the file does not exist, the mtime is 0, so we set it to a human readable string
                 if document_reference_mtime == 0:
                     document_reference_mtime = "(does not exist)"
                 else:
@@ -380,7 +381,8 @@ def status(config):
                     latest_file_mtime
                 ).isoformat()
                 click.secho(
-                    f"WARNING: DocumentReference.ndjson is out of date {document_reference_mtime}. The most recently changed file is {latest_file} {latest_file_mtime}.  Please check META/DocumentReferences.ndjson",
+                    f"WARNING: your file metadata is newer than your file manifest. DocumentReference.ndjson is out of date {document_reference_mtime}."
+                    f" The most recently changed file is {latest_file} {latest_file_mtime}.  Did you update your metadata (meta init) after adding your files?",
                     fg=INFO_COLOR,
                     file=sys.stderr,
                 )
