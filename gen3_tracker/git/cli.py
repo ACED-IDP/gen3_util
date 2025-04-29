@@ -329,7 +329,8 @@ def commit(ctx, targets, message, all):
         f'"{message}"',
     ] + list(targets)
 
-    if all:
+    # if no targets are specified, we will commit all files
+    if all or not targets:
         command.append("-a")
 
     try:
@@ -382,7 +383,7 @@ def status(config):
                 ).isoformat()
                 click.secho(
                     f"WARNING: your file metadata is newer than your file manifest. DocumentReference.ndjson is out of date {document_reference_mtime}."
-                    f" The most recently changed file is {latest_file} {latest_file_mtime}.  Did you update your metadata (meta init) after adding your files?",
+                    f" The most recently changed file is {latest_file} {latest_file_mtime}.  Did you update your metadata (meta init) after adding or updating your data files?",
                     fg=INFO_COLOR,
                     file=sys.stderr,
                 )
@@ -1173,7 +1174,7 @@ def rm(config: Config, object_id: str):
             ]
 
             if not dvc_objects:
-                assert path.exists(), f"{object_id} {path} not found in MANIFEST path or in commited files."
+                assert path.exists(), f"{object_id} {path} not found in MANIFEST path or in committed files."
                 path.unlink()
             else:
                 dvc_object = dvc_objects[0]
