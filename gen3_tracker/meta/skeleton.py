@@ -280,7 +280,10 @@ def update_meta_files(dry_run=False, project_id=None, create_bundle=False) -> li
     dvc_files = [_ for _ in manifest_path.rglob('*.dvc')]
 
     if not dvc_files:
-        return []
+        # remove the DocumentReference file if it exists
+        document_reference_path = pathlib.Path('META/DocumentReference.ndjson')
+        if document_reference_path.exists():
+            document_reference_path.unlink()
 
     before_meta_files = [_ for _ in pathlib.Path('META').glob('*.ndjson')]
     before_meta_index = set(list(meta_index().keys()))
