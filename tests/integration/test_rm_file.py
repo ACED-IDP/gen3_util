@@ -149,7 +149,7 @@ def test_rm_committed(runner: CliRunner, project_id, tmpdir) -> None:
 
 
 def test_rm_pushed(runner: CliRunner, project_id, tmpdir) -> None:
-    """Ensure we can remove committed files."""
+    """Ensure we can remove pushed files."""
     # change to the temporary directory
     assert tmpdir.chdir()
     print(Path.cwd())
@@ -364,6 +364,8 @@ def test_rm_pushed_links(runner: CliRunner, project_id, tmpdir) -> None:
 
     _create_project(project_id, runner, add_files=False)
 
+    # create symlinks to the test files, even though they are local to this project's dir
+    # this is accommodation since working from a temporary directory
     os.symlink("my-project-data/hello.txt", "hello.txt")
     os.symlink("my-project-data/hello2.txt", "hello2.txt")
 
