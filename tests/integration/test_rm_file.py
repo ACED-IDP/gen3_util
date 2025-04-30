@@ -131,6 +131,22 @@ def test_rm_committed(runner: CliRunner, project_id, tmpdir) -> None:
 
     assert ok == '', ok
 
+    # remove the project from the server.
+    # TODO note, this does not remove the files from the bucket (UChicago bug)
+    # See https://ohsucomputationalbio.slack.com/archives/C043HPV0VMY/p1714065633867229
+    run(
+        runner,
+        [
+            "--debug",
+            "projects",
+            "empty",
+            "--project_id",
+            project_id,
+            "--confirm",
+            "empty",
+        ],
+    )
+
 
 def test_rm_pushed(runner: CliRunner, project_id, tmpdir) -> None:
     """Ensure we can remove committed files."""
