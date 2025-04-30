@@ -377,7 +377,6 @@ def test_rm_pushed_links(runner: CliRunner, project_id, tmpdir) -> None:
     if os.environ.get('TMP', None):
         temp_dir = os.environ.get('TMP')
     test_file = Path(temp_dir) / "hello-g3t-integration-test.txt"
-    test_file.parent.mkdir(parents=True, exist_ok=True)
     test_file.write_text("hello\n")
     os.symlink(str(test_file), "hello4.txt")
 
@@ -395,7 +394,8 @@ def test_rm_pushed_links(runner: CliRunner, project_id, tmpdir) -> None:
         ["--debug", "add", "hello3.txt"],
         expected_exit_code=1
     )
-    # should fail since the target file does not exist
+
+    # should work since the target file exists
     run(
         runner,
         ["--debug", "add", "hello4.txt"]
@@ -408,7 +408,7 @@ def test_rm_pushed_links(runner: CliRunner, project_id, tmpdir) -> None:
         expected_files=[Path("META/DocumentReference.ndjson")],
     )
 
-    dvc = read_dvc(file_path="MANIFEST/hello2.txt.dvc")
+    dvc = read_dvc(file_path="MANIFEST/hello4.txt.dvc")
     # capture expected object_id
     dvc.project_id = project_id
     expected_missing_object_id = dvc.object_id
@@ -423,6 +423,12 @@ def test_rm_pushed_links(runner: CliRunner, project_id, tmpdir) -> None:
     run(
         runner,
         ["--debug", "rm", str("hello2.txt")],
+    )
+
+    # rm the 4th test file after pushing
+    run(
+        runner,
+        ["--debug", "rm", str("hello4.txt")],
     )
 
     # re-create the meta file, with a bundle
@@ -441,9 +447,12 @@ def test_rm_pushed_links(runner: CliRunner, project_id, tmpdir) -> None:
     # list the files from indexd
     run(runner, ["--debug", "ls"], expected_output=["hello.txt"])
 
-    # list the files from indexd, should not include the removed file
+    # list the files from indexd, should not include the removed files
     with pytest.raises(AssertionError):
         run(runner, ["--debug", "ls"], expected_output=["hello2.txt"])
+
+    with pytest.raises(AssertionError):
+        run(runner, ["--debug", "ls"], expected_output=["hello4.txt"])
 
     # check the files exist in the graph and flat databases
     # we will need the object_id of the file to do that
