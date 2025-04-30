@@ -368,6 +368,18 @@ def test_rm_pushed_links(runner: CliRunner, project_id, tmpdir) -> None:
     # this is accommodation since working from a temporary directory
     os.symlink("my-project-data/hello.txt", "hello.txt")
     os.symlink("my-project-data/hello2.txt", "hello2.txt")
+    os.symlink("my-project-data/does-not-exist.txt", "hello3.txt")
+
+    # Get the path of the platform temporary directory e.g. /tmp
+    # we use the actual string '/tmp' as opposed to using the tempfile module provided in tmpdit
+    # to ensure we can link to a file outside the project working dir
+    temp_dir = '/tmp'
+    if os.environ.get('TMP', None):
+        temp_dir = os.environ.get('TMP')
+    test_file = Path(temp_dir) / "hello-g3t-integration-test.txt"
+    test_file.parent.mkdir(parents=True, exist_ok=True)
+    test_file.write_text("hello\n")
+    os.symlink(str(test_file), "hello4.txt")
 
     run(
         runner,
@@ -376,6 +388,17 @@ def test_rm_pushed_links(runner: CliRunner, project_id, tmpdir) -> None:
     run(
         runner,
         ["--debug", "add", "hello2.txt"]
+    )
+    # should fail since the target file does not exist
+    run(
+        runner,
+        ["--debug", "add", "hello3.txt"],
+        expected_exit_code=1
+    )
+    # should fail since the target file does not exist
+    run(
+        runner,
+        ["--debug", "add", "hello4.txt"]
     )
 
     # create the meta files

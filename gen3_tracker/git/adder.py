@@ -186,8 +186,10 @@ def add_file(ctx, target) -> tuple[list[pathlib.Path], list[str]]:
             continue
 
         # final checks
-        # assert target_path.resolve().exists(), f'{pathlib.Path(target).resolve()} does not exist.'
-        assert target_path.resolve().is_relative_to(pathlib.Path.cwd()), 'Target should be relative to the project root.'
+        #
+        assert target_path.absolute().is_relative_to(pathlib.Path.cwd()), f'{target_path} should be relative to the project root. {pathlib.Path.cwd()}'
+        if target_path.is_symlink():
+            assert target_path.resolve().exists(), f'{target_path} is a symlink, but its target {pathlib.Path(target).resolve()} does not exist.'
 
         # create reference to the file
         # convert --arguments to metadata
