@@ -48,7 +48,7 @@ def validate_document_in_grip(did: str, auth=None, project_id=None):
         auth = ensure_auth(config=default())
     token = auth.get_access_token()
     result = requests.get(
-        f"{auth.endpoint}/grip/writer/CALIPER/get-vertex/{did}/{project_id}",
+        f"{auth.endpoint}/grip/writer/CALYPR/get-vertex/{did}/{project_id}",
         headers={"Authorization": f"bearer {token}"},
     )
     print(result)
