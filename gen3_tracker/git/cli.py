@@ -329,7 +329,8 @@ def commit(ctx, targets, message, all):
         f'"{message}"',
     ] + list(targets)
 
-    if all:
+    # if no targets are specified, we will commit all files
+    if all or not targets:
         command.append("-a")
 
     try:
@@ -370,14 +371,19 @@ def status(config):
 
             latest_file_mtime = os.path.getmtime(latest_file)
             if document_reference_mtime < latest_file_mtime:
-                document_reference_mtime = datetime.fromtimestamp(
-                    document_reference_mtime
-                ).isoformat()
+                # if the file does not exist, the mtime is 0, so we set it to a human readable string
+                if document_reference_mtime == 0:
+                    document_reference_mtime = "(does not exist)"
+                else:
+                    document_reference_mtime = datetime.fromtimestamp(
+                        document_reference_mtime
+                    ).isoformat()
                 latest_file_mtime = datetime.fromtimestamp(
                     latest_file_mtime
                 ).isoformat()
                 click.secho(
-                    f"WARNING: DocumentReference.ndjson is out of date {document_reference_mtime}. The most recently changed file is {latest_file} {latest_file_mtime}.  Please check DocumentReferences.ndjson",
+                    f"WARNING: your file metadata is newer than your file manifest. DocumentReference.ndjson is out of date {document_reference_mtime}."
+                    f" The most recently changed file is {latest_file} {latest_file_mtime}.  Did you update your metadata (meta init) after adding or updating your data files?",
                     fg=INFO_COLOR,
                     file=sys.stderr,
                 )
@@ -616,12 +622,20 @@ def push(
                 work_dir=config.work_dir,
             )
 
+        meta_dir = pathlib.Path("META")
+        bundle_file = meta_dir / "Bundle.ndjson"
+        if os.path.isfile(bundle_file):
+            fhir_server = True
+            click.secho(
+                "Bundle exists, pushing to FHIR server",
+                fg=INFO_COLOR,
+                file=sys.stderr,
+            )
+
         if fhir_server or step in ["fhir"]:
             """Either there exists a Bundle.ndjson file in META signifying a revision to the data, or there is no bundle.json,
             signifying that the data in the META directory should be upserted into gen34
             """
-            meta_dir = pathlib.Path("META")
-            bundle_file = meta_dir / "Bundle.ndjson"
             if os.path.isfile(bundle_file):
                 with Halo(
                     text="Sending to FHIR Server",
@@ -1127,7 +1141,6 @@ def rm(config: Config, object_id: str):
 
         with Halo(text="Searching", spinner="line", placement="right", color="white"):
             object_id, path = file_name_or_guid(config, object_id)
-
         with Halo(
             text="Deleting from server",
             spinner="line",
@@ -1141,8 +1154,8 @@ def rm(config: Config, object_id: str):
             if not path:
                 path = ""
             click.secho(
-                f"Failed to delete {object_id} from server. {path}",
-                fg=ERROR_COLOR,
+                f"WARNING: Failed to delete {object_id} from server. {path} (Perhaps it hasn't been indexed yet?)",
+                fg=INFO_COLOR,
                 file=sys.stderr,
             )
         else:
@@ -1159,16 +1172,21 @@ def rm(config: Config, object_id: str):
                 for dvc_object in dvc_objects
                 if dvc_object.object_id == object_id
             ]
-            assert dvc_objects, f"{object_id} not found in MANIFEST."
-            dvc_object = dvc_objects[0]
-            path = pathlib.Path("MANIFEST") / (dvc_object.out.path + ".dvc")
-            assert path.exists(), f"{path} not found"
-            path.unlink()
-        click.secho(
-            f"Deleted {path} from MANIFEST. Please adjust META resources",
-            fg=INFO_COLOR,
-            file=sys.stderr,
-        )
+
+            if not dvc_objects:
+                assert path.exists(), f"{object_id} {path} not found in MANIFEST path or in committed files."
+                path.unlink()
+            else:
+                dvc_object = dvc_objects[0]
+                path = pathlib.Path("MANIFEST") / (dvc_object.out.path + ".dvc")
+                assert path.exists(), f"{path} not found"
+                path.unlink()
+
+            click.secho(
+                f"Deleted {path} from MANIFEST. Please adjust META resources",
+                fg=INFO_COLOR,
+                file=sys.stderr,
+            )
 
     except Exception as e:
         click.secho(str(e), fg=ERROR_COLOR, file=sys.stderr)

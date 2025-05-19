@@ -437,7 +437,7 @@ def update_meta(file_path, new_meta):
 def dvc_data(committed_files) -> typing.Generator[DVC, None, None]:
     """Get the dvc data from the committed files."""
     for committed_file in committed_files:
-        if str(committed_file).endswith('.dvc'):
+        if str(committed_file).endswith('.dvc') and pathlib.Path(committed_file).exists():
             yield to_dvc(committed_file)
 
 

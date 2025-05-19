@@ -4,6 +4,7 @@ import pathlib
 import sys
 
 from halo import Halo
+
 from gen3_tracker import Config, ENV_VARIABLE_PREFIX
 from gen3_tracker.common import INFO_COLOR, ERROR_COLOR
 
@@ -20,9 +21,10 @@ def meta(ctx, project_id):
 @meta.command()
 @click.option('--project_id', default=None, show_default=True,
               help="Gen3 program-project", envvar=f"{ENV_VARIABLE_PREFIX}PROJECT_ID")
+@click.option('--bundle', is_flag=True, help="Create a Bundle file for deleted records.", default=False)
 @click.option('--debug', is_flag=True)
 @click.pass_context
-def init(ctx, project_id, debug):
+def init(ctx, project_id, debug, bundle):
     """Initialize the META directory based on the MANIFEST."""
     try:
         from gen3_tracker.common import INFO_COLOR, ERROR_COLOR
@@ -33,7 +35,7 @@ def init(ctx, project_id, debug):
             config: Config = ctx.obj
             if not project_id:
                 project_id = config.gen3.project_id
-            updated_files = update_meta_files(config.dry_run, project_id)
+            updated_files = update_meta_files(config.dry_run, project_id, create_bundle=bundle)
         click.secho(f"Updated {len(updated_files)} metadata files.", fg=INFO_COLOR, file=sys.stderr)
         result = validate_dir('META', project_id)
         click.secho(result, fg=INFO_COLOR, file=sys.stderr)
@@ -59,6 +61,8 @@ def validate(ctx, directory, debug):
         for _ in result.exceptions:
             click.secho(f"{_.path}:{_.offset} {_.exception}", fg=ERROR_COLOR, file=sys.stderr)
         if result.exceptions:
+            if debug or ctx.debug:
+                raise result.exceptions[0].exception
             sys.exit(1)
     except Exception as e:
         click.secho(str(e), fg=ERROR_COLOR, file=sys.stderr)

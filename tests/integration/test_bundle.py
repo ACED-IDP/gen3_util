@@ -13,7 +13,7 @@ CHANGE_PATIENT = [
     "--debug meta init",
     '--debug commit -am "initial commit"',
     "--debug add s3://s3-bucket/p1-object.txt --size 1 --modified 2024-05-05T07:26:29-0700 --md5 acbd18db4cc2f85cedef654fccc4a4d8 --patient P1-prime",
-    "--debug meta init",
+    "--debug meta init --bundle",
     '--debug commit -am "prime commit"',
 ]
 
@@ -24,7 +24,7 @@ CHANGE_FILE = [
     '--debug commit -am "initial commit"',
     "--debug rm s3://s3-bucket/p1-object-mistake.txt",
     "--debug add s3://s3-bucket/p1-object-correct.txt --size 1 --modified 2024-05-05T07:26:29-0700 --md5 acbd18db4cc2f85cedef654fccc4a4d8 --patient P1",
-    "--debug meta init",
+    "--debug meta init --bundle",
     '--debug commit -am "prime commit"',
 ]
 

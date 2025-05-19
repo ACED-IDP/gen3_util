@@ -48,9 +48,13 @@ def validate_document_in_grip(did: str, auth=None, project_id=None):
         auth = ensure_auth(config=default())
     token = auth.get_access_token()
     result = requests.get(
-        f"{auth.endpoint}/grip/writer/CALIPER/get-vertex/{did}/{project_id}",
+        f"{auth.endpoint}/grip/writer/CALYPR/get-vertex/{did}/{project_id}",
         headers={"Authorization": f"bearer {token}"},
-    ).json()
+    )
+    print(result)
+    print(result.text)
+    assert result.status_code == 200, f"Failed to query grip for {did} {result.text}"
+    result = result.json()
     assert "data" in result, f"Failed to query grip for {did} {result}"
     assert result["data"]["id"] == did
 

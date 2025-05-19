@@ -1,4 +1,5 @@
 import pathlib
+import sys
 import uuid
 from datetime import datetime
 from pytz import UTC
@@ -272,18 +273,21 @@ def create_skeleton(dvc: dict, project_id: str, meta_index: set[str] = []) -> li
     return [_ for _ in [research_study, research_subject, patient, observation, specimen, task, document_reference] if _ and not isinstance(_, str)]
 
 
-def update_meta_files(dry_run=False, project_id=None) -> list[str]:
+def update_meta_files(dry_run=False, project_id=None, create_bundle=False) -> list[str]:
     """Maintain the META directory."""
     assert project_id, "project_id required"
     manifest_path = pathlib.Path('MANIFEST')
     dvc_files = [_ for _ in manifest_path.rglob('*.dvc')]
 
-    if not dvc_files:
-        return []
-
     before_meta_files = [_ for _ in pathlib.Path('META').glob('*.ndjson')]
     before_meta_index = set(list(meta_index().keys()))
     emitted_already = []
+
+    if not dvc_files:
+        # remove the DocumentReference file if it exists
+        document_reference_path = pathlib.Path('META/DocumentReference.ndjson')
+        if document_reference_path.exists():
+            document_reference_path.unlink()
 
     with EmitterContextManager('META') as emitter:
         for _ in dvc_data(dvc_files):
@@ -316,10 +320,14 @@ def update_meta_files(dry_run=False, project_id=None) -> list[str]:
             bundle_entry.request = BundleEntryRequest(url=_, method='DELETE')
             bundle.entry.append(bundle_entry)
 
-        with EmitterContextManager('META') as emitter:
-            emitter.emit(bundle.resource_type, file_mode='a').write(
-                bundle.json(option=orjson.OPT_APPEND_NEWLINE)
-            )
+        if create_bundle:
+            with EmitterContextManager('META') as emitter:
+                emitter.emit(bundle.resource_type, file_mode='a').write(
+                    bundle.json(option=orjson.OPT_APPEND_NEWLINE)
+                )
+        else:
+            if len(orphaned_meta_index):
+                print(f"Records were orphaned meta index: {orphaned_meta_index}", file=sys.stderr)
 
     after_meta_files = [_ for _ in pathlib.Path('META').glob('*.ndjson')]
     new_meta_files = [str(_) for _ in after_meta_files if _ not in before_meta_files]
