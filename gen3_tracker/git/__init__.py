@@ -38,7 +38,7 @@ LOGGED_ALREADY = set()
 
 mimetypes.add_type('text/fastq', '.fastq')
 mimetypes.add_type('text/fastq', '.fq')
-mimetypes.add_type("image/x-svs", '.svs') # Aperio scanner file type
+mimetypes.add_type('image/x-svs', '.svs') # Aperio scanner file type
 
 # process helpers ---------------------------------------------------------------
 
