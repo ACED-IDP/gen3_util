@@ -15,9 +15,13 @@ def index_client():
 
 
 def test_authorization_header_present(index_client: Gen3Index):
-    with patch("requests.get") as mock_get:
+    """Test to ensure that the authorization header is present in requests made by the index client."""
+    # Mock the requests.get method to simulate an API call
+    # The patch target should mock the requests.get call within the gen3.index module
+    with patch("gen3.index.requests.get") as mock_get:
         mock_response = MagicMock()
         mock_response.status_code = 200
+        mock_response.json.return_value = {"data": "mock_data"}
         mock_get.return_value = mock_response
 
         # Simulate a call that would trigger requests.get
