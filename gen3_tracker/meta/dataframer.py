@@ -686,7 +686,7 @@ def create_dataframe(
         front_column_names += ["identifier"]
     if "resourceType" in df.columns:
 
-        front_column_names +=  ["resourceType"]
+        front_column_names += ["resourceType"]
     if "patient" in df.columns:
         front_column_names = front_column_names + ["patient"]
 
