@@ -11,6 +11,10 @@ orjson
 nested_lookup
 
 gen3
+# our fork of indexclient - adds auth to all indexd gets
+indexclient@git+https://github.com/ohsu-comp-bio/indexclient.git@b9d02873df787bf4fb98869521fd287d39c668aa
+
+
 # json web token
 PyJWT==2.8.0
 
