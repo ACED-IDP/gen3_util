@@ -11,6 +11,7 @@ orjson
 nested_lookup
 
 gen3
+
 # json web token
 PyJWT==2.8.0
 

@@ -11,7 +11,7 @@ import click
 import pydantic
 from click import Context, Command
 from pydantic import BaseModel, field_validator
-
+import indexclient.client
 
 ACED_NAMESPACE = uuid.uuid3(uuid.NAMESPACE_DNS, b'aced-idp.org')
 ENV_VARIABLE_PREFIX = 'G3T_'
@@ -179,8 +179,22 @@ class NaturalOrderGroup(click.Group):
             raise e
 
 
+def monkey_patch_indexclient__get():
+    """Monkey patch IndexClient._get to ensure 'auth' is set and log calls."""
+    original__get = indexclient.client.IndexClient._get
+
+    def patched__get(self, *args, **kwargs):
+        """Patch to ensure 'auth' is set and log the call."""
+        if 'auth' not in kwargs:
+            kwargs['auth'] = self.auth
+        return original__get(self, *args, **kwargs)
+
+    indexclient.client.IndexClient._get = patched__get
+
+
 # main
 monkey_patch_url_validate()
+monkey_patch_indexclient__get()
 
 # default initializers for path
 pydantic.v1.json.ENCODERS_BY_TYPE[pathlib.PosixPath] = str
