@@ -542,9 +542,15 @@ def push(
             bucket_name = get_program_bucket(config=config, auth=auth)
 
             # check for new files
-            records = ls(
-                config, metadata={"project_id": config.gen3.project_id}, auth=auth
-            )["records"]
+            if dry_run:
+                click.secho(
+                    "Dry run: not indexing files", fg=INFO_COLOR, file=sys.stderr
+                )
+                records = []
+            else:
+                records = ls(
+                    config, metadata={"project_id": config.gen3.project_id}, auth=auth
+                )["records"]
             dids = {_["did"]: _["updated_date"] for _ in records}
             new_dvc_objects = [_ for _ in dvc_objects if _.object_id not in dids]
             updated_dvc_objects = [
