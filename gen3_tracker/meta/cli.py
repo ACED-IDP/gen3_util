@@ -49,14 +49,16 @@ def init(ctx, project_id, debug, bundle):
 
 @meta.command()
 @click.argument('directory', type=click.Path(exists=True), default='META')
-@click.option('--debug', is_flag=True)
+@click.option('--debug', is_flag=True, default=False, show_default=True, help='Enable debug mode.')
+@click.option('--skip-id-check', is_flag=True, default=False, show_default=True, help='Skip checking that resource IDs are valid for the project.')
 @click.pass_obj
-def validate(ctx, directory, debug):
+def validate(ctx, directory, debug, skip_id_check):
     """Validate FHIR data"""
     try:
         from gen3_tracker.meta.validator import validate as validate_dir
         with Halo(text='Validating', spinner='line', placement='right', color='white'):
-            result = validate_dir(directory, project_id=ctx.gen3.project_id)
+            project_id = ctx.gen3.project_id if not skip_id_check else None
+            result = validate_dir(directory, project_id=project_id)
         click.secho(result.resources, fg=INFO_COLOR, file=sys.stderr)
         for _ in result.exceptions:
             click.secho(f"{_.path}:{_.offset} {_.exception}", fg=ERROR_COLOR, file=sys.stderr)
