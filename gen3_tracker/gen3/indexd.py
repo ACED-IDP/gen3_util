@@ -6,6 +6,7 @@ import requests
 from gen3.auth import Gen3Auth
 from gen3.index import Gen3Index
 
+from gen3_tracker.common import ACCEPTABLE_HASHES
 from gen3_tracker.git import DVC, DVCMeta
 
 
@@ -89,7 +90,7 @@ def create_hashes_metadata(dvc: DVC, program, project):
     if not meta:
         meta = DVCMeta()
 
-    hashes = {dvc.out.hash: getattr(dvc.out, dvc.out.hash)}
+    hashes = {h: getattr(dvc.out, h) for h in ACCEPTABLE_HASHES if hasattr(dvc.out, h) and getattr(dvc.out, h)}
     metadata = {
         **{
             'document_reference_id': dvc.object_id,
