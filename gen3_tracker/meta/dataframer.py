@@ -502,7 +502,9 @@ class LocalFHIRDatabase:
                 for obs in observations:
                     for k, v in traverse(obs).items():
                         if k not in set(["observation_id", "observation_identifier", "observation_focus"]):
-                            flat_research_subject[k] = v
+                            # couldn't think of an elegant solution here. Essentially when obs code exists and
+                            # valueCodeableConcept on the same row a k:v column is made and if the k contains a space then there are issues.
+                            flat_research_subject[k.replace(" ","_")] = v
 
             # get condition code, eg enrollment diagnosis
             if patient["patient_id"] in conditions_by_patient_id:
