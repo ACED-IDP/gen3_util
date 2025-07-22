@@ -1,7 +1,6 @@
 import pytest
 from pydantic import ValidationError
 
-from gen3_tracker.common import ACCEPTABLE_HASHES
 from gen3_tracker.git import DVCItem
 from gen3_tracker.gen3.indexd import create_hashes_metadata
 from gen3_tracker.common import ACCEPTABLE_HASHES
