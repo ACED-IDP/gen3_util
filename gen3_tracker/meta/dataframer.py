@@ -477,6 +477,7 @@ class LocalFHIRDatabase:
         # get all observations with a Observation.subject=Patient, mapped from patient ID to observation
         resource_type = "ResearchSubject"
         conditions_by_patient_id = get_conditions_by_subject(self, "Patient")
+        observations_by_patient_id = get_observations_by_subject(self, "Patient")
 
         # get all ResearchSubjects
         cursor = self.connect()
@@ -495,10 +496,17 @@ class LocalFHIRDatabase:
             patient = get_subject(self, research_subject)
             flat_research_subject.update(patient)
 
+            # get observation codes for patient
+            if patient["patient_id"] in observations_by_patient_id:
+                observations = observations_by_patient_id[patient["patient_id"]]
+                for obs in observations:
+                    for k, v in traverse(obs).items():
+                        if k not in set(["observation_id", "observation_identifier", "observation_focus"]):
+                            flat_research_subject[k] = v
+
             # get condition code, eg enrollment diagnosis
             if patient["patient_id"] in conditions_by_patient_id:
                 conditions = conditions_by_patient_id[patient["patient_id"]]
-
                 # TODO: assumes there are no duplicate column names in each condition
                 for condition in conditions:
                     for k, v in traverse(condition).items():
@@ -797,3 +805,10 @@ def get_conditions_by_subject(
 ) -> dict[str, list]:
     """get all Conditions that have a subject of resource type subject_type"""
     return get_resources_by_reference(db, "Condition", "subject", subject_type)
+
+
+def get_observations_by_subject(
+    db: LocalFHIRDatabase, subject_type: str
+) -> dict[str, list]:
+    """get all Conditions that have a subject of resource type subject_type"""
+    return get_resources_by_reference(db, "Observation", "subject", subject_type)

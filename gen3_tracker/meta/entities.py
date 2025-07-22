@@ -354,9 +354,10 @@ class SimplifiedObservation(SimplifiedFHIR):
         _values = super().values
 
         if len(_values) == 0:
-            assert (
-                "component" in self.resource
-            ), "no component nor top-level value found"
+            # New data doesn't fulfill these limitations
+            #assert (
+            #    "component" in self.resource
+            #), "no component nor top-level value found"
 
             # get component codes
             if "component" in self.resource:
@@ -501,6 +502,14 @@ class SimplifiedSpecimen(SimplifiedFHIR):
         return _values
 
 
+class SimplifiedResearchSubject(SimplifiedFHIR):
+    @computed_field
+    @property
+    def values(self) -> dict:
+        _values = super().values
+        return _values
+
+
 class SimplifiedResource(object):
     """A simplified FHIR resource, a factory method."""
 
@@ -516,6 +525,7 @@ class SimplifiedResource(object):
             "MedicationAdministration": SimplifiedMedicationAdministration,
             "Observation": SimplifiedObservation,
             "Specimen": SimplifiedSpecimen,
+            "ResearchSubject": SimplifiedResearchSubject,
         }
 
         # use customizable resources if exists
