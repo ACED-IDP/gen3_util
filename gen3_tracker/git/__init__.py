@@ -36,8 +36,16 @@ DIFF_MESSAGE = 'Showing details of changed files...'
 
 LOGGED_ALREADY = set()
 
-mimetypes.add_type('text/fastq', '.fastq')
-mimetypes.add_type('text/fastq', '.fq')
+mime_types = [
+      ('text/fastq', '.fastq'),
+      ('text/fastq', '.fq'),
+      ('image/x-svs', '.svs'),  # Aperio scanner file type
+      ('image/ndpi', '.ndpi')
+]
+
+for mime_type, extension in mime_types:
+    mimetypes.add_type(mime_type, extension)
+
 
 # process helpers ---------------------------------------------------------------
 
