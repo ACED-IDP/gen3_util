@@ -1,5 +1,6 @@
 import os
 import pathlib
+import sys
 
 import yaml
 from click.testing import CliRunner
@@ -82,6 +83,8 @@ def test_assert_object_id_invalid_on_project_id_change(
     run(runner, ["--debug", "meta", "validate"], expected_exit_code=1)
     run(runner, ["--debug", "push", "--dry-run"], expected_exit_code=1)
     # also check skip_validate
+    print(">>>> Running push with --skip_validate")
+    print(">>>> Running push with --skip_validate", file=sys.stderr)
     run(
         runner,
         ["--debug", "push", "--dry-run", "--skip_validate"],
