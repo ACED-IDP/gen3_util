@@ -1,34 +1,31 @@
-# Gen3 SDK
+
+click
+pytz
+PyYAML
+halo
+tqdm
+deepdiff
+
+fhir.resources==7.1.0  # FHIR Model
+orjson
+nested_lookup
+
 gen3
 
-
-# CLI processor
-click
-# faster json
-orjson
-# pluralization, etc.
-inflection
-# FHIR model
-fhir.resources
 # json web token
-PyJWT
-# for mime types
-python-magic
-# progress bar
-tqdm
-# http API
-requests
-# modern python dataclasses
+PyJWT==2.8.0
+
 pydantic
-# lock version
-pydantic_yaml
+requests
 
-# for 3.11 - see https://github.com/yaml/pyyaml/issues/724
-PyYAML==5.3.1
 
-# function caching
-# joblib
-# IO
+pandas
+matplotlib==3.8.4  # see https://github.com/pydata/pandas-datareader/issues/969
+numpy
+pyvis==0.3.2  # see https://github.com/holoviz/holoviz/issues/25
+# dtale
+ndjson
+inflection
+python-dateutil
 
-# FHIR Model
-fhir.resources
+deepmerge

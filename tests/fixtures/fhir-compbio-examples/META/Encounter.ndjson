@@ -1,0 +1,1 @@
+{"resourceType":"Encounter","id":"007f4f7c-dc02-56c2-8b27-4e51f22b72a8","identifier":[{"system":"https://gdc.cancer.gov/tissue_source_site","value":"7f1c5ad2-03f7-5695-bf0f-1a957dfd06be"}],"status":"completed","subject":{"reference":"Patient/bc4e1aa6-cb52-40e9-8f20-594d9c84f920"}}

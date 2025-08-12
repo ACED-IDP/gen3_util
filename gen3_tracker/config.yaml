@@ -1,0 +1,6 @@
+
+log:
+  format: '[%(asctime)s] [%(levelname)s] %(name)s %(message)s'
+  level: INFO  # DEBUG, INFO, WARNING, ERROR
+output:
+  format: yaml

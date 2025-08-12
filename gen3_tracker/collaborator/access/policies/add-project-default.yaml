@@ -1,0 +1,14 @@
+policies:
+# submitter policy
+- role_ids:
+  - sower_user
+  resource_paths:
+  - /sower
+- role_ids:
+  - writer
+  resource_paths:
+  - /programs/PROGRAM/projects/PROJECT
+- role_ids:
+  - reader
+  resource_paths:
+  - /programs/PROGRAM/projects/PROJECT

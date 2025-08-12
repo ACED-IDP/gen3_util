@@ -26,6 +26,8 @@ share/python-wheels/
 *.egg
 MANIFEST
 
+.DS_Store
+
 # PyInstaller
 #  Usually these files are written by a python script from a template
 #  before PyInstaller builds the exe, so as to inject date/other infos into it.
@@ -162,5 +164,12 @@ cython_debug/
 # IDE
 .idea/
 
-# scratch
+# scratch files
 tmp/
+attic/
+clinical_reports/
+output
+studies/
+.python-version
+
+.DS_Store

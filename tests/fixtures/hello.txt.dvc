@@ -1,0 +1,11 @@
+meta:
+  patient: P1
+outs:
+- hash: md5
+  is_symlink: false
+  md5: b1946ac92492d2347c6235b4d2611184
+  mime: text/plain
+  modified: '2024-04-30T17:46:30.819143+00:00'
+  path: my-project-data/hello.txt
+  realpath: /Users/walsbr/aced/g3t-git/attic/cbds-test39/my-project-data/hello.txt
+  size: 6

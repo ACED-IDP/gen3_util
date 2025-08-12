@@ -1,3 +1,0 @@
-policies:
-- policy_id: programs.PROGRAM.projects.PROJECT_writer
-  username:

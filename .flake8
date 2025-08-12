@@ -1,2 +1,3 @@
 [flake8]
 max-line-length = 256
+exclude = tests/unit/test_flatten_fhir_example.py

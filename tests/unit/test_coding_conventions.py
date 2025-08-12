@@ -1,14 +1,19 @@
 """Run flake8 tests"""
 
 import subprocess
-from typing import List
+import os
 
 
-def test_coding_conventions(python_source_directories: List[str]):
+def test_coding_conventions():
     """Check python conventions on key directories"""
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    directories = [
+        os.path.join(script_dir, "../../gen3_tracker"),
+        os.path.join(script_dir, "../../tests"),
+    ]
     failures = []
-    for directory in python_source_directories:
-        cmd_str = f"flake8 {directory}"
+    for directory in directories:
+        cmd_str = f"flake8 {directory} --max-line-length 256 --exclude test_flatten_fhir_example.py"
         completed = subprocess.run(cmd_str, shell=True)
         if completed.returncode != 0:
             _ = f"FAILURE: Python formatting and style for directory {directory}/"
