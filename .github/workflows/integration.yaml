@@ -22,7 +22,7 @@ on:
 
     inputs:
       environment:
-        description: The target environment for this run (e.g. development, staging, production, cbds)
+        description: The target environment for this run (e.g. external, internal)
         required: true
         type: string
 

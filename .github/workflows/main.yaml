@@ -5,39 +5,10 @@ on:
   workflow_dispatch: # Allow manual triggering of the workflow
 
 jobs:
-  cbds:
+  external:
     with:
-        environment: cbds
-        endpoint: "https://idp.cbds.ohsu.edu"
-        # Self-hosted runner to access https://idp.cbds.ohsu.edu
-        # https://github.com/ACED-IDP/gen3_util/settings/actions/runners/21
-        # https://docs.github.com/en/actions/hosting-your-own-runners/managing-self-hosted-runners/adding-self-hosted-runners#adding-a-self-hosted-runner-to-a-repository
-        runs-on: self-hosted
-        program: cbds
-    secrets:
-        CREDENTIALS: ${{ secrets.CREDENTIALS }}
-    uses: ./.github/workflows/integration.yaml
-    
-  production:
-    with:
-      environment: production
+      environment: external
       endpoint: "https://aced-idp.org"
-    secrets:
-      CREDENTIALS: ${{ secrets.CREDENTIALS }}
-    uses: ./.github/workflows/integration.yaml
-
-  staging:
-    with:
-      environment: staging
-      endpoint: "https://staging.aced-idp.org"
-    secrets:
-      CREDENTIALS: ${{ secrets.CREDENTIALS }}
-    uses: ./.github/workflows/integration.yaml
-
-  development:
-    with:
-      environment: development
-      endpoint: "https://development.aced-idp.org"
     secrets:
       CREDENTIALS: ${{ secrets.CREDENTIALS }}
     uses: ./.github/workflows/integration.yaml
