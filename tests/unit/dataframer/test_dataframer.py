@@ -5,7 +5,7 @@ import tempfile
 
 
 from gen3_tracker.common import read_ndjson_file
-from gen3_tracker.meta.dataframer import LocalFHIRDatabase
+from gen3_tracker.meta.dataframer import LocalFHIRDatabase, validate_and_transform_graphql_field_name
 from gen3_tracker.meta.entities import SimplifiedResource
 from pathlib import Path
 
@@ -177,7 +177,7 @@ def simplified_resources(
             "identifier": "LabA_ORGANIZATION",
             "resourceType": "Organization",
             "id": "89c8dc4c-2d9c-48c7-8862-241a49a78f14",
-            "organization-type": "Educational Institute",
+            "organization_type": "Educational Institute",
         },
         patient_key: {
             "identifier": "patientX_1234",
@@ -197,6 +197,28 @@ def simplified_resources(
 @pytest.fixture()
 def fixture_path(data_path: Path) -> Path:
     return data_path / "fhir-compbio-examples/META"
+
+
+@pytest.fixture()
+def htan_fixture_path(data_path: Path) -> Path:
+    return data_path / "fhir-htan-examples/META"
+
+
+@pytest.fixture()
+def htan_db(htan_fixture_path: Path) -> LocalFHIRDatabase:
+    """Load a local db with smmart data fixture."""
+    with tempfile.TemporaryDirectory() as temp_dir:
+        # print(f"Temporary directory created at: {temp_dir}")
+        db = LocalFHIRDatabase(db_name=os.path.join(temp_dir, "local.db"))
+
+        assert (
+            htan_fixture_path.exists()
+        ), f"Fixture path {htan_fixture_path.absolute()} does not exist."
+        for file in htan_fixture_path.glob("*.ndjson"):
+            # print(f"Loading {file}")
+            for resource in read_ndjson_file(str(file)):
+                db.insert_data_from_dict(resource)
+        return db
 
 
 @pytest.fixture()
@@ -228,6 +250,18 @@ def resources(local_db):
     resources = cursor.fetchall()
     _resources = []
     for row in resources:
+        _, _, resource = row
+        resource = json.loads(resource)
+        _resources.append(resource)
+    return _resources
+
+
+@pytest.fixture()
+def htan_resources(htan_db):
+    cursor = htan_db.connection.cursor()
+    cursor.execute("SELECT * FROM resources")
+    _resources = []
+    for row in cursor.fetchall():
         _, _, resource = row
         resource = json.loads(resource)
         _resources.append(resource)
@@ -331,6 +365,21 @@ def test_simplified(resources, simplified_resources):
     assert actual == simplified_resources
 
 
+def test_htan_simplified(htan_resources):
+    """
+    Test that the HTAN resources are simplified and that the keys are valid GraphQL field names.
+    """
+    for resource in htan_resources:
+        assert isinstance(
+            resource, dict
+        ), f"Expected dict, got {type(resource)} {resource}"
+        resource_type = resource.get("resourceType", "Unknown")
+        simplified = SimplifiedResource.build(resource=resource).simplified
+        for key, value in simplified.items():
+            transformed_key = validate_and_transform_graphql_field_name(key)
+            assert key == transformed_key, f"Key {transformed_key} in {resource_type} is not valid for GraphQL: {key}"
+
+
 def test_flattened_document_references(local_db, docref_row):
     """Test the dataframer using a local database with a SMMART bundle,
     this test ensures the  DocumentReference is populated with fields from any Observation with a focus on this DocumentReference
@@ -361,3 +410,36 @@ def test_flattened_research_subjects(local_db, research_subject_row):
     research_subject = research_subjects[0]
 
     assert research_subject == research_subject_row
+
+
+# Using pytest.mark.parametrize to test multiple inputs and expected outputs
+@pytest.mark.parametrize("input_name, expected_output", [
+    ("user_name", "user_name"),
+    ("123fieldName", "_123fieldName"),
+    ("product-id", "product_id"),
+    ("item Name", "item_Name"),
+    ("my_field_with spaces and!@", "my_field_with_spaces_and__"),
+    ("__typename", "_typename"),  # Valid, but reserved for introspection
+    ("__schema", "_schema"),  # Valid, but reserved for introspection
+    ("__type", "_type", ),  # Valid, but reserved for introspection
+    ("validFieldName", "validFieldName"),
+    ("anotherValid_Field", "anotherValid_Field"),
+    ("field_with_hyphen-and-space", "field_with_hyphen_and_space"),
+    ("", "_"),  # becomes a single underscore
+    ("  leading_space", "__leading_space"),
+    ("trailing_space  ", "trailing_space__"),
+    ("some.field", "some_field"),
+    ("0_number_start", "_0_number_start"),
+    ("Cell Morphology Assessment", "Cell_Morphology_Assessment"),
+    ("Image ID", "Image_ID"),
+    ("Pixels BigEndian", "Pixels_BigEndian"),
+    ("Fixative Type", "Fixative_Type"),
+    ("Storage Method", "Storage_Method"),
+    ("Tumor Tissue Type", "Tumor_Tissue_Type"),
+])
+def test_validate_and_transform_graphql_field_name(input_name, expected_output):
+    """
+    Tests the validate_and_transform_graphql_field_name function with various inputs.
+    """
+    print(f"input_name >{input_name}<")
+    assert validate_and_transform_graphql_field_name(input_name) == expected_output
