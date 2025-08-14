@@ -377,7 +377,7 @@ def test_htan_simplified(htan_resources):
         simplified = SimplifiedResource.build(resource=resource).simplified
         for key, value in simplified.items():
             transformed_key = validate_and_transform_graphql_field_name(key)
-            assert key == transformed_key, f"Key {transformed_key} in {resource_type} is not valid for GraphQL: {key}"
+            assert key == transformed_key, f'Key "{key}" in {resource_type} was not transformed to valid GraphQL. Should be "{transformed_key}"'
 
 
 def test_flattened_document_references(local_db, docref_row):

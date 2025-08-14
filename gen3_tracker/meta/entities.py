@@ -326,7 +326,7 @@ class SimplifiedFHIR(BaseModel):
 
         # update the key if code information is available
         if self.resource.get("code", {}).get("text", None):
-            source = self.resource["code"]["text"]
+            source = validate_and_transform_graphql_field_name(self.resource["code"]["text"])
         return {source: value}
 
 
