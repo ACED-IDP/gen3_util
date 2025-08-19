@@ -12,6 +12,12 @@
 
 name: Integration Tests
 
+# This workflow is designed to run integration tests using g3t and gen3-client
+# It requires a valid credentials.json file for a running server
+# The workflow is reusable and can be called from other workflows
+# It is currently disabled by default, but can be enabled for specific environments
+# To enable, remove the `disabled: true` line below
+disabled: true
 
 on:
   workflow_call:
