@@ -15,7 +15,9 @@ name: UnitTests
 # It requires a valid credentials.json file for a running server
 # The workflow is reusable and can be called from other workflows
 # It is currently disabled by default, but can be enabled for specific environments
-# To enable, remove the `disabled: true` line below
+# This workflow runs unit tests that do not require credentials.
+# It is intended to quickly verify code changes using pytest on the unit test suite.
+# No credentials or external services are required for these tests.
 disabled: false
 
 on:
