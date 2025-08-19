@@ -538,8 +538,8 @@ def push(
             committed_files, dvc_objects = manifest(config.gen3.project_id)
 
             # initialize gen3 client
-            auth = gen3_tracker.config.ensure_auth(config=config)
-            bucket_name = get_program_bucket(config=config, auth=auth)
+            auth = None
+            bucket_name = None
 
             # check for new files
             if dry_run:
@@ -548,6 +548,9 @@ def push(
                 )
                 records = []
             else:
+                # initialize gen3 client
+                auth = gen3_tracker.config.ensure_auth(config=config)
+                bucket_name = get_program_bucket(config=config, auth=auth)
                 records = ls(
                     config, metadata={"project_id": config.gen3.project_id}, auth=auth
                 )["records"]

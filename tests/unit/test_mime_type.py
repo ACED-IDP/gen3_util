@@ -12,4 +12,3 @@ def test_vcf_mime_type():
     assert get_mime_type("tests/data/test.vcf") == "text/vcf"
     assert get_mime_type("tests/data/test.vcf.gz") == "text/vcf"
     # assert get_mime_type("tests/data/test.vcf.gz.tbi") == "text/vcf" -> application/octet-stream
-
