@@ -1,9 +1,9 @@
 # What `dataframer.py` is for
 
-A lightweight local FHIR “warehouse” built on SQLite that can ingest NDJSON FHIR bundles, merge/upssert resources, and expose convenient accessors to:
+A lightweight local FHIR “warehouse” built on SQLite that can ingest NDJSON FHIR bundles, merge/upsert resources, and expose convenient accessors to:
 
 - fetch specific resources (`resource(type, id)`), a patient (`patient(id)`), or “everything” tied to a patient (`patient_everything`)
-- flatten common resources (e.g., `flattened_procedure`, `flattened_condition`, `flattened_procedures`) into analysis-friendly dicts
+- flatten common resources (e.g., `flattened_procedure`, `flattened_condition`, `flattened_procedures`) into analysis-friendly dictionaries
 - normalize extensions and common FHIR value/coding structures for tabular use (e.g., pandas/Elasticsearch).
 
 ---
