@@ -16,38 +16,38 @@ name: Integration Tests
 # It requires a valid credentials.json file for a running server
 # The workflow is reusable and can be called from other workflows
 # It is currently disabled by default, but can be enabled for specific environments
-# To enable, remove the `disabled: true` line below
-disabled: true
+# enable it by uncommenting the `on` section below
 
-on:
-  workflow_call:
-    secrets:
-      CREDENTIALS:
-        description: 'The contents of credentials.json for the gen3-client'
-        required: true
+#on:
+#  workflow_call:
+#    secrets:
+#      CREDENTIALS:
+#        description: 'The contents of credentials.json for the gen3-client'
+#        required: true
+#
+#    inputs:
+#      environment:
+#        description: The target environment for this run (e.g. development, staging, production, cbds)
+#        required: true
+#        type: string
+#
+#      endpoint:
+#        description: The Gen3 instance endpoint (e.g. https://aced-idp.org)
+#        required: true
+#        type: string
+#
+#      program:
+#        description: The program used for the test project (e.g. aced, cbds)
+#        required: false
+#        default: aced
+#        type: string
+#
+#      runs-on:
+#        description: The runner for the target environment (e.g. ubuntu-latest, self-hosted)
+#        required: false
+#        default: ubuntu-latest
+#        type: string
 
-    inputs:
-      environment:
-        description: The target environment for this run (e.g. development, staging, production, cbds)
-        required: true
-        type: string
-
-      endpoint:
-        description: The Gen3 instance endpoint (e.g. https://aced-idp.org)
-        required: true
-        type: string
-
-      program:
-        description: The program used for the test project (e.g. aced, cbds)
-        required: false
-        default: aced
-        type: string
-
-      runs-on:
-        description: The runner for the target environment (e.g. ubuntu-latest, self-hosted)
-        required: false
-        default: ubuntu-latest
-        type: string
 
 jobs:
   integration:

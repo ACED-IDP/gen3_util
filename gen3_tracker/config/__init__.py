@@ -143,7 +143,7 @@ def ensure_auth(refresh_file: [pathlib.Path, str] = None, validate: bool = False
             assert api_key, "refresh_access_token failed"
 
     except (requests.exceptions.ConnectionError, AssertionError) as e:
-        msg = (f"Could not get access. profile={profile}"
+        msg = (f"Could not get access. profile={config.gen3.profile} "
                "See https://bit.ly/3NbKGi4, or, "
                "store the file in ~/.gen3/credentials.json or specify location with env GEN3_API_KEY "
                f"{e}")

@@ -15,11 +15,11 @@ name: Pytest
 # It requires a valid credentials.json file for a running server
 # The workflow is reusable and can be called from other workflows
 # It is currently disabled by default, but can be enabled for specific environments
-# To enable, remove the `disabled: true` line below
-disabled: true
+# enable it by uncommenting the `on` section below
 
-on:
-  push:
+
+#on:
+#  push:
 
 jobs:
   pytest:
