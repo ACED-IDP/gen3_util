@@ -15,7 +15,7 @@ gen3
 # json web token
 PyJWT==2.8.0
 
-pydantic
+pydantic==2.11.7
 requests
 
 
