@@ -1,6 +1,7 @@
 import importlib
 import logging
 import pathlib
+import re
 from collections import defaultdict
 from typing import Iterator, Any, Optional, Callable
 
@@ -150,3 +151,67 @@ def aggregate(metadata_path: pathlib.Path | str) -> dict:
                 dst['count'] += 1
 
     return summary
+
+
+def validate_and_transform_graphql_field_name(field_name: str) -> str:
+    """
+    Validates a string against GraphQL field naming rules and transforms it to a legal field name if necessary.
+
+    GraphQL field names:
+    - Must start with an underscore or a letter (a-z, A-Z).
+    - Can contain underscores, letters, and numbers (0-9) after the first character.
+    - Are case-sensitive.
+    - Names starting with two underscores (__) are reserved for introspection.
+
+    Args:
+        field_name: The string to validate and potentially transform.
+
+    Returns:
+        A valid GraphQL field name. If the original name is valid, it's returned as-is.
+        If the name is invalid, non-compliant characters are replaced with underscores
+        and a leading number (if any) is prepended with an underscore.
+    """
+
+    # GraphQL field name regex: starts with _ or letter, followed by _ , letter, or number
+    graphql_field_regex = r"^[_\w][\w]*$"  # \w matches alphanumeric + underscore
+
+    # 1. Replace invalid characters with underscores
+    cleaned_name = re.sub(r'[^a-zA-Z0-9_]', '_', field_name)
+
+    # 2. Replace non-compliant characters (not alphanumeric or underscore) with a single underscore
+    #    This also handles replacing multiple spaces/hyphens with a single underscore
+    #    We use `_` explicitly because `\W` (non-word char) might include spaces.
+    transformed_name = re.sub(r"[^\w]+", "_", cleaned_name)  #
+
+    # 3. Ensure the name doesn't start with a number. If it does, prepend an underscore.
+    if transformed_name and re.match(r"^[0-9]", transformed_name):  #
+        transformed_name = "_" + transformed_name
+
+    # 4. Handle reserved double-underscore prefix for *non-reserved* names.
+    #    If the original name started with `__` AND it's not one of the explicitly
+    #    reserved names (__typename, __schema, __type), then we adjust it to be legal.
+    #    For simplicity, we assume any field starting with `__` that isn't one of
+    #    those specific three is an invalid user-defined reserved name.
+    #    We make it legal by removing one of the underscores.
+
+    #   First check if it *starts* with two underscores AND isn't one of the allowed reserved fields.
+    if transformed_name in ["__typename", "__schema", "__type"]:
+        # Remove the leading double underscore to make it compliant with user-defined fields.
+        transformed_name = transformed_name[1:]  # Keep one leading underscore
+
+    # 5. Handle cases where the transformation might result in a leading or trailing underscore
+    #    that is not desired unless it was part of the original compliant name.
+    #    For simplicity and robustness, we ensure it matches the final GraphQL regex
+    #    after all transformations.
+    if re.match(graphql_field_regex, transformed_name):
+        return transformed_name
+    else:
+        # Fallback for very tricky cases, or if a transformed name still doesn't quite fit
+        # This handles cases like empty strings or strings that become empty after cleaning
+        if not transformed_name:
+            return "_"  # A minimal valid field name
+        # If it still doesn't match, we ensure it's made valid by pre-pending if needed
+        # This ensures the first char is compliant
+        if not re.match(r"^[_\w]", transformed_name[0]):
+            transformed_name = "_" + transformed_name
+        return transformed_name

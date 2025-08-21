@@ -3,6 +3,8 @@ import inflection
 from pydantic import BaseModel, computed_field
 from typing import Dict, List, Optional, Tuple
 
+from gen3_tracker.meta import validate_and_transform_graphql_field_name
+
 
 #######################
 # FHIR HELPER METHODS #
@@ -52,6 +54,11 @@ def normalize_coding(resource_dict: Dict) -> List[Tuple[str, str]]:
 
                 # Recursively search in the dict
                 codings.extend(find_codings_in_dict(value, key))
+                # transform the key to guarantee a legal graphql field name
+                codings = [
+                    (coding[0], validate_and_transform_graphql_field_name(coding[1]))
+                    for coding in codings
+                ]
         return codings
 
     return find_codings_in_dict(resource_dict)
@@ -133,7 +140,9 @@ def normalize_value(resource_dict: dict) -> tuple[Optional[str], Optional[str]]:
 
 
 def normalize_for_guppy(key: str):
-    """normalize a key so that it can be loaded into Guppy as a column name"""
+    """normalize a key so that it can be loaded into Guppy as a column name
+    TODO - not used, remove?
+    """
     guppy_table = str.maketrans(
         {
             ".": "",
@@ -207,6 +216,7 @@ class SimplifiedFHIR(BaseModel):
                 .removesuffix(".json")
                 .removeprefix("structure_definition_")
             )
+            extension_key = validate_and_transform_graphql_field_name(extension_key)
             assert (
                 value_normalized is not None
             ), f"extension: {extension_key} = {value_normalized} {extension}"
@@ -274,7 +284,10 @@ class SimplifiedFHIR(BaseModel):
             elif isinstance(v, dict):
                 for value, elem in normalize_coding(v):
                     _codings[k] = value
-
+        # ensure code is a legal graphql field name
+        _codings = {
+            validate_and_transform_graphql_field_name(k): v for k, v in _codings.items()
+        }
         return _codings
 
     @computed_field
@@ -313,7 +326,7 @@ class SimplifiedFHIR(BaseModel):
 
         # update the key if code information is available
         if self.resource.get("code", {}).get("text", None):
-            source = self.resource["code"]["text"]
+            source = validate_and_transform_graphql_field_name(self.resource["code"]["text"])
         return {source: value}
 
 
@@ -366,6 +379,7 @@ class SimplifiedObservation(SimplifiedFHIR):
                         source = component["code"]["text"]
                     if not value:
                         continue
+                    source = validate_and_transform_graphql_field_name(source)
                     _values[source] = value
 
         # knowing there's now at least 1 item in _values
@@ -386,6 +400,7 @@ class SimplifiedObservation(SimplifiedFHIR):
                         source = component["code"]["text"]
                     if not value:
                         continue
+                    source = validate_and_transform_graphql_field_name(source)
                     _values[source] = value
         if "code" in self.resource and "text" in self.resource["code"]:
             _values["observation_code"] = self.resource["code"]["text"]
@@ -408,7 +423,7 @@ class SimplifiedDocumentReference(SimplifiedFHIR):
                 ).simplified.items():
                     if k in ["identifier", "extension"]:
                         continue
-                    _values[k] = v
+                    _values[validate_and_transform_graphql_field_name(k)] = v
         return _values
 
 

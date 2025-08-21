@@ -11,7 +11,7 @@ import uuid
 import zipfile
 from datetime import datetime
 from hashlib import md5
-from typing import Mapping, Iterator, Dict, TextIO, Generator
+from typing import Mapping, Iterator, Dict, Optional, TextIO, Generator
 from urllib.parse import urlparse
 
 import click
@@ -376,9 +376,9 @@ class Commit(BaseModel):
     """The exceptions."""
     logs: list = None
     """The logs."""
-    path: pathlib.Path = None
+    path: Optional[pathlib.Path] = None
     """The path to the commit directory."""
-    manifest_sqlite_path: pathlib.Path = None
+    manifest_sqlite_path: Optional[pathlib.Path] = None
     """The path to the manifest file."""
     meta_path: pathlib.Path = None
     """The path to the meta zip file."""
