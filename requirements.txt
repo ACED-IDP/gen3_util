@@ -1,31 +1,7 @@
-
-click
-pytz
-PyYAML
-halo
-tqdm
-deepdiff
-
-fhir.resources==7.1.0  # FHIR Model
-orjson
-nested_lookup
-
-gen3
-
-# json web token
-PyJWT==2.8.0
-
-pydantic==2.11.7
-requests
-
-
-pandas
-matplotlib==3.8.4  # see https://github.com/pydata/pandas-datareader/issues/969
-numpy
-pyvis==0.3.2  # see https://github.com/holoviz/holoviz/issues/25
-# dtale
-ndjson
-inflection
-python-dateutil
-
-deepmerge
+click>=8.0.0
+pandas>=1.5.0
+numpy>=1.20.0
+pydantic>=2.0.0
+ndjson>=0.3.0
+inflection>=0.5.0
+deepmerge>=1.0.0

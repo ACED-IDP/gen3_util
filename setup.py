@@ -1,6 +1,4 @@
 from setuptools import setup, find_packages
-# import os
-# print(os.getcwd())
 
 with open('requirements.txt') as f:
     requirements = f.read().splitlines()
@@ -8,28 +6,39 @@ with open('requirements.txt') as f:
 with open('README.md', 'r') as f:
     long_description = f.read()
 
-
 setup(
-    name='gen3_tracker',
-    version='0.0.7rc22',
-    description='A CLI for adding version control to Gen3 data submission projects.',
+    name='calypr-dataframer',
+    version='0.1.0',
+    description='A tool for generating dataframes from FHIR metadata',
     long_description=long_description,
     long_description_content_type='text/markdown',
-    author='walsbr',
-    author_email='walsbr@ohsu.edu',
-    url='https://github.com/ACED-IDP/gen3_util',
+    author='Calypr Team',
+    author_email='team@calypr.com',
+    url='https://github.com/calypr/dataframer',
     packages=find_packages(exclude=['tests', 'tests.*']),
     install_requires=requirements,
     include_package_data=True,
-    package_data={  # Optional
-        '': ['*.yaml'],
-    },
     extras_require={
         'dtale': ['dtale'],
     },
     entry_points={
         'console_scripts': [
-            'g3t=gen3_tracker.cli:cli',
+            'calypr-dataframer=calypr_dataframer.cli:cli',
         ],
     },
+    classifiers=[
+        'Development Status :: 3 - Alpha',
+        'Intended Audience :: Healthcare Industry',
+        'Intended Audience :: Science/Research',
+        'License :: OSI Approved :: MIT License',
+        'Programming Language :: Python :: 3',
+        'Programming Language :: Python :: 3.8',
+        'Programming Language :: Python :: 3.9',
+        'Programming Language :: Python :: 3.10',
+        'Programming Language :: Python :: 3.11',
+        'Programming Language :: Python :: 3.12',
+        'Topic :: Scientific/Engineering :: Medical Science Apps.',
+        'Topic :: Software Development :: Libraries :: Python Modules',
+    ],
+    python_requires='>=3.8',
 )

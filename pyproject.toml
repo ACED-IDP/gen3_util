@@ -1,0 +1,52 @@
+[build-system]
+requires = ["setuptools>=45", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "calypr-dataframer"
+version = "0.1.0"
+description = "A tool for generating dataframes from FHIR metadata"
+authors = [
+    {name = "Calypr Team", email = "team@calypr.com"}
+]
+readme = "README.md"
+license = {text = "MIT"}
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Healthcare Industry",
+    "Intended Audience :: Science/Research", 
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Medical Science Apps.",
+]
+requires-python = ">=3.8"
+dependencies = [
+    "click>=8.0.0",
+    "pandas>=1.5.0",
+    "numpy>=1.20.0",
+    "pydantic>=2.0.0",
+    "ndjson>=0.3.0",
+    "inflection>=0.5.0",
+    "deepmerge>=1.0.0",
+]
+
+[project.optional-dependencies]
+dtale = ["dtale"]
+test = ["pytest>=6.0", "pytest-cov"]
+dev = ["black", "flake8", "mypy"]
+
+[project.scripts]
+calypr-dataframer = "calypr_dataframer.cli:cli"
+
+[project.urls]
+Homepage = "https://github.com/calypr/dataframer"
+Repository = "https://github.com/calypr/dataframer"
+Documentation = "https://github.com/calypr/dataframer#readme"
+
+[tool.setuptools.packages.find]
+exclude = ["tests*"]
