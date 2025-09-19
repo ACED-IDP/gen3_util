@@ -682,21 +682,23 @@ def create_dataframe(
             f"Dataframe is empty, are there any {data_type} resources?"
         )
 
-    front_column_names = []
-    if "identifier" in df.columns:
-        front_column_names += ["identifier"]
-    if "resourceType" in df.columns:
+    prefix = inflection.underscore(data_type)
+    df = df.rename(columns={col: f"{prefix}_{col}" for col in df.columns})
 
-        front_column_names += ["resourceType"]
-    if "patient" in df.columns:
-        front_column_names = front_column_names + ["patient"]
+    front_column_names = []
+    if f"{prefix}_identifier" in df.columns:
+        front_column_names += [f"{prefix}_identifier"]
+    if f"{prefix}_resourceType" in df.columns:
+        front_column_names += [f"{prefix}_resourceType"]
+    if f"{prefix}_patient" in df.columns:
+        front_column_names = front_column_names + [f"{prefix}_patient"]
 
     remaining_columns = [col for col in df.columns if col not in front_column_names]
     rear_column_names = [
-        "id"
+        f"{prefix}_id"
     ]  # removed status for the purpose of not needing it for the demo
-    if "subject" in df.columns:
-        rear_column_names = rear_column_names + ["subject"]
+    if f"{prefix}_subject" in df.columns:
+        rear_column_names = rear_column_names + [f"{prefix}_subject"]
     for c in df.columns:
         if c.endswith("_identifier"):
             rear_column_names.append(c)
