@@ -104,7 +104,7 @@ def cp(
     # print(document, file=sys.stderr)
 
     run_command(
-        f"gen3-client upload-single --bucket {bucket_name} --guid {my_dvc.object_id} --file {zipfile_path} --profile {config.gen3.profile}",
+        f"data-client upload-single --bucket {bucket_name} --guid {my_dvc.object_id} --file {zipfile_path} --profile {config.gen3.profile}",
         no_capture=False,
     )
 

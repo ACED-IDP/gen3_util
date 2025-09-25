@@ -65,12 +65,12 @@ def validate_document_in_elastic(did, auth):
     result = query.graphql_query(
         query_string="""
             query($filter:JSON) {
-              file(filter:$filter) {
-                id
+              document_reference(filter:$filter) {
+                document_reference_id
               }
             }
         """,
-        variables={"filter": {"AND": [{"IN": {"id": [did]}}]}},
+        variables={"filter": {"AND": [{"IN": {"document_reference_id": [did]}}]}},
     )
     print(result)
-    assert result["data"]["file"][0]["id"] == did
+    assert result["data"]["document_reference"][0]["document_reference_id"] == did

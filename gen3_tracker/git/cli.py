@@ -876,7 +876,7 @@ def pull(config: Config, remote: str, worker_count: int, data_only: bool):
                 )
                 with open(manifest_file, "w") as fp:
                     json.dump(object_ids, fp)
-            cmd = f"gen3-client download-multiple --no-prompt --profile {config.gen3.profile}  --manifest {manifest_file} --numparallel {worker_count}"
+            cmd = f"data-client download-multiple --no-prompt --profile {config.gen3.profile}  --manifest {manifest_file} --numparallel {worker_count}"
             print(cmd)
             run_command(cmd, no_capture=True)
         elif remote == "s3":
@@ -1210,7 +1210,7 @@ def ping(config: Config):
     with CLIOutput(config=config) as output:
         msgs = []
         ok = True
-        cmd = "gen3-client --version".split()
+        cmd = "data-client --version".split()
         gen3_client_installed = subprocess.run(cmd, capture_output=True)
         if gen3_client_installed.returncode != 0:
             msgs.append("gen3-client not installed")
