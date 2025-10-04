@@ -5,7 +5,7 @@ import yaml
 from click.testing import CliRunner
 
 from gen3_tracker.config import ensure_auth, default
-from gen3_tracker.git import DVC, run_command
+from gen3_tracker.git import DVC
 from pathlib import Path
 from tests.integration import validate_document_in_elastic, validate_document_in_grip
 from tests import run
