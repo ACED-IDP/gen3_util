@@ -742,7 +742,7 @@ def get_subject(db: LocalFHIRDatabase, resource: dict) -> dict:
 def get_resources_by_reference(
     db: LocalFHIRDatabase, resource_type: str, reference_field: str, reference_type: str
 ) -> dict[str, list]:
-    """given a set of rescode ources of type resource_type, map each unique reference in reference field of type reference_type to its associated resources
+    """given a set of resources of type resource_type, map each unique reference in reference field of type reference_type to its associated resources
     ex: use all Observations with a Specimen focus, map Specimen IDs to its list of associated Observations and return the map
     """
 
