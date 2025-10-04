@@ -383,7 +383,9 @@ class LocalFHIRDatabase:
                             value = None
 
                         assert value is not None, f"no value for {resource['id']}"
-                        procedure[validate_and_transform_graphql_field_name(code)] = value
+                        procedure[validate_and_transform_graphql_field_name(code)] = (
+                            value
+                        )
 
                         continue
 
@@ -504,7 +506,9 @@ class LocalFHIRDatabase:
                 for condition in conditions:
                     for k, v in traverse(condition).items():
                         if k not in set(["condition_id", "condition_identifier"]):
-                            flat_research_subject[validate_and_transform_graphql_field_name(k)] = v
+                            flat_research_subject[
+                                validate_and_transform_graphql_field_name(k)
+                            ] = v
 
             yield flat_research_subject
 
@@ -637,7 +641,9 @@ class LocalFHIRDatabase:
             # for each member in a group, yield a group member dict
             for member_id in group_resource.members:
                 # unique primary key from group and member ids
-                group_member_id = str(uuid.uuid5(ACED_NAMESPACE, simplified_group["id"] + "," + member_id))
+                group_member_id = str(
+                    uuid.uuid5(ACED_NAMESPACE, simplified_group["id"] + "," + member_id)
+                )
 
                 # group member dict composed of a simple group dict, unique primary key, and unique member_id
                 yield {
@@ -678,9 +684,7 @@ def create_dataframe(
         )
 
     if df.empty:
-        raise ValueError(
-            f"Dataframe is empty, are there any {data_type} resources?"
-        )
+        raise ValueError(f"Dataframe is empty, are there any {data_type} resources?")
 
     prefix = inflection.underscore(data_type)
     df = df.rename(columns={col: f"{prefix}_{col}" for col in df.columns})
