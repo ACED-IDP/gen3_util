@@ -41,25 +41,30 @@ def cli(ctx: click.Context, output_format: str, profile: str, debug: bool, dry_r
     if output_format:
         config__.output.format = output_format
 
-    _profiles = gen3_client_profiles()
-    is_help = '--help' in sys.argv[1:]
+    try:
 
-    if profile:
-        if profile not in _profiles:
-            click.secho(f"Profile {profile} not found.", fg='red')
-            exit(1)
-        config__.gen3.profile = profile
-    elif not config__.gen3.profile and not is_help:
-        if not _profiles:
-            click.secho("No gen3_client profile found.", fg='red')
-            exit(1)
-        else:
-            if len(_profiles) > 1:
-                click.secho(f"WARNING: No --profile specified, found multiple gen3_client profiles: {_profiles}",
-                            fg='red')
+        _profiles = gen3_client_profiles()
+
+        if profile:
+            if profile not in _profiles:
+                click.secho(f"Profile {profile} not found.", fg='red')
+                exit(1)
+            config__.gen3.profile = profile
+        elif not config__.gen3.profile:
+            if not _profiles:
+                click.secho("No gen3_client profile found.", fg='red')
+                exit(1)
             else:
-                click.secho(f"Using default gen3_client profile {_profiles[0]}", fg='yellow')
-                config__.gen3.profile = _profiles[0]
+                if len(_profiles) > 1:
+                    click.secho(f"WARNING: No --profile specified, found multiple gen3_client profiles: {_profiles}",
+                                fg='red')
+                else:
+                    click.secho(f"Using default gen3_client profile {_profiles[0]}", fg='yellow')
+                    config__.gen3.profile = _profiles[0]
+    except Exception as e:
+        _logger.warning(f"Error loading gen3_client profiles: {e}")
+        click.secho("Warning: Error loading gen3_client profiles. Please check your gen3_client configuration.", fg='red')
+        config__.gen3.profile = "PROFILE_NOT_FOUND"
 
     # ensure that ctx.obj exists
     config__.debug = debug

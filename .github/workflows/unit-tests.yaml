@@ -1,0 +1,47 @@
+# Workflow for running Pytest against g3t
+
+# Optionally debug via SSH
+# Ref: https://fleetdm.com/engineering/tips-for-github-actions-usability
+#
+# To use this step uncomment and place anywhere in the build steps. The build will pause on this step and
+# output a ssh address associated with the Github action worker. Helpful for debugging build steps and
+# and intermediary files/artifacts.
+#
+# - name: Setup tmate session
+#   uses: mxschmitt/action-tmate@v3
+
+name: UnitTests
+# This workflow is designed to run integration tests using g3t and gen3-client
+# It requires a valid credentials.json file for a running server
+# The workflow is reusable and can be called from other workflows
+
+on:
+  push:
+
+jobs:
+  unittests:
+    environment: local
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install -r requirements-dev.txt
+          pip install -e .
+
+      - name: Setup Git
+        run: |
+          git config --global user.name "github-actions"
+          git config --global user.email "dummy@example.com"
+
+      - name: Pytest
+        run: |
+          pytest tests/unit

@@ -1,7 +1,6 @@
 ###########################
 # LOCAL FHIR DATABASE ###
 ###########################
-
 import uuid
 import inflection
 import json
@@ -17,6 +16,7 @@ from functools import lru_cache
 from typing import Dict, Generator, List
 
 from gen3_tracker import ACED_NAMESPACE
+from gen3_tracker.meta import validate_and_transform_graphql_field_name
 from gen3_tracker.meta.entities import (
     SimplifiedGroup,
     SimplifiedResource,
@@ -265,6 +265,7 @@ class LocalFHIRDatabase:
                 .removesuffix(".json")
                 .removeprefix("structure_definition_")
             )
+            extension_key = validate_and_transform_graphql_field_name(extension_key)
             resource[extension_key] = value_normalized
             assert value_normalized, f"extension: {extension_key} = {value_normalized}"
         if "extension" in resource:
@@ -382,7 +383,7 @@ class LocalFHIRDatabase:
                             value = None
 
                         assert value is not None, f"no value for {resource['id']}"
-                        procedure[code] = value
+                        procedure[validate_and_transform_graphql_field_name(code)] = value
 
                         continue
 
@@ -513,7 +514,7 @@ class LocalFHIRDatabase:
                 for condition in conditions:
                     for k, v in traverse(condition).items():
                         if k not in set(["condition_id", "condition_identifier"]):
-                            flat_research_subject[k] = v
+                            flat_research_subject[validate_and_transform_graphql_field_name(k)] = v
 
             yield flat_research_subject
 

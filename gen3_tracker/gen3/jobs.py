@@ -24,7 +24,7 @@ from gen3_tracker.git import (
 )
 
 
-def _validate_parameters(from_: str) -> pathlib.Path:
+def _validate_parameters(from_: str) -> str:
 
     assert (
         len(urlparse(from_).scheme) == 0
