@@ -109,7 +109,7 @@ def render_graph(config: Config, directory_path: str, output_path: str, browser:
 @meta.command("dataframe")
 @click.argument('data_type',
                 required=True,
-                type=click.Choice(['Specimen', 'DocumentReference', 'ResearchSubject', "MedicationAdministration", "GroupMember"]),
+                type=click.Choice(['Specimen', 'DocumentReference', 'ResearchSubject', "MedicationAdministration", "GroupMember", "PathAggregation"]),
                 default=None)
 @click.argument("directory_path",
                 type=click.Path(exists=True, file_okay=False),
