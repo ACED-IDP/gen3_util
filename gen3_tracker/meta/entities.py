@@ -306,9 +306,11 @@ class SimplifiedFHIR(BaseModel):
             base_identifier = {
                 (
                     "identifier"
-
                     if i == 0 or identifier.get("use", "") == "official"
-                    else identifier.get("system").split("/")[-1]
+                    else "identifier_"
+                    + validate_and_transform_graphql_field_name(
+                        identifier.get("system").split("/")[-1]
+                    )
                 ): identifier.get("value")
                 for i, identifier in enumerate(identifiers)
             }
@@ -326,7 +328,9 @@ class SimplifiedFHIR(BaseModel):
 
         # update the key if code information is available
         if self.resource.get("code", {}).get("text", None):
-            source = validate_and_transform_graphql_field_name(self.resource["code"]["text"])
+            source = validate_and_transform_graphql_field_name(
+                self.resource["code"]["text"]
+            )
         return {source: value}
 
 
