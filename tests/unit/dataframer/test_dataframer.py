@@ -392,6 +392,24 @@ def test_flattened_document_references(local_db, docref_row):
     assert doc_ref == docref_row
 
 
+def test_path_aggregation(local_db):
+    """Test the dataframer using a local database with a SMMART bundle,
+    this test ensures the  DocumentReference are aggregated correctly by source_path
+    """
+
+    # get the singular test document reference
+    path_aggregations = [d for d in local_db.path_aggregation()]
+    assert len(path_aggregations) == 2, f"Expected 2 path aggregations, got {len(path_aggregations)}"
+    for path_aggregation in path_aggregations:
+        for key in ["path", "file_count", "total_size"]:
+            assert key in path_aggregation, f"Missing key {key} in path aggregation {path_aggregation}"
+    lookup_by_path = {p["path"]: p for p in path_aggregations}
+    assert lookup_by_path["/home/LabA"]["file_count"] == 1
+    assert lookup_by_path["/home/LabA"]["total_size"] == 5595609484
+    assert lookup_by_path["/home/LabA"]["file_count"] == lookup_by_path["/"]["file_count"]
+    assert lookup_by_path["/home/LabA"]["total_size"] == lookup_by_path["/"]["total_size"]
+
+
 def test_flattened_specimens(local_db, specimen_row):
     """Test that the Specimen metadata is populated with the correct Observation codes through Observation.focus"""
 

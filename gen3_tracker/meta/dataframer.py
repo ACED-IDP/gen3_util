@@ -529,6 +529,46 @@ class LocalFHIRDatabase:
 
             yield flat_medication_administration
 
+    def path_aggregation(self) -> Generator[dict, None, None]:
+        """Generator that aggregates file count and size for each DocumentReference
+        """
+        from gen3_tracker.meta.path_aggregation import normalize_path, path_prefixes, aggregator
+        aggregator.clear()  # clear previous state, if any
+        # retrieve all document references
+        flattened_document_references_df = self.flattened_document_references()
+        # aggregate file count and size for each path prefix, including root "/"
+        for document_reference in flattened_document_references_df:
+            file_name = document_reference.get("url")
+            file_name = file_name.split("://", 1)[-1]  # strip scheme if any
+            size = document_reference.get("size")
+            if not file_name:
+                raise ValueError(f"DocumentReference {document_reference} missing file_name")
+            if not size:
+                raise ValueError(f"DocumentReference {document_reference} missing size")
+
+            path_n = normalize_path(file_name)
+            if not path_n:
+                continue
+
+            # 1) ROOT BUCKET: always accumulate to "/" for this path
+            file_count, total_size = aggregator["/"]
+            aggregator["/"] = (file_count + 1, total_size + int(size))
+
+            # 2) DIRECTORY PREFIXES: '/a', '/a/b', ... (if any)
+            for prefix in path_prefixes(path_n):
+                file_count, total_size = aggregator[prefix]
+                aggregator[prefix] = (file_count + 1, total_size + int(size))
+
+        # now yield each path aggregation result
+        for path, (file_count, total_size) in aggregator.items():
+            yield {
+                # dataframes need an id column, so create a UUID based on db_name+path
+                "id": str(uuid.uuid5(ACED_NAMESPACE, f"{self.db_name}{path}")),
+                "path": path,
+                "file_count": file_count,
+                "total_size": total_size,
+            }
+
     def flattened_document_references(self) -> Generator[dict, None, None]:
         """generator that yields document references populated
         with DocumentReference.subject fields and Observation codes through Observation.focus
@@ -666,6 +706,7 @@ def create_dataframe(
         "MedicationAdministration": db.flattened_medication_administrations,
         "Specimen": db.flattened_specimens,
         "GroupMember": db.flattened_group_members,
+        "PathAggregation": db.path_aggregation,
     }
 
     if data_type in data_type_to_flatten_fn:
