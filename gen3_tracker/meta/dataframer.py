@@ -552,12 +552,12 @@ class LocalFHIRDatabase:
 
             # 1) ROOT BUCKET: always accumulate to "/" for this path
             file_count, total_size = aggregator["/"]
-            aggregator["/"] = (file_count + 1, total_size + int(size or 0))
+            aggregator["/"] = (file_count + 1, total_size + int(size))
 
             # 2) DIRECTORY PREFIXES: '/a', '/a/b', ... (if any)
             for prefix in path_prefixes(path_n):
                 file_count, total_size = aggregator[prefix]
-                aggregator[prefix] = (file_count + 1, total_size + int(size or 0))
+                aggregator[prefix] = (file_count + 1, total_size + int(size))
 
         # now yield each path aggregation result
         for path, (file_count, total_size) in aggregator.items():
