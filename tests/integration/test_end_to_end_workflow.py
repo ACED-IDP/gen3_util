@@ -136,7 +136,6 @@ def test_simple_workflow(runner: CliRunner, project_id, tmpdir) -> None:
     assert Path(
         "my-project-data/hello.txt"
     ).exists(), "hello.txt does not exist in the cloned directory."
-    """
 
     # remove the project from the server.
     # TODO note, this does not remove the files from the bucket (UChicago bug)
