@@ -495,7 +495,7 @@ class LocalFHIRDatabase:
             ).simplified
 
             # return with .subject (ie Patient) fields
-            patient = get_subject(self, research_subject)
+            _, patient = get_subject(self, research_subject)
             flat_research_subject.update(patient)
 
             # get condition code, eg enrollment diagnosis
@@ -528,7 +528,7 @@ class LocalFHIRDatabase:
                 resource=medication_administration
             ).simplified
 
-            patient = get_subject(self, medication_administration)
+            _, patient = get_subject(self, medication_administration)
             flat_medication_administration.update(patient)
 
             yield flat_medication_administration
@@ -561,7 +561,14 @@ class LocalFHIRDatabase:
         flat_doc_ref = SimplifiedResource.build(resource=doc_ref).simplified
 
         # extract the corresponding .subject and append its fields
-        flat_doc_ref.update(get_subject(self, doc_ref))
+
+        raw_subject, simplified_subject = get_subject(self, doc_ref)
+        flat_doc_ref.update(simplified_subject)
+
+        # extract the subject of the .subject and append its fields
+        # eg: a specimen is associated with a patients
+        _, simplified_subject_of_subject = get_subject(self, raw_subject)
+        flat_doc_ref.update(simplified_subject_of_subject)
 
         # populate observation data associated with the document reference document
         if doc_ref["id"] in observation_by_focus_id:
@@ -606,7 +613,8 @@ class LocalFHIRDatabase:
         flat_specimen = SimplifiedResource.build(resource=specimen).simplified
 
         # extract its .subject and append its fields (including id)
-        flat_specimen.update(get_subject(self, specimen))
+        _, simplified_subject = get_subject(self, specimen)
+        flat_specimen.update(simplified_subject)
 
         # populate observation codes for each associated observation
         if specimen["id"] in observation_by_id:
@@ -726,7 +734,10 @@ def is_number(s):
 
 
 def get_subject(db: LocalFHIRDatabase, resource: dict) -> dict:
-    """get the resource's subject field if it exists"""
+    """
+    get the resource's subject if it exists
+    Return both the raw subject and its simplified version
+    """
 
     # ensure resource has subject field
     subject_key = get_nested_value(resource, ["subject", "reference"])
@@ -740,7 +751,8 @@ def get_subject(db: LocalFHIRDatabase, resource: dict) -> dict:
     assert row, f"{subject_key} not found in database"
     _, _, raw_subject = row
     subject = json.loads(raw_subject)
-    return traverse(subject)
+
+    return subject, traverse(subject)
 
 
 def get_resources_by_reference(

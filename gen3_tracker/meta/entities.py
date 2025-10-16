@@ -517,6 +517,7 @@ class SimplifiedSpecimen(SimplifiedFHIR):
                     for parent_dict in self.resource["parent"]
                 ]
             )
+
         return _values
 
 

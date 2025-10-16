@@ -5,7 +5,10 @@ import tempfile
 
 
 from gen3_tracker.common import read_ndjson_file
-from gen3_tracker.meta.dataframer import LocalFHIRDatabase, validate_and_transform_graphql_field_name
+from gen3_tracker.meta.dataframer import (
+    LocalFHIRDatabase,
+    validate_and_transform_graphql_field_name,
+)
 from gen3_tracker.meta.entities import SimplifiedResource
 from pathlib import Path
 
@@ -274,7 +277,16 @@ def htan_resources(htan_db):
 
 
 @pytest.fixture()
-def docref_row(simplified_resources, document_reference_key):
+def patient_row_as_subject():
+    return {
+        "patient_active": True,
+        "patient_id": "bc4e1aa6-cb52-40e9-8f20-594d9c84f920",
+        "patient_identifier": "patientX_1234",
+    }
+
+
+@pytest.fixture()
+def docref_row(simplified_resources, document_reference_key, patient_row_as_subject):
     """Based on metadata files, create expected DocumentReference row, populated with any Observations that focus on it"""
     return {
         **simplified_resources[document_reference_key],
@@ -296,22 +308,23 @@ def docref_row(simplified_resources, document_reference_key):
         "specimen_id": "60c67a06-ea2d-4d24-9249-418dc77a16a9",
         "specimen_identifier": "specimen_1234_labA",
         "specimen_processing": "Double-Spun",
+        **patient_row_as_subject,
     }
 
 
 @pytest.fixture()
-def research_subject_row(simplified_resources, research_subject_key):
+def research_subject_row(
+    simplified_resources, research_subject_key, patient_row_as_subject
+):
     """Based on metadata files, create an expected Observations dataframe"""
     return {
         **simplified_resources[research_subject_key],
-        "patient_active": True,
-        "patient_id": "bc4e1aa6-cb52-40e9-8f20-594d9c84f920",
-        "patient_identifier": "patientX_1234",
+        **patient_row_as_subject,
     }
 
 
 @pytest.fixture()
-def specimen_row(simplified_resources, specimen_key):
+def specimen_row(simplified_resources, specimen_key, patient_row_as_subject):
     return {
         **simplified_resources[specimen_key],
         "sample_type": "Primary Solid Tumor",
@@ -325,9 +338,7 @@ def specimen_row(simplified_resources, specimen_key):
         "biopsy_procedure_type": "Biopsy - Core",
         "biopsy_anatomical_location": "top axillary lymph node",
         "percent_tumor": "30",
-        "patient_identifier": "patientX_1234",
-        "patient_id": "bc4e1aa6-cb52-40e9-8f20-594d9c84f920",
-        "patient_active": True,
+        **patient_row_as_subject,
     }
 
 
@@ -377,7 +388,9 @@ def test_htan_simplified(htan_resources):
         simplified = SimplifiedResource.build(resource=resource).simplified
         for key, value in simplified.items():
             transformed_key = validate_and_transform_graphql_field_name(key)
-            assert key == transformed_key, f'Key "{key}" in {resource_type} was not transformed to valid GraphQL. Should be "{transformed_key}"'
+            assert (
+                key == transformed_key
+            ), f'Key "{key}" in {resource_type} was not transformed to valid GraphQL. Should be "{transformed_key}"'
 
 
 def test_flattened_document_references(local_db, docref_row):
@@ -413,30 +426,36 @@ def test_flattened_research_subjects(local_db, research_subject_row):
 
 
 # Using pytest.mark.parametrize to test multiple inputs and expected outputs
-@pytest.mark.parametrize("input_name, expected_output", [
-    ("user_name", "user_name"),
-    ("123fieldName", "_123fieldName"),
-    ("product-id", "product_id"),
-    ("item Name", "item_Name"),
-    ("my_field_with spaces and!@", "my_field_with_spaces_and__"),
-    ("__typename", "_typename"),  # Valid, but reserved for introspection
-    ("__schema", "_schema"),  # Valid, but reserved for introspection
-    ("__type", "_type", ),  # Valid, but reserved for introspection
-    ("validFieldName", "validFieldName"),
-    ("anotherValid_Field", "anotherValid_Field"),
-    ("field_with_hyphen-and-space", "field_with_hyphen_and_space"),
-    ("", "_"),  # becomes a single underscore
-    ("  leading_space", "__leading_space"),
-    ("trailing_space  ", "trailing_space__"),
-    ("some.field", "some_field"),
-    ("0_number_start", "_0_number_start"),
-    ("Cell Morphology Assessment", "Cell_Morphology_Assessment"),
-    ("Image ID", "Image_ID"),
-    ("Pixels BigEndian", "Pixels_BigEndian"),
-    ("Fixative Type", "Fixative_Type"),
-    ("Storage Method", "Storage_Method"),
-    ("Tumor Tissue Type", "Tumor_Tissue_Type"),
-])
+@pytest.mark.parametrize(
+    "input_name, expected_output",
+    [
+        ("user_name", "user_name"),
+        ("123fieldName", "_123fieldName"),
+        ("product-id", "product_id"),
+        ("item Name", "item_Name"),
+        ("my_field_with spaces and!@", "my_field_with_spaces_and__"),
+        ("__typename", "_typename"),  # Valid, but reserved for introspection
+        ("__schema", "_schema"),  # Valid, but reserved for introspection
+        (
+            "__type",
+            "_type",
+        ),  # Valid, but reserved for introspection
+        ("validFieldName", "validFieldName"),
+        ("anotherValid_Field", "anotherValid_Field"),
+        ("field_with_hyphen-and-space", "field_with_hyphen_and_space"),
+        ("", "_"),  # becomes a single underscore
+        ("  leading_space", "__leading_space"),
+        ("trailing_space  ", "trailing_space__"),
+        ("some.field", "some_field"),
+        ("0_number_start", "_0_number_start"),
+        ("Cell Morphology Assessment", "Cell_Morphology_Assessment"),
+        ("Image ID", "Image_ID"),
+        ("Pixels BigEndian", "Pixels_BigEndian"),
+        ("Fixative Type", "Fixative_Type"),
+        ("Storage Method", "Storage_Method"),
+        ("Tumor Tissue Type", "Tumor_Tissue_Type"),
+    ],
+)
 def test_validate_and_transform_graphql_field_name(input_name, expected_output):
     """
     Tests the validate_and_transform_graphql_field_name function with various inputs.
