@@ -477,17 +477,21 @@ class LocalFHIRDatabase:
 
     def flattened_research_subjects(self) -> Generator[dict, None, None]:
 
-        # get all observations with a Observation.subject=Patient, mapped from patient ID to observation
+        # setup
         resource_type = "ResearchSubject"
-        conditions_by_patient_id = get_conditions_by_subject(self, "Patient")
+        patient_type = "Patient"
+        cursor = self.connect()
+
+        # grab associated conditions + observations via patient ID at once
+        conditions_by_patient_id = get_conditions_by_subject(self, patient_type)
+        observations_by_patient_id = get_observations_by_focus(self, patient_type)
 
         # get all ResearchSubjects
-        cursor = self.connect()
         cursor.execute(
             "SELECT * FROM resources where resource_type = ?", (resource_type,)
         )
 
-        # get research subject and associated .subject patient
+        # add in new fields to existing research subject
         for _, _, raw_research_subject in cursor.fetchall():
             research_subject = json.loads(raw_research_subject)
             flat_research_subject = SimplifiedResource.build(
@@ -497,6 +501,13 @@ class LocalFHIRDatabase:
             # return with .subject (ie Patient) fields
             _, patient = get_subject(self, research_subject)
             flat_research_subject.update(patient)
+
+            # add patient observation values
+            flat_research_subject = update_with_observations(
+                flat_research_subject,
+                patient["patient_id"],
+                observations_by_patient_id,
+            )
 
             # get condition code, eg enrollment diagnosis
             if patient["patient_id"] in conditions_by_patient_id:
@@ -571,13 +582,7 @@ class LocalFHIRDatabase:
         flat_doc_ref.update(simplified_subject_of_subject)
 
         # populate observation data associated with the document reference document
-        if doc_ref["id"] in observation_by_focus_id:
-            associated_observations = observation_by_focus_id[doc_ref["id"]]
-
-            # TODO: assumes there are no duplicate column names in each observation
-            for observation in associated_observations:
-                flat_observation = SimplifiedResource.build(resource=observation).values
-                flat_doc_ref.update(flat_observation)
+        update_with_observations(flat_doc_ref, doc_ref["id"], observation_by_focus_id)
 
         # TODO: test this based on fhir-gdc
         if "basedOn" in doc_ref:
@@ -617,13 +622,7 @@ class LocalFHIRDatabase:
         flat_specimen.update(simplified_subject)
 
         # populate observation codes for each associated observation
-        if specimen["id"] in observation_by_id:
-            observations = observation_by_id[specimen["id"]]
-
-            # TODO: assumes there are no duplicate column names in each observation
-            for observation in observations:
-                flat_observation = SimplifiedResource.build(resource=observation).values
-                flat_specimen.update(flat_observation)
+        update_with_observations(flat_specimen, specimen["id"], observation_by_id)
 
         return flat_specimen
 
@@ -733,6 +732,11 @@ def is_number(s):
         return False
 
 
+####################
+# MACROS / HELPERS #
+####################
+
+
 def get_subject(db: LocalFHIRDatabase, resource: dict) -> dict:
     """
     get the resource's subject if it exists
@@ -816,3 +820,16 @@ def get_conditions_by_subject(
 ) -> dict[str, list]:
     """get all Conditions that have a subject of resource type subject_type"""
     return get_resources_by_reference(db, "Condition", "subject", subject_type)
+
+
+def update_with_observations(resource, id, observations_by_id):
+    """update a resource with the observations associated with the provided ID"""
+    if id in observations_by_id:
+        associated_observations = observations_by_id[id]
+
+        # TODO: assumes there are no duplicate column names in each observation
+        for observation in associated_observations:
+            flat_observation = SimplifiedResource.build(resource=observation).values
+            resource.update(flat_observation)
+
+    return resource
