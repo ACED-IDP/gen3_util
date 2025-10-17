@@ -746,7 +746,7 @@ def get_subject(db: LocalFHIRDatabase, resource: dict) -> dict:
     # ensure resource has subject field
     subject_key = get_nested_value(resource, ["subject", "reference"])
     if subject_key is None:
-        return {}
+        return {}, {}
 
     # traverse the resource of the subject and return its values
     cursor = db.connect()
