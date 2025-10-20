@@ -383,7 +383,9 @@ class LocalFHIRDatabase:
                             value = None
 
                         assert value is not None, f"no value for {resource['id']}"
-                        procedure[validate_and_transform_graphql_field_name(code)] = value
+                        procedure[validate_and_transform_graphql_field_name(code)] = (
+                            value
+                        )
 
                         continue
 
@@ -475,17 +477,21 @@ class LocalFHIRDatabase:
 
     def flattened_research_subjects(self) -> Generator[dict, None, None]:
 
-        # get all observations with a Observation.subject=Patient, mapped from patient ID to observation
+        # setup
         resource_type = "ResearchSubject"
-        conditions_by_patient_id = get_conditions_by_subject(self, "Patient")
+        patient_type = "Patient"
+        cursor = self.connect()
+
+        # grab associated conditions + observations via patient ID at once
+        conditions_by_patient_id = get_conditions_by_subject(self, patient_type)
+        observations_by_patient_id = get_observations_by_focus(self, patient_type)
 
         # get all ResearchSubjects
-        cursor = self.connect()
         cursor.execute(
             "SELECT * FROM resources where resource_type = ?", (resource_type,)
         )
 
-        # get research subject and associated .subject patient
+        # add in new fields to existing research subject
         for _, _, raw_research_subject in cursor.fetchall():
             research_subject = json.loads(raw_research_subject)
             flat_research_subject = SimplifiedResource.build(
@@ -493,8 +499,15 @@ class LocalFHIRDatabase:
             ).simplified
 
             # return with .subject (ie Patient) fields
-            patient = get_subject(self, research_subject)
+            _, patient = get_subject(self, research_subject)
             flat_research_subject.update(patient)
+
+            # add patient observation values
+            flat_research_subject = update_with_observations(
+                flat_research_subject,
+                patient["patient_id"],
+                observations_by_patient_id,
+            )
 
             # get condition code, eg enrollment diagnosis
             if patient["patient_id"] in conditions_by_patient_id:
@@ -504,7 +517,9 @@ class LocalFHIRDatabase:
                 for condition in conditions:
                     for k, v in traverse(condition).items():
                         if k not in set(["condition_id", "condition_identifier"]):
-                            flat_research_subject[validate_and_transform_graphql_field_name(k)] = v
+                            flat_research_subject[
+                                validate_and_transform_graphql_field_name(k)
+                            ] = v
 
             yield flat_research_subject
 
@@ -524,7 +539,7 @@ class LocalFHIRDatabase:
                 resource=medication_administration
             ).simplified
 
-            patient = get_subject(self, medication_administration)
+            _, patient = get_subject(self, medication_administration)
             flat_medication_administration.update(patient)
 
             yield flat_medication_administration
@@ -557,16 +572,17 @@ class LocalFHIRDatabase:
         flat_doc_ref = SimplifiedResource.build(resource=doc_ref).simplified
 
         # extract the corresponding .subject and append its fields
-        flat_doc_ref.update(get_subject(self, doc_ref))
+
+        raw_subject, simplified_subject = get_subject(self, doc_ref)
+        flat_doc_ref.update(simplified_subject)
+
+        # extract the subject of the .subject and append its fields
+        # eg: a specimen is associated with a patients
+        _, simplified_subject_of_subject = get_subject(self, raw_subject)
+        flat_doc_ref.update(simplified_subject_of_subject)
 
         # populate observation data associated with the document reference document
-        if doc_ref["id"] in observation_by_focus_id:
-            associated_observations = observation_by_focus_id[doc_ref["id"]]
-
-            # TODO: assumes there are no duplicate column names in each observation
-            for observation in associated_observations:
-                flat_observation = SimplifiedResource.build(resource=observation).values
-                flat_doc_ref.update(flat_observation)
+        update_with_observations(flat_doc_ref, doc_ref["id"], observation_by_focus_id)
 
         # TODO: test this based on fhir-gdc
         if "basedOn" in doc_ref:
@@ -602,16 +618,11 @@ class LocalFHIRDatabase:
         flat_specimen = SimplifiedResource.build(resource=specimen).simplified
 
         # extract its .subject and append its fields (including id)
-        flat_specimen.update(get_subject(self, specimen))
+        _, simplified_subject = get_subject(self, specimen)
+        flat_specimen.update(simplified_subject)
 
         # populate observation codes for each associated observation
-        if specimen["id"] in observation_by_id:
-            observations = observation_by_id[specimen["id"]]
-
-            # TODO: assumes there are no duplicate column names in each observation
-            for observation in observations:
-                flat_observation = SimplifiedResource.build(resource=observation).values
-                flat_specimen.update(flat_observation)
+        update_with_observations(flat_specimen, specimen["id"], observation_by_id)
 
         return flat_specimen
 
@@ -637,7 +648,9 @@ class LocalFHIRDatabase:
             # for each member in a group, yield a group member dict
             for member_id in group_resource.members:
                 # unique primary key from group and member ids
-                group_member_id = str(uuid.uuid5(ACED_NAMESPACE, simplified_group["id"] + "," + member_id))
+                group_member_id = str(
+                    uuid.uuid5(ACED_NAMESPACE, simplified_group["id"] + "," + member_id)
+                )
 
                 # group member dict composed of a simple group dict, unique primary key, and unique member_id
                 yield {
@@ -678,25 +691,25 @@ def create_dataframe(
         )
 
     if df.empty:
-        raise ValueError(
-            f"Dataframe is empty, are there any {data_type} resources?"
-        )
+        raise ValueError(f"Dataframe is empty, are there any {data_type} resources?")
+
+    prefix = inflection.underscore(data_type)
+    df = df.rename(columns={col: f"{prefix}_{col}" for col in df.columns})
 
     front_column_names = []
-    if "identifier" in df.columns:
-        front_column_names += ["identifier"]
-    if "resourceType" in df.columns:
-
-        front_column_names += ["resourceType"]
-    if "patient" in df.columns:
-        front_column_names = front_column_names + ["patient"]
+    if f"{prefix}_identifier" in df.columns:
+        front_column_names += [f"{prefix}_identifier"]
+    if f"{prefix}_resourceType" in df.columns:
+        front_column_names += [f"{prefix}_resourceType"]
+    if f"{prefix}_patient" in df.columns:
+        front_column_names = front_column_names + [f"{prefix}_patient"]
 
     remaining_columns = [col for col in df.columns if col not in front_column_names]
     rear_column_names = [
-        "id"
+        f"{prefix}_id"
     ]  # removed status for the purpose of not needing it for the demo
-    if "subject" in df.columns:
-        rear_column_names = rear_column_names + ["subject"]
+    if f"{prefix}_subject" in df.columns:
+        rear_column_names = rear_column_names + [f"{prefix}_subject"]
     for c in df.columns:
         if c.endswith("_identifier"):
             rear_column_names.append(c)
@@ -719,13 +732,21 @@ def is_number(s):
         return False
 
 
+####################
+# MACROS / HELPERS #
+####################
+
+
 def get_subject(db: LocalFHIRDatabase, resource: dict) -> dict:
-    """get the resource's subject field if it exists"""
+    """
+    get the resource's subject if it exists
+    Return both the raw subject and its simplified version
+    """
 
     # ensure resource has subject field
     subject_key = get_nested_value(resource, ["subject", "reference"])
     if subject_key is None:
-        return {}
+        return {}, {}
 
     # traverse the resource of the subject and return its values
     cursor = db.connect()
@@ -734,13 +755,14 @@ def get_subject(db: LocalFHIRDatabase, resource: dict) -> dict:
     assert row, f"{subject_key} not found in database"
     _, _, raw_subject = row
     subject = json.loads(raw_subject)
-    return traverse(subject)
+
+    return subject, traverse(subject)
 
 
 def get_resources_by_reference(
     db: LocalFHIRDatabase, resource_type: str, reference_field: str, reference_type: str
 ) -> dict[str, list]:
-    """given a set of rescode ources of type resource_type, map each unique reference in reference field of type reference_type to its associated resources
+    """given a set of resources of type resource_type, map each unique reference in reference field of type reference_type to its associated resources
     ex: use all Observations with a Specimen focus, map Specimen IDs to its list of associated Observations and return the map
     """
 
@@ -798,3 +820,16 @@ def get_conditions_by_subject(
 ) -> dict[str, list]:
     """get all Conditions that have a subject of resource type subject_type"""
     return get_resources_by_reference(db, "Condition", "subject", subject_type)
+
+
+def update_with_observations(resource, id, observations_by_id):
+    """update a resource with the observations associated with the provided ID"""
+    if id in observations_by_id:
+        associated_observations = observations_by_id[id]
+
+        # TODO: assumes there are no duplicate column names in each observation
+        for observation in associated_observations:
+            flat_observation = SimplifiedResource.build(resource=observation).values
+            resource.update(flat_observation)
+
+    return resource

@@ -610,11 +610,11 @@ class Gen3ClientRemoteWriter(LoggingWriter):
         with open(self.manifest_file_path, 'w') as f:
             json.dump(self.manifest, f)
         if len(self.manifest) > 0:
-            cmd = f"gen3-client upload-multiple --manifest {self.manifest_file_path} --profile {profile} --upload-path {upload_path} --bucket {bucket_name} --numparallel {worker_count}"
+            cmd = f"data-client upload-multiple --manifest {self.manifest_file_path} --profile {profile} --upload-path {upload_path} --bucket {bucket_name} --numparallel {worker_count}"
             print(cmd)
             run_command(cmd, dry_run=dry_run, raise_on_err=True, no_capture=True)
         else:
-            print(f'No files to upload to {self.remote} by gen3-client.')
+            print(f'No files to upload to {self.remote} by data-client.')
         return 'OK'
 
 

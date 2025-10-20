@@ -13,7 +13,7 @@ from pydantic import BaseModel, ConfigDict
 
 from gen3_tracker.common import is_json_extension, read_json, read_ndjson_file
 
-FHIR_CLASSES = importlib.import_module('fhir.resources')
+FHIR_CLASSES = importlib.import_module("fhir.resources")
 
 logger = logging.getLogger(__name__)
 
@@ -40,21 +40,27 @@ class ParseResult(BaseModel):
             return val
         if issubclass(type(val), FHIRAbstractModel):
             return val
-        raise TypeError(f"Wrong type for 'resource', was {type(val)} must be subclass of FHIRAbstractModel")
+        raise TypeError(
+            f"Wrong type for 'resource', was {type(val)} must be subclass of FHIRAbstractModel"
+        )
 
 
 def parse_obj(resource: dict, validate=True) -> ParseResult:
-    """Load a dictionary into a FHIR model """
+    """Load a dictionary into a FHIR model"""
     try:
-        assert 'resourceType' in resource, "Dict missing `resourceType`, is it a FHIR dict?"
-        klass = FHIR_CLASSES.get_fhir_model_class(resource['resourceType'])
+        assert (
+            "resourceType" in resource
+        ), "Dict missing `resourceType`, is it a FHIR dict?"
+        klass = FHIR_CLASSES.get_fhir_model_class(resource["resourceType"])
         _ = klass.parse_obj(resource)
         if validate:
             # trigger object traversal, see monkey patch below, at bottom of file
             _.dict()
         return ParseResult(resource=_, exception=None, path=None, resource_id=_.id)
     except (ValidationError, AssertionError) as e:
-        return ParseResult(resource=None, exception=e, path=None, resource_id=resource.get('id', None))
+        return ParseResult(
+            resource=None, exception=e, path=None, resource_id=resource.get("id", None)
+        )
 
 
 def _entry_iterator(parse_result: ParseResult) -> Iterator[ParseResult]:
@@ -68,12 +74,30 @@ def _entry_iterator(parse_result: ParseResult) -> Iterator[ParseResult]:
             for _ in parse_result.resource.entry:
                 if _ is None:
                     break
-                if hasattr(_, 'resource') and _.resource:  # BundleEntry
-                    yield ParseResult(path=_path, resource=_.resource, offset=offset, exception=None, json_obj=_.resource.dict())
-                elif hasattr(_, 'item'):  # ListEntry
-                    yield ParseResult(path=_path, resource=_.item, offset=offset, exception=None, json_obj=_.item.dict())
+                if hasattr(_, "resource") and _.resource:  # BundleEntry
+                    yield ParseResult(
+                        path=_path,
+                        resource=_.resource,
+                        offset=offset,
+                        exception=None,
+                        json_obj=_.resource.dict(),
+                    )
+                elif hasattr(_, "item"):  # ListEntry
+                    yield ParseResult(
+                        path=_path,
+                        resource=_.item,
+                        offset=offset,
+                        exception=None,
+                        json_obj=_.item.dict(),
+                    )
                 else:
-                    yield ParseResult(path=_path, resource=_.item, offset=offset, exception=None, json_obj=_.item.dict())
+                    yield ParseResult(
+                        path=_path,
+                        resource=_.item,
+                        offset=offset,
+                        exception=None,
+                        json_obj=_.item.dict(),
+                    )
                 offset += 1
     pass
 
@@ -85,9 +109,9 @@ def _has_entries(_: ParseResult):
     return _.resource.resource_type in ["List"] and _.resource.entry is not None
 
 
-def directory_reader(directory_path: str,
-                     recurse: bool = True,
-                     validate: bool = False) -> Iterator[ParseResult]:
+def directory_reader(
+    directory_path: str, recurse: bool = True, validate: bool = False
+) -> Iterator[ParseResult]:
     """Extract FHIR resources from directory
 
     Read any type of json file, return itemized resources by iterating through Bundles and Lists
@@ -99,13 +123,19 @@ def directory_reader(directory_path: str,
     directory_path = directory_path.expanduser()
 
     try:
-        input_files = [_ for _ in pathlib.Path.glob(directory_path.name) if is_json_extension(_.name)]
+        input_files = [
+            _
+            for _ in pathlib.Path.glob(directory_path.name)
+            if is_json_extension(_.name)
+        ]
     except TypeError:
         input_files = []
 
     if len(input_files) == 0:
         if recurse:
-            input_files = [_ for _ in directory_path.glob('**/*.*') if is_json_extension(_.name)]
+            input_files = [
+                _ for _ in directory_path.glob("**/*.*") if is_json_extension(_.name)
+            ]
 
     # assert len(input_files) > 0, f"No files found in {directory_path.name}"
 
@@ -124,7 +154,9 @@ def directory_reader(directory_path: str,
 def aggregate(metadata_path: pathlib.Path | str) -> dict:
     """Aggregate metadata counts resourceType(count)-count->resourceType(count)."""
 
-    nested_dict: Callable[[], defaultdict[str, defaultdict]] = lambda: defaultdict(defaultdict)
+    nested_dict: Callable[[], defaultdict[str, defaultdict]] = lambda: defaultdict(
+        defaultdict
+    )
 
     if not isinstance(metadata_path, pathlib.Path):
         metadata_path = pathlib.Path(metadata_path)
@@ -132,23 +164,23 @@ def aggregate(metadata_path: pathlib.Path | str) -> dict:
     for path in sorted(metadata_path.glob("*.ndjson")):
         for _ in read_ndjson_file(path):
 
-            resource_type = _['resourceType']
-            if 'count' not in summary[resource_type]:
-                summary[resource_type]['count'] = 0
-            summary[resource_type]['count'] += 1
+            resource_type = _["resourceType"]
+            if "count" not in summary[resource_type]:
+                summary[resource_type]["count"] = 0
+            summary[resource_type]["count"] += 1
 
-            refs = nested_lookup('reference', _)
+            refs = nested_lookup("reference", _)
             for ref in refs:
                 # A codeable reference is an object with a codeable concept and a reference
                 if isinstance(ref, dict):
-                    ref = ref['reference']
-                ref_resource_type = ref.split('/')[0]
-                if 'references' not in summary[resource_type]:
-                    summary[resource_type]['references'] = nested_dict()
-                dst = summary[resource_type]['references'][ref_resource_type]
-                if 'count' not in dst:
-                    dst['count'] = 0
-                dst['count'] += 1
+                    ref = ref["reference"]
+                ref_resource_type = ref.split("/")[0]
+                if "references" not in summary[resource_type]:
+                    summary[resource_type]["references"] = nested_dict()
+                dst = summary[resource_type]["references"][ref_resource_type]
+                if "count" not in dst:
+                    dst["count"] = 0
+                dst["count"] += 1
 
     return summary
 
@@ -176,7 +208,7 @@ def validate_and_transform_graphql_field_name(field_name: str) -> str:
     graphql_field_regex = r"^[_\w][\w]*$"  # \w matches alphanumeric + underscore
 
     # 1. Replace invalid characters with underscores
-    cleaned_name = re.sub(r'[^a-zA-Z0-9_]', '_', field_name)
+    cleaned_name = re.sub(r"[^a-zA-Z0-9_]", "_", field_name)
 
     # 2. Replace non-compliant characters (not alphanumeric or underscore) with a single underscore
     #    This also handles replacing multiple spaces/hyphens with a single underscore
