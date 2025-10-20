@@ -132,7 +132,6 @@ def test_simple_workflow(runner: CliRunner, project_id, tmpdir) -> None:
     # check the files exist in the cloned directory
     run_command("ls -l")
 
-
     assert Path(
         "my-project-data/hello.txt"
     ).exists(), "hello.txt does not exist in the cloned directory."

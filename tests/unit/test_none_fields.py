@@ -1,8 +1,7 @@
-
-
 def test_none():
     """Test None fields."""
     from fhir.resources.patient import Patient
+
     patient_dict = {"multipleBirthInteger": None, "name": None}
     patient = Patient.validate(patient_dict)
     assert patient

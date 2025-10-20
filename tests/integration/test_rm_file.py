@@ -118,7 +118,7 @@ def test_rm_committed(runner: CliRunner, project_id, tmpdir) -> None:
     object_id = dvc.object_id
     auth = ensure_auth(config=default())
 
-    ok = ''
+    ok = ""
     try:
         validate_document_in_grip(object_id, auth=auth, project_id=project_id)
     except Exception as e:
@@ -129,7 +129,7 @@ def test_rm_committed(runner: CliRunner, project_id, tmpdir) -> None:
     except Exception as e:
         ok = ok + f" Elastic validation failed: {e}"
 
-    assert ok == '', ok
+    assert ok == "", ok
 
     # remove the project from the server.
     # TODO note, this does not remove the files from the bucket (UChicago bug)
@@ -184,7 +184,10 @@ def test_rm_pushed(runner: CliRunner, project_id, tmpdir) -> None:
     run(
         runner,
         ["--debug", "meta", "init", "--bundle"],
-        expected_files=[Path("META/DocumentReference.ndjson"), Path("META/Bundle.ndjson")],
+        expected_files=[
+            Path("META/DocumentReference.ndjson"),
+            Path("META/Bundle.ndjson"),
+        ],
     )
 
     # commit the re-created meta
@@ -209,7 +212,7 @@ def test_rm_pushed(runner: CliRunner, project_id, tmpdir) -> None:
     object_id = dvc.object_id
     auth = ensure_auth(config=default())
 
-    ok = ''
+    ok = ""
 
     try:
         validate_document_in_grip(object_id, auth=auth, project_id=project_id)
@@ -222,18 +225,26 @@ def test_rm_pushed(runner: CliRunner, project_id, tmpdir) -> None:
         ok = ok + f" Elastic validation failed: {e}"
 
     try:
-        validate_document_in_grip(expected_missing_object_id, auth=auth, project_id=project_id)
-        ok = ok + f" Grip validation failed should not have found: {expected_missing_object_id}"
+        validate_document_in_grip(
+            expected_missing_object_id, auth=auth, project_id=project_id
+        )
+        ok = (
+            ok
+            + f" Grip validation failed should not have found: {expected_missing_object_id}"
+        )
     except Exception:
         pass
 
     try:
         validate_document_in_elastic(expected_missing_object_id, auth=auth)
-        ok = ok + f" Elastic validation failed should not have found: {expected_missing_object_id}"
+        ok = (
+            ok
+            + f" Elastic validation failed should not have found: {expected_missing_object_id}"
+        )
     except Exception:
         pass
 
-    assert ok == '', ok
+    assert ok == "", ok
 
     # remove the project from the server.
     # TODO note, this does not remove the files from the bucket (UChicago bug)
@@ -288,7 +299,10 @@ def test_rm_commit_all(runner: CliRunner, project_id, tmpdir) -> None:
     run(
         runner,
         ["--debug", "meta", "init", "--bundle"],
-        expected_files=[Path("META/DocumentReference.ndjson"), Path("META/Bundle.ndjson")],
+        expected_files=[
+            Path("META/DocumentReference.ndjson"),
+            Path("META/Bundle.ndjson"),
+        ],
     )
 
     # commit the re-created meta
@@ -313,7 +327,7 @@ def test_rm_commit_all(runner: CliRunner, project_id, tmpdir) -> None:
     object_id = dvc.object_id
     auth = ensure_auth(config=default())
 
-    ok = ''
+    ok = ""
 
     try:
         validate_document_in_grip(object_id, auth=auth, project_id=project_id)
@@ -326,18 +340,26 @@ def test_rm_commit_all(runner: CliRunner, project_id, tmpdir) -> None:
         ok = ok + f" Elastic validation failed: {e}"
 
     try:
-        validate_document_in_grip(expected_missing_object_id, auth=auth, project_id=project_id)
-        ok = ok + f" Grip validation failed should not have found: {expected_missing_object_id}"
+        validate_document_in_grip(
+            expected_missing_object_id, auth=auth, project_id=project_id
+        )
+        ok = (
+            ok
+            + f" Grip validation failed should not have found: {expected_missing_object_id}"
+        )
     except Exception:
         pass
 
     try:
         validate_document_in_elastic(expected_missing_object_id, auth=auth)
-        ok = ok + f" Elastic validation failed should not have found: {expected_missing_object_id}"
+        ok = (
+            ok
+            + f" Elastic validation failed should not have found: {expected_missing_object_id}"
+        )
     except Exception:
         pass
 
-    assert ok == '', ok
+    assert ok == "", ok
 
     # remove the project from the server.
     # TODO note, this does not remove the files from the bucket (UChicago bug)
@@ -373,33 +395,20 @@ def test_rm_pushed_links(runner: CliRunner, project_id, tmpdir) -> None:
     # Get the path of the platform temporary directory e.g. /tmp
     # we use the actual string '/tmp' as opposed to using the tempfile module provided in tmpdit
     # to ensure we can link to a file outside the project working dir
-    temp_dir = '/tmp'
-    if os.environ.get('TMP', None):
-        temp_dir = os.environ.get('TMP')
+    temp_dir = "/tmp"
+    if os.environ.get("TMP", None):
+        temp_dir = os.environ.get("TMP")
     test_file = Path(temp_dir) / "hello-g3t-integration-test.txt"
     test_file.write_text("hello\n")
     os.symlink(str(test_file), "hello4.txt")
 
-    run(
-        runner,
-        ["--debug", "add", "hello.txt"]
-    )
-    run(
-        runner,
-        ["--debug", "add", "hello2.txt"]
-    )
+    run(runner, ["--debug", "add", "hello.txt"])
+    run(runner, ["--debug", "add", "hello2.txt"])
     # should fail since the target file does not exist
-    run(
-        runner,
-        ["--debug", "add", "hello3.txt"],
-        expected_exit_code=1
-    )
+    run(runner, ["--debug", "add", "hello3.txt"], expected_exit_code=1)
 
     # should work since the target file exists
-    run(
-        runner,
-        ["--debug", "add", "hello4.txt"]
-    )
+    run(runner, ["--debug", "add", "hello4.txt"])
 
     # create the meta files
     run(
@@ -435,7 +444,10 @@ def test_rm_pushed_links(runner: CliRunner, project_id, tmpdir) -> None:
     run(
         runner,
         ["--debug", "meta", "init", "--bundle"],
-        expected_files=[Path("META/DocumentReference.ndjson"), Path("META/Bundle.ndjson")],
+        expected_files=[
+            Path("META/DocumentReference.ndjson"),
+            Path("META/Bundle.ndjson"),
+        ],
     )
 
     # commit the re-created meta
@@ -463,7 +475,7 @@ def test_rm_pushed_links(runner: CliRunner, project_id, tmpdir) -> None:
     object_id = dvc.object_id
     auth = ensure_auth(config=default())
 
-    ok = ''
+    ok = ""
 
     try:
         validate_document_in_grip(object_id, auth=auth, project_id=project_id)
@@ -476,18 +488,26 @@ def test_rm_pushed_links(runner: CliRunner, project_id, tmpdir) -> None:
         ok = ok + f" Elastic validation failed: {e}"
 
     try:
-        validate_document_in_grip(expected_missing_object_id, auth=auth, project_id=project_id)
-        ok = ok + f" Grip validation failed should not have found: {expected_missing_object_id}"
+        validate_document_in_grip(
+            expected_missing_object_id, auth=auth, project_id=project_id
+        )
+        ok = (
+            ok
+            + f" Grip validation failed should not have found: {expected_missing_object_id}"
+        )
     except Exception:
         pass
 
     try:
         validate_document_in_elastic(expected_missing_object_id, auth=auth)
-        ok = ok + f" Elastic validation failed should not have found: {expected_missing_object_id}"
+        ok = (
+            ok
+            + f" Elastic validation failed should not have found: {expected_missing_object_id}"
+        )
     except Exception:
         pass
 
-    assert ok == '', ok
+    assert ok == "", ok
 
     # remove the project from the server.
     # TODO note, this does not remove the files from the bucket (UChicago bug)
@@ -517,7 +537,12 @@ def read_dvc(file_path="MANIFEST/my-project-data/hello.txt.dvc"):
     return dvc
 
 
-def _create_project(project_id, runner, add_files=True, files=("my-project-data/hello.txt", "my-project-data/hello2.txt")) -> list[str]:
+def _create_project(
+    project_id,
+    runner,
+    add_files=True,
+    files=("my-project-data/hello.txt", "my-project-data/hello2.txt"),
+) -> list[str]:
     """Create a project and add files to it."""
 
     assert os.environ.get(

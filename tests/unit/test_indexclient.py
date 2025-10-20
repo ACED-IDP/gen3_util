@@ -10,7 +10,10 @@ def index_client():
     Fixture to provide an index client for testing.
     This is a placeholder and should be replaced with actual client initialization.
     """
-    with patch('gen3.auth.Gen3Auth.get_access_token', return_value="accesstoken:///mock_access_token"):
+    with patch(
+        "gen3.auth.Gen3Auth.get_access_token",
+        return_value="accesstoken:///mock_access_token",
+    ):
         yield Gen3Index(auth_provider=Gen3Auth(endpoint="https://example.com/auth"))
 
 
@@ -33,4 +36,4 @@ def test_authorization_header_present(index_client: Gen3Index):
         auth: Gen3Auth = mock_get.call_args[1].get("auth", None)
         assert auth is not None, "Auth object should not be None"
         auth_value = auth._get_auth_value()
-        assert auth_value == 'bearer accesstoken:///mock_access_token'
+        assert auth_value == "bearer accesstoken:///mock_access_token"
