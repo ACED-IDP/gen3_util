@@ -40,6 +40,16 @@ mimetypes.add_type('text/fastq', '.fastq')
 mimetypes.add_type('text/fastq', '.fq')
 mimetypes.add_type('text/vcf', '.vcf')
 
+# visium hd / spatial omics
+mimetypes.add_type('application/x-bam', '.bam')
+mimetypes.add_type('application/x-bam-index', '.bai')
+mimetypes.add_type('application/x-hdf5', '.h5')
+mimetypes.add_type('application/x-parquet', '.parquet')
+mimetypes.add_type('application/x-mtx', '.mtx')
+mimetypes.add_type('application/x-cloupe', '.cloupe')
+mimetypes.add_type('application/geo+json', '.geojson')
+
+
 # process helpers ---------------------------------------------------------------
 
 
